@@ -211,7 +211,7 @@ class Environment(object):
             'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum())
         })
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.miners[9].Blockchain)
+        cq_dict, chain_quality_property = chain_quality(self.global_chain)
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 3),
