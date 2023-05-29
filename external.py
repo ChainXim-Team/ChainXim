@@ -107,7 +107,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         return
 
     
-    with open(CHAIN_DATA_PATH /chain_data_url,'w+') as f:
+"""    with open(CHAIN_DATA_PATH /chain_data_url,'w+') as f:
         print("Blockchian maintained BY Miner",miner.Miner_ID,file=f)    
 
         # 打印主链
@@ -147,7 +147,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         cq_dict,chain_quality_property=chain_quality(miner.Blockchain)
         print('Chain_Quality:',cq_dict,
         '\nChain_Quality_Property:',chain_quality_property,
-        file=f)
+        file=f)"""
 
 
 # def print_chain_property2txt(blockchain:Chain,chain_property_url='chain_data.txt'):

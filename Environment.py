@@ -13,7 +13,7 @@ from chain import Chain
 from miner import Miner
 from Attack import Selfmining
 from functions import for_name
-from external import common_prefix, chain_quality, chain_growth, printchain2txt
+from external import common_prefix, chain_quality, chain_growth
 
 
 
@@ -29,7 +29,22 @@ def get_time(f):
 
 class Environment(object):
 
-    def __init__(self,  t = None, q_ave = None, q_distr = None, target = None, network_param = None, *adversary_ids, **genesis_blockextra):
+    def __init__(self,  t:int = None, q_ave:int = None, q_distr:str = None, 
+            target:str = None, adversary_ids:tuple = None, network_param:dict = None, 
+            genesis_blockextra:dict = None):
+        '''initiate the running environment
+
+        Param
+        -----
+        t: maximum number of miners(int)
+        q_ave: the average number of hash trials in a round(int)
+        q_distr: 'equal'or 'rand' (str)
+        target: the PoW target (str)
+        adversary_ids: The IDs of adverary members (tuple)
+        network_param: network parameters (dict)
+        genesis_blockextra: the blockextra field in the genesis block (dict)
+        
+        '''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
         self.max_adversary = t  # maximum number of adversary
@@ -42,11 +57,11 @@ class Environment(object):
         self.miners:List[Miner] = []
         self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
         print(genesis_blockextra)
-        self.envir_create_genesis_block(**genesis_blockextra)
+        self.envir_create_genesis_block(genesis_blockextra)
         self.adversary_mem:List[Miner] = []
         self.select_adversary(*adversary_ids)
         # generate network
-        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)    #网络类型
+        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         print(
             '\nParameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
@@ -99,8 +114,8 @@ class Environment(object):
         随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
         且满足全网总算力为q_ave*miner_num
         '''
-        # 生成均值为ave_q，方差为1的高斯分布
-        q_dist = np.random.normal(self.q_ave, self.miner_num)
+        # 生成均值为ave_q，方差为0.2*q_ave的高斯分布
+        q_dist = np.random.normal(self.q_ave, 0.2*self.q_ave, self.miner_num)
         # 归一化到总和为total_q，并四舍五入为整数
         total_q = self.q_ave * self.miner_num
         q_dist = total_q / np.sum(q_dist) * q_dist
@@ -112,13 +127,12 @@ class Environment(object):
                 sign_diff = np.sign(diff)
                 idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
                 q_dist[idx] += sign_diff
-        for miner_id in range(self.miner_num):
-            for q in q_dist:
-                self.miners.append(Miner(miner_id, q, self.target))
+        for miner_id, q in zip(range(self.miner_num), q_dist):
+            self.miners.append(Miner(miner_id, q, self.target))
         return q_dist
     
 
-    def envir_create_genesis_block(self, **blockextra):
+    def envir_create_genesis_block(self, blockextra):
         '''create genesis block for all the miners in the system.'''
         self.global_chain.create_genesis_block(**blockextra)
         for miner in self.miners:
@@ -181,16 +195,12 @@ class Environment(object):
     def view(self):
         # 展示一些仿真结果
         print('\n')
-        miner_i = 0
-        while miner_i < self.miner_num:
-            # print("Blockchain of Miner", miner_i, ":", "")
-            # self.miners[miner_i].Blockchain.ShowLChain()
-            printchain2txt(self.miners[miner_i], ''.join(['chain_data', str(miner_i), '.txt']))
-            miner_i = miner_i + 1
+        self.global_chain.printchain2txt()
+        for miner in self.miners:
+            miner.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
         print("Global Tree Structure:", "")
         self.global_chain.ShowStructure1()
         print("End of Global Tree", "")
-        # self.miners[9].ValiChain()
 
         # Evaluation Results
         stats = self.global_chain.CalculateStatistics(self.total_round)

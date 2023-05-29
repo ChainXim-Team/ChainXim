@@ -22,6 +22,14 @@ class BlockHead(object):
         self.blockheadextra = {}  # 其他共识协议需要用的，使用字典添加
         # 这里有个问题, blockhash靠blockhead自身是算不出来的
         # 块头里面应该包含content的哈希?(其实无所谓)
+    
+    def __repr__(self) -> str:
+        bhlist = []
+        omit_keys = {'blockheadextra'}
+        for k, v in self.__dict__.items():
+            if k not in omit_keys:
+                bhlist.append(k + ': ' + str(v))
+        return '\n'.join(bhlist)
 
     # def printblockhead(self):
     #     print("prehash:", self.prehash)
@@ -72,6 +80,26 @@ class Block(object):
             if cls.__name__ != 'Block':
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
+    
+    def __repr__(self) -> str:
+        omit_keys = {}
+
+        def _formatter(d, mplus=1):
+            m = max(map(len, list(d.keys()))) + mplus
+            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v), m+2)
+                            for k, v in d.items()])
+            return s
+        def _indenter(s, n=0):
+            split = s.split("\n")
+            indent = " "*n
+            return ("\n" + indent).join(split)
+        
+        bdict = copy.deepcopy(self.__dict__)
+        bdict.update({'next': [b.name for b in self.next if self.next], 
+                      'last': self.last.name if self.last is not None else None})
+        for omk in omit_keys:
+            del bdict[omk]
+        return '\n'+ _formatter(bdict)
         
     def calculate_blockhash(self):
         '''
@@ -90,26 +118,14 @@ class Block(object):
     def BlockHeight(self):
         return self.blockhead.height
 
-    # def printblock(self):
-    #     print('in_rom:', id(self))
-    #     print("blockname:", self.name)
-    #     self.blockhead.printblockhead()
-    #     print("content:", self.content)
-    #     print('isAdversaryBlock:', self.isAdversaryBlock)
-    #     print('next:', self.next)
-    #     print('last:', self.last, '\n')
-
-    # def ReadBlockHead_list(self):
-    #     return self.blockhead.readlist()
-
-    # def ReadBlocHead_str(self):
-    #     return self.blockhead.readstr()
-
 
 class Chain(object):
 
-    def __init__(self):
-
+    def __init__(self, miner_id = None):
+        if miner_id is not None:
+            self.miner_id = miner_id
+        else: 
+            self.miner_id = None
         self.head = None
         self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
 
@@ -478,6 +494,49 @@ class Chain(object):
         if global_var.get_show_fig():
             plt.show()
         plt.close()
+    
+    def printchain2txt(self, chain_data_url='chain_data.txt'):
+        '''
+        前向遍历打印链中所有块到文件
+        param:
+            blockchain
+            chain_data_url:打印文件位置,默认'chain_data.txt'
+        '''
+        def save_chain_structure(chain,f):
+            blocklist = [chain.head]
+            printnum = 1
+            while blocklist:
+                length = 0
+                print("|    ", end="",file=f)
+                print("-|   " * (printnum - 1),file=f)
+                while printnum > 0:
+                    blocklist.extend(blocklist[0].next)
+                    blockprint = blocklist.pop(0)
+                    length += len(blockprint.next)
+                    print("{}   ".format(blockprint.name), end="",file=f)
+                    printnum -= 1
+                print("",file=f)
+                printnum = length
+
+        CHAIN_DATA_PATH=global_var.get_chain_data_path()
+        if not self.head:
+            with open(CHAIN_DATA_PATH / chain_data_url,'a') as f:
+                print("empty chain",file=f)
+            return
+        
+        with open(CHAIN_DATA_PATH /chain_data_url,'a') as f:
+            print("Blockchian maintained BY Miner",self.miner_id,file=f)    
+            # 打印主链
+            save_chain_structure(self,f)
+            #打印链信息
+            q:list[Block] = [self.head]
+            blocklist = []
+            while q:
+                block = q.pop(0)
+                blocklist.append(block)
+                print(block,file=f)
+                for i in block.next:
+                    q.append(i)
 
 
     def CalculateStatistics(self, rounds):

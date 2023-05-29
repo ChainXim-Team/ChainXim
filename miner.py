@@ -19,7 +19,7 @@ class Miner(object):
         self.Miner_ID = Miner_ID #矿工ID
         self.isAdversary = False
         self.q = q
-        self.Blockchain = Chain()   # 维护的区块链
+        self.Blockchain = Chain(Miner_ID)   # 维护的区块链
         #共识相关
         self.consensus:Consensus = for_name(global_var.get_consensus_type())()    # 共识
         self.consensus.setparam(target)                                 # 设置共识参数
@@ -33,6 +33,13 @@ class Miner(object):
         #网络相关
         self.neighbor_list = []
         self.processing_delay=0    #处理时延
+        
+        #保存矿工信息
+        CHAIN_DATA_PATH=global_var.get_chain_data_path()
+        with open(CHAIN_DATA_PATH / f'chain_data{str(self.Miner_ID)}.txt','a') as f:
+            print(f"Miner {self.Miner_ID}\n"
+                f"is_adversary: {self.isAdversary}\n"
+                f"q: {self.q}\n", file= f)
 
     
 
@@ -57,22 +64,23 @@ class Miner(object):
 
 
     def receive_block(self,rcvblock:Block):
-        '''Interface between network and miner.
-        Append the rcvblock(have not received before) to receive_tape, and add to local chain in the next round. 
-        param: rcvblock: The block received from network. Type: Block
-        return: flagNotRecBlockRecently: Flag representing whether the rcvblock is already in local chain. If not, return True; else Flase.
+        '''Interface between network and miner. 
+        Append the rcvblock(have not received before) to receive_tape, 
+        and add to local chain in the next round. 
+        :param rcvblock: The block received from network. (Block)
+        :return flagNotRcvBefore: If the rcvblock not in local chain or receive_tape, 
+        return True.
         '''
-        flagNotRecBlockBefore=False
-        # if self.Blockchain.Search(rcvblock)==None:
+        flagNotRcvBefore=False
         if rcvblock not in self.Blockchain and rcvblock not in self.receive_tape:
             self.receive_tape.append(rcvblock)
             # self.receive_history.append(rcvblock)
             # if len(self.receive_history)>=self.buffer_size:
                 # del self.receive_history[0:len(self.receive_history)-self.buffer_size]
-            flagNotRecBlockBefore=True
+            flagNotRcvBefore=True
         else:
-            flagNotRecBlockBefore = False
-        return flagNotRecBlockBefore
+            flagNotRcvBefore = False
+        return flagNotRcvBefore
 
 
     def mining(self):

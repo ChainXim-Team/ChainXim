@@ -37,16 +37,18 @@ logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
 # 设置网络参数
 network_param = {}
 if environ_settings['network_type'] == 'network.TopologyNetwork':
-    network_param = {'TTL':config.getint('TopologyNetworkSettings', 'TTL'),
-                     'gen_net_approach': config.get('TopologyNetworkSettings', 'gen_net_approach'),
-                     'save_routing_graph': config.getboolean('TopologyNetworkSettings', 'save_routing_graph'),
-                     'ave_degree': config.getfloat('TopologyNetworkSettings', 'ave_degree'),
-                     'show_label': config.getboolean('TopologyNetworkSettings', 'show_label'),
-                     'bandwidth_honest': config.getfloat('TopologyNetworkSettings', 'bandwidth_honest'),
-                     'bandwidth_adv': config.getfloat('TopologyNetworkSettings', 'bandwidth_adv')
-                     }
+    net_setting = 'TopologyNetworkSettings'
+    bool_params = ['show_label', 'save_routing_graph']
+    float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv']
+    for bparam in bool_params:
+        network_param.update({bparam: config.getboolean(net_setting, bparam)})
+    for fparam in float_params:
+        network_param.update({fparam: config.getfloat(net_setting, fparam)})
+    network_param.update({'TTL':config.getint(net_setting, 'TTL'),
+            'gen_net_approach': config.get(net_setting, 'gen_net_approach')})
 elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
-    network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings']).items()}
+    net_setting = 'BoundedDelayNetworkSettings'
+    network_param = {k:float(v) for k,v in dict(config[net_setting]).items()}
 
 # 生成环境
 t = int(environ_settings['t'])
@@ -54,7 +56,9 @@ q_ave = int(environ_settings['q_ave'])
 q_distr = environ_settings['q_distr']
 target = environ_settings['target']
 adversary_ids = eval(environ_settings['adversary_ids'])
-Z = Environment(t, q_ave, q_distr, target, network_param, *adversary_ids)
+genesis_blockextra = {}
+Z = Environment(t, q_ave, q_distr, target, adversary_ids, 
+                        network_param, genesis_blockextra)
 
 
 @get_time
