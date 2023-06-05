@@ -55,7 +55,13 @@ class Environment(object):
         self.global_chain = Chain()  # a global tree-like data structure
         # generate miners
         self.miners:List[Miner] = []
-        self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
+        if q_distr == 'rand':
+            self.create_miners_q_rand()
+        elif q_distr == 'equal':
+            self.create_miners_q_equal()
+        else:
+            self.create_miners_q_custom(q_distr)
+        # self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
         print(genesis_blockextra)
         self.envir_create_genesis_block(genesis_blockextra)
         self.adversary_mem:List[Miner] = []
@@ -77,6 +83,7 @@ class Environment(object):
         self.selfblock = []
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
+        self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
 
     def select_adversary_random(self):
         '''
@@ -130,7 +137,11 @@ class Environment(object):
         for miner_id, q in zip(range(self.miner_num), q_dist):
             self.miners.append(Miner(miner_id, q, self.target))
         return q_dist
-    
+
+    def create_miners_q_custom(self, q_dist_str):
+        q_dist = eval(q_dist_str)  # 把字符串转成数组
+        for miner_id in range(self.miner_num):
+            self.miners.append(Miner(miner_id, q_dist[miner_id], self.target))
 
     def envir_create_genesis_block(self, blockextra):
         '''create genesis block for all the miners in the system.'''
@@ -175,6 +186,7 @@ class Environment(object):
                     self.miners[i].receive_tape = []  # clear the communication tape
             self.network.diffuse(round)  # diffuse(C)
             self.assess_common_prefix()
+            self.assess_common_prefix_k()
             self.process_bar(round, num_rounds, t_0) # 这个是显示进度条的，如果不想显示，注释掉就可以
             # 分割一下
         # self.clear_adversary()
@@ -191,6 +203,27 @@ class Environment(object):
             len_suffix = self.miners[0].Blockchain.lastblock.blockhead.height - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
+    def assess_common_prefix_k(self):
+        # 一种新的计算common prefix的方法
+        # 每轮结束后，砍掉主链后
+        cp_k = self.global_chain.lastblock
+        cp_stat = np.zeros((1, self.miner_num))
+        for k in range(self.max_suffix):
+            if np.sum(cp_stat) == self.miner_num-self.max_adversary:  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+                self.cp_cdf_k[0, k] += self.miner_num-self.max_adversary
+                continue
+            cp_stat = np.zeros((1, self.miner_num))  # 用来统计哪些矿工的链已经达标，
+            cp_sum_k = 0
+            for i in range(self.miner_num):
+                if not self.miners[i].isAdversary:
+                    if cp_stat[0, i] == 1:
+                        cp_sum_k += 1
+                    else:
+                        if cp_k == common_prefix(cp_k, self.miners[i].Blockchain):
+                            cp_stat[0, i] = 1
+                            cp_sum_k += 1
+            self.cp_cdf_k[0, k] += cp_sum_k
+            cp_k = cp_k.last
 
     def view(self):
         # 展示一些仿真结果
@@ -217,8 +250,9 @@ class Environment(object):
         })
         # Common Prefix Property
         stats.update({
-            'common_prefix_pdf': self.cp_pdf,
-            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum())
+            'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
+            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
+            'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.max_adversary)*self.total_round)
         })
         # Chain Quality Property
         cq_dict, chain_quality_property = chain_quality(self.global_chain)
@@ -275,8 +309,10 @@ class Environment(object):
         # Common Prefix Property
         print('Common Prefix Property:')
         print('The common prefix pdf:')
-        print(self.cp_pdf)
+        print(self.cp_pdf/self.cp_pdf.sum())
         print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
+        print('The common prefix cdf with respect to k:')
+        print(self.cp_cdf_k / ((self.miner_num - self.max_adversary) * self.total_round))
         print("")
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
