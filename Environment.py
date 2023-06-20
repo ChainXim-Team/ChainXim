@@ -209,7 +209,7 @@ class Environment(object):
         cp_k = self.global_chain.lastblock
         cp_stat = np.zeros((1, self.miner_num))
         for k in range(self.max_suffix):
-            if np.sum(cp_stat) == self.miner_num-self.max_adversary:  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.max_adversary:  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
                 self.cp_cdf_k[0, k] += self.miner_num-self.max_adversary
                 continue
             cp_stat = np.zeros((1, self.miner_num))  # 用来统计哪些矿工的链已经达标，
