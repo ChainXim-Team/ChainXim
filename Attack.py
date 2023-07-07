@@ -277,7 +277,7 @@ class default_attack_mode(metaclass = ABCMeta):
         # 清空
         self.clear()
         # 执行override, 标准cri设定为高度2
-        attack_override = self.Override(round, cri=4)
+        attack_override = self.Override(round, cri=2)
         
         if attack_override: # 如果成功执行了override, 就过
             self.atlog['adopt'] = False
@@ -288,7 +288,7 @@ class default_attack_mode(metaclass = ABCMeta):
             self.atlog['base_chain'] = T1
             self.atlog['adver_chain'] = T2
             self.atlog['adopt'] = False
-            if  T1-T2 >=4:
+            if  T1-T2 >=2:
                 # 如果没执行但是基准链比adverchaian高2, 则执行adopt, 认为attack在当前形式下无法超过基准链
                 self.sttic['give_up'] = self.sttic['give_up']+1
                 self.adopt()

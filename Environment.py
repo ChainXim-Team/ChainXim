@@ -156,6 +156,8 @@ class Environment(object):
     def attack_excute(self,round):
         if self.attack_excute_type == 'excute_sample0':
             self.attack.excute_sample0(round)
+        elif self.attack_excute_type == 'excute_sample1':
+            self.attack.excute_sample1(round)
 
         
     #@get_time
