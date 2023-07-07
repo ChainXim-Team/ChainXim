@@ -30,6 +30,7 @@ global_var.set_blocksize(int(environ_settings['blocksize']))
 global_var.set_show_fig(False)
 global_var.save_configuration()
 
+
 # 配置日志文件
 logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                     level=global_var.get_log_level(), filemode='w')
@@ -50,16 +51,19 @@ elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
     net_setting = 'BoundedDelayNetworkSettings'
     network_param = {k:float(v) for k,v in dict(config[net_setting]).items()}
 
+# 设置attack参数
+attack_setting = dict(config['AttackModeSettings'])
+adversary_ids = eval(attack_setting['adversary_ids'])
+global_var.set_attack_excute_type(attack_setting['attack_excute_type'])
+t = int(attack_setting['t'])
+
 # 生成环境
-t = int(environ_settings['t'])
 q_ave = int(environ_settings['q_ave'])
 q_distr = environ_settings['q_distr']
 target = environ_settings['target']
-adversary_ids = eval(environ_settings['adversary_ids'])
 genesis_blockextra = {}
 Z = Environment(t, q_ave, q_distr, target, adversary_ids, 
                         network_param, genesis_blockextra)
-
 
 @get_time
 def run():

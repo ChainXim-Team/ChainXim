@@ -31,6 +31,7 @@ def __init__():
     _var_dict['Blocksize'] = 2
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
+    _var_dict['ATTACK_EXCUTE_TYPE']='excute_sample0'
 
 def set_log_level(log_level):
     '''设置日志级别'''
@@ -110,3 +111,10 @@ def save_configuration():
               'w+') as config:
         for key,value in _var_dict.items():
             print(key,": ",value,file=config)
+
+def set_attack_excute_type(attack_excute_type):
+    '''定义网络类型 type:str'''
+    _var_dict['ATTACK_EXCUTE_TYPE'] = attack_excute_type
+def get_attack_excute_type():
+    '''获得网络类型'''
+    return _var_dict['ATTACK_EXCUTE_TYPE']

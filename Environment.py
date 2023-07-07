@@ -1,4 +1,3 @@
-import copy
 import time
 import math
 import random
@@ -11,9 +10,9 @@ import global_var
 import network
 from chain import Chain
 from miner import Miner
-from Attack import Selfmining
+from Attack import default_attack_mode
 from functions import for_name
-from external import common_prefix, chain_quality, chain_growth
+from external import common_prefix, chain_quality, chain_growth, printchain2txt
 
 
 
@@ -47,7 +46,6 @@ class Environment(object):
         '''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
-        self.max_adversary = t  # maximum number of adversary
         self.q_ave = q_ave  # number of hash trials in a round
         self.q_distr = [] #
         self.target = target
@@ -64,8 +62,6 @@ class Environment(object):
         # self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
         print(genesis_blockextra)
         self.envir_create_genesis_block(genesis_blockextra)
-        self.adversary_mem:List[Miner] = []
-        self.select_adversary(*adversary_ids)
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         print(
@@ -84,6 +80,16 @@ class Environment(object):
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
+        
+        ## 初始化攻击模组
+        self.adversary_mem:List[Miner] = []
+        self.select_adversary(*adversary_ids)
+        self.max_adversary = t  # maximum number of adversary
+        if self.adversary_mem: # 如果有攻击者，则创建攻击实例
+            self.attack = default_attack_mode(self.q_ave, self.adversary_mem, self.global_chain, self.network)
+            self.adverflag = random.randint(1,len(self.adversary_mem))
+        self.attack_excute_type = global_var.get_attack_excute_type()
+        ##
 
     def select_adversary_random(self):
         '''
@@ -95,22 +101,20 @@ class Environment(object):
             adversary.set_adversary(True)
         return self.adversary_mem
 
-
     def select_adversary(self,*Miner_ID):
-        '''
-        根据指定ID选择对手
-        return:self.adversary_mem
-        '''   
+
         for miner in Miner_ID:
             self.adversary_mem.append(self.miners[miner])
             self.miners[miner].set_adversary(True)
         return self.adversary_mem
-    
+     
+    '''
     def clear_adversary(self):
-        '''清空所有对手'''
+
         for adversary in self.adversary_mem:
             adversary.set_adversary(False)
         self.adversary_mem=[]
+    '''
 
     def create_miners_q_equal(self):
         for miner_id in range(self.miner_num):
@@ -149,6 +153,10 @@ class Environment(object):
         for miner in self.miners:
             miner.Blockchain.create_genesis_block(**blockextra)
 
+    def attack_excute(self,round):
+        if self.attack_excute_type == 'excute_sample0':
+            self.attack.excute_sample0(round)
+
         
     #@get_time
     def exec(self, num_rounds):
@@ -158,40 +166,48 @@ class Environment(object):
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
-        if self.adversary_mem:
-            attack = Selfmining(self.global_chain, self.target, self.network, self.adversary_mem, num_rounds)
-        t_0 = time.time()
+
+        ## 开始循环
+        t_0 = time.time() # 记录起始时间
         for round in range(1, num_rounds+1):
-            #print("")
-            #print("Round:{}".format(round))
-            inputfromz = round
-            # A随机选叛变
-            # self.network.clear_NetworkTape()
-            for attacker in self.adversary_mem:
-                attacker.input_tape.append(("INSERT", inputfromz))
-            if self.adversary_mem:
-                attack.excute(round)
-            # Adver的input_tape在excute里清空了
-            for i in range(self.miner_num):
-                #print("Miner{} is mining".format(i))
-                if not self.miners[i].isAdversary:
-                    self.miners[i].input_tape.append(("INSERT", inputfromz))
-                    ''' Attack 不提供这个操作'''
+            inputfromz = round # 生成输入
+
+            adver_tmpflag = 1    
+            for temp_miner in self.miners:
+                if temp_miner.isAdversary:
+                    temp_miner.input_tape.append(("INSERT", inputfromz))
+                    if adver_tmpflag == self.adverflag:
+                        self.attack_excute(round)
+                        adver_tmpflag = adver_tmpflag + 1
+                    else:
+                        adver_tmpflag = adver_tmpflag + 1
+
+                else:
+                    ## 处理诚实矿工
+                    temp_miner.input_tape.append(("INSERT", inputfromz))
                     # run the bitcoin backbone protocol
-                    newblock = self.miners[i].BackboneProtocol(round)
+                    newblock = temp_miner.BackboneProtocol(round) # BBP 返回区块和msg(设置成类) 考虑放到consensus
                     if newblock is not None:
-                        self.network.access_network(newblock,self.miners[i].Miner_ID,round)
+                        self.network.access_network(newblock,temp_miner.Miner_ID,round)
                         self.global_chain.add_block_copy(newblock)
-                    self.miners[i].input_tape = []  # clear the input tape
-                    self.miners[i].receive_tape = []  # clear the communication tape
+                    temp_miner.input_tape = []  # clear the input tape
+                    temp_miner.receive_tape = []  # clear the communication tape
+                    ##
+
+
             self.network.diffuse(round)  # diffuse(C)
             self.assess_common_prefix()
             self.assess_common_prefix_k()
             self.process_bar(round, num_rounds, t_0) # 这个是显示进度条的，如果不想显示，注释掉就可以
             # 分割一下
         # self.clear_adversary()
+            if self.adversary_mem:
+                self.attack.attacklog2txt(round)
         self.total_round = self.total_round + num_rounds
-
+        if self.adversary_mem:
+            self.attack.resultlog2txt()
+        
+        
     def assess_common_prefix(self):
         # Common Prefix Property
         cp = self.miners[0].Blockchain.lastblock
