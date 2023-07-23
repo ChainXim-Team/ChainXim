@@ -577,8 +577,8 @@ class Chain(object):
         stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]
         stats["block_throughput_total"] = 1 / stats["average_block_time_total"]
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
-        stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_generated_blocks"]
-        stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_valid_blocks"]
+        stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_valid_blocks"]
+        stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats
     
