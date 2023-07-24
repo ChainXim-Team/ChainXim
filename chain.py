@@ -571,7 +571,7 @@ class Chain(object):
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]
-        stats["block_throughput_main"] = 1 / stats["average_block_time_main"]
+        stats["block_throughput_main"] = stats["num_of_valid_blocks"] / rounds
         blocksize = global_var.get_blocksize()
         stats["throughput_main_MB"] = blocksize * stats["block_throughput_main"]
         stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]

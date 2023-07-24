@@ -64,16 +64,6 @@ class Environment(object):
         self.envir_create_genesis_block(genesis_blockextra)
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        print(
-            '\nParameters:','\n',
-            'Miner Number: ', self.miner_num,'\n',
-            'q_ave: ', self.q_ave, '\n', 
-            'Adversary Miners: ', adversary_ids, '\n',
-            'Consensus Protocol: ', global_var.get_consensus_type(), '\n',
-            'Target: ', self.target, '\n',
-            'Network Type: ', self.network.__class__.__name__, '\n', 
-            'Network Param: ', network_param, '\n'
-        )
         self.network.set_net_param(**network_param)
         # evaluation
         self.selfblock = []
@@ -82,13 +72,30 @@ class Environment(object):
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
         
         ## 初始化攻击模组
-        self.adversary_mem:List[Miner] = []
-        self.select_adversary(*adversary_ids)
         self.max_adversary = t  # maximum number of adversary
+        self.adversary_mem:List[Miner] = []
+        if adversary_ids is not None:
+            if len(adversary_ids) != self.max_adversary:
+                self.max_adversary = len(adversary_ids)
+            self.select_adversary(*adversary_ids)
+        elif self.max_adversary > 0:
+            self.select_adversary_random()
+            adversary_ids = [adversary.Miner_ID for adversary in self.adversary_mem]
         if self.adversary_mem: # 如果有攻击者，则创建攻击实例
             self.attack = default_attack_mode(self.q_ave, self.adversary_mem, self.global_chain, self.network)
             self.adverflag = random.randint(1,len(self.adversary_mem))
         self.attack_excute_type = global_var.get_attack_excute_type()
+        
+        print(
+            'Parameters:','\n',
+            'Miner Number: ', self.miner_num,'\n',
+            'q_ave: ', self.q_ave, '\n', 
+            'Adversary Miners: ', adversary_ids, '\n',
+            'Consensus Protocol: ', global_var.get_consensus_type(), '\n',
+            'Target: ', self.target, '\n',
+            'Network Type: ', self.network.__class__.__name__, '\n', 
+            'Network Param: ', network_param, '\n'
+        )
         ##
 
     def select_adversary_random(self):
@@ -243,7 +250,7 @@ class Environment(object):
             self.cp_cdf_k[0, k] += cp_sum_k
             cp_k = cp_k.last
 
-    def view(self):
+    def view(self) -> dict:
         # 展示一些仿真结果
         print('\n')
         self.global_chain.printchain2txt()
@@ -281,7 +288,7 @@ class Environment(object):
         })
         # Network Property
         stats.update({'block_propagation_times': {} })
-        if self.network.__class__.__name__ != 'SynchronousNetwork':
+        if not isinstance(self.network,network.SynchronousNetwork):
             ave_block_propagation_times = self.network.cal_block_propagation_times()
             stats.update({
                 'block_propagation_times': ave_block_propagation_times
@@ -289,7 +296,7 @@ class Environment(object):
         
         for k,v in stats.items():
             if type(v) is float:
-                stats.update({k:round(v,3)})
+                stats.update({k:round(v,8)})
 
         # save the results in the evaluation results.txt
         RESULT_PATH = global_var.get_result_path()
@@ -319,7 +326,7 @@ class Environment(object):
         print("Stale rate:", stats["stale_rate"])
         print("Average block time (main chain):", stats["average_block_time_main"], "rounds/block")
         print("Block throughput (main chain):", stats["block_throughput_main"], "blocks/round")
-        print("Throughput in MB (main chain):", stats["throughput_main_MB"], "blocks/round")
+        print("Throughput in MB (main chain):", stats["throughput_main_MB"], "MB/round")
         print("Average block time (total):", stats["average_block_time_total"], "rounds/block")
         print("Block throughput (total):", stats["block_throughput_total"], "blocks/round")
         print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
@@ -337,7 +344,8 @@ class Environment(object):
         print('Ratio of blocks contributed by malicious players:', chain_quality_property)
         print('Upper Bound t/(n-t):', self.max_adversary / (self.miner_num - self.max_adversary))
         # Network Property
-        print('Block propagation times:', ave_block_propagation_times)
+        if not isinstance(self.network,network.SynchronousNetwork):
+            print('Block propagation times:', ave_block_propagation_times)
 
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)
@@ -349,6 +357,8 @@ class Environment(object):
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
         # print_chain_property2txt(self.miners[9].Blockchain)
+
+        return stats
 
     def showselfblock(self):
         print("")

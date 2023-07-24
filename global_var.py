@@ -5,9 +5,9 @@ from pathlib import Path
 import time
 import logging
 # MINER_NUM = 10
-def __init__(): 
+def __init__(result_path:Path = None): 
     current_time = time.strftime("%Y%m%d-%H%M%S")
-    RESULT_PATH=Path.cwd() / 'Results' / current_time
+    RESULT_PATH=result_path or Path.cwd() / 'Results' / current_time
     RESULT_PATH.mkdir(parents=True)   
     NET_RESULT_PATH=RESULT_PATH / 'Network Results'
     NET_RESULT_PATH.mkdir()

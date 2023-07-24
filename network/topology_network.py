@@ -238,7 +238,7 @@ class TopologyNetwork(Network):
         # 选择接下来赚翻的目标--除了from_miner和已包含该块的所有neighbor矿工
         bp = block_packet
         next_targets = [mi for mi in self.miners[cur_miner].neighbor_list 
-                        if mi != from_miner and not self.miners[mi].is_in_local_chain(bp.block)]
+                        if mi != from_miner and mi not in block_packet.received_miners]
         next_delays = []
         for nexttg in next_targets:
             next_delays.append(self.cal_delay(bp.block, cur_miner, nexttg))
