@@ -2,6 +2,7 @@ from chain import Block, Chain
 from consensus import Consensus
 from functions import for_name
 from external import I
+import random
 # from external import validate
 import global_var
 ##区块链不是链表，用树结构
@@ -74,6 +75,7 @@ class Miner(object):
         flagNotRcvBefore=False
         if rcvblock not in self.Blockchain and rcvblock not in self.receive_tape:
             self.receive_tape.append(rcvblock)
+            random.shuffle(self.receive_tape)
             # self.receive_history.append(rcvblock)
             # if len(self.receive_history)>=self.buffer_size:
                 # del self.receive_history[0:len(self.receive_history)-self.buffer_size]

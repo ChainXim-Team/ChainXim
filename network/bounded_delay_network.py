@@ -81,8 +81,8 @@ class BoundedDelayNetwork(Network):
         param
         -----
         newblock (Block) : The newly mined block 
-        minerid (int) : Miner who generate the block. 
-        rounf (int) : Current round. 
+        minerid (int) : Miner_ID of the miner generated the block. 
+        round (int) : Current round. 
 
         """
         if not self.miners[minerid].isAdversary:

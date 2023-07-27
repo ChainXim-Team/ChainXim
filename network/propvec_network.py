@@ -31,7 +31,7 @@ class BlockPacketPVNet(object):
         })
 
 class PropVecNetwork(Network):
-    """矿工以概率接收到区块，在特定轮数前必定所有矿工都收到区块"""
+    """依照传播向量,在每一轮中将区块传播给固定比例的矿工"""
 
     def __init__(self, miners: list[Miner]):
         super().__init__()
@@ -50,8 +50,11 @@ class PropVecNetwork(Network):
 
         param
         ----- 
-        rcvprob_start: 每个包进入网络时的接收概率,默认0.25
-        rcvprob_inc: 之后每轮增加的接收概率,默认0.25
+        prop_vector: Propagation vector. 
+                The elements represent 
+                the rate of received miners when (0,1,2,3...) rounds  passed.
+                The last element must be 1.0.
+
         """
         if prop_vector is  not None and prop_vector[len(prop_vector)-1] == 1:
             self.prop_vector = prop_vector
@@ -95,8 +98,8 @@ class PropVecNetwork(Network):
         param
         -----
         newblock (Block) : The newly mined block 
-        minerid (int) : Miner who generate the block. 
-        rounf (int) : Current round. 
+        minerid (int) : Miner_ID of the miner generated the block. 
+        round (int) : Current round. 
 
         """
         if not self.miners[minerid].isAdversary:
@@ -116,6 +119,7 @@ class PropVecNetwork(Network):
 
     def diffuse(self, round):
         """Diffuse algorism for `propagation vector network`.
+        依照传播向量,在每一轮中将区块传播给固定比例的矿工。
 
         param
         -----

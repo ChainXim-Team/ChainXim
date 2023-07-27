@@ -111,9 +111,13 @@ class TopologyNetwork(Network):
   
 
     def access_network(self, newblock, minerid, round):
-        '''本轮新产生的链添加到network_tape\n
-        param: newblock type:block
-               minerid type:int
+        '''本轮新产生的块添加到network_tape.
+
+        param
+        -----
+        newblock (Block) : The newly mined block 
+        minerid (int) : Miner_ID of the miner generated the block. 
+        round (int) : Current round. 
         '''
         block_packet = BlockPacketTpNet(newblock, minerid, round, self.TTL, self)
         self.network_tape.append(block_packet)
