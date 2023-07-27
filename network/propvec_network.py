@@ -1,5 +1,6 @@
 import random
 import logging
+import copy
 import math
 from miner import Miner
 from chain import Block
@@ -7,45 +8,43 @@ from .network_abc import Network
 
 logger = logging.getLogger(__name__)
 
-class BlockPacketBDNet(object):
-    '''BoundedDelay网络中的区块数据包，包含路由相关信息'''
-    def __init__(self, newblock: Block, minerid: int, round: int, rcvprob_start, outnetobj):
+class BlockPacketPVNet(object):
+    '''propagation vector网络中的区块数据包，包含路由相关信息'''
+    def __init__(self, newblock: Block, minerid: int, round: int, prop_vector:list, outnetobj):
         self.block = newblock
         self.minerid = minerid
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程相关
-        self.received_miners = [minerid]
-        # self.received_rounds = [round]
+        self.received_miners:list[int] = [minerid]
         self.trans_process_dict = {
             f'miner {minerid}': round
         }
-        # 每次加self.rcvprob_inc
-        self.recieve_prob = rcvprob_start
+        # 每轮都pop第一个，记录剩余的传播向量
+        self.remain_prop_vector = copy.deepcopy(prop_vector)
 
-    def update_trans_process(self, minerid, round):
+    def update_trans_process(self, minerid:int, round):
         # if a miner received the block update the trans_process
         self.received_miners.append(minerid)
-        # self.received_rounds = [round]
         self.trans_process_dict.update({
             f'miner {minerid}': round
         })
 
-class BoundedDelayNetwork(Network):
+class PropVecNetwork(Network):
     """矿工以概率接收到区块，在特定轮数前必定所有矿工都收到区块"""
 
     def __init__(self, miners: list[Miner]):
         super().__init__()
         self.miners:list[Miner] = miners
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
-        self.network_tape:list[BlockPacketBDNet] = []
-        self.rcvprob_start = 0.25
-        self.rcvprob_inc = 0.25
+        self.network_tape:list[BlockPacketPVNet] = []
+        self.prop_vector:list = [0.2, 0.4, 0.6, 0.8, 1.0] # 默认值
+
         # status
         self.ave_block_propagation_times = {}
         self.block_num_bpt = []
 
-    def set_net_param(self, rcvprob_start, rcvprob_inc, block_prop_times_statistic):
+    def set_net_param(self, prop_vector:list=None):
         """
         set the network parameters
 
@@ -54,25 +53,40 @@ class BoundedDelayNetwork(Network):
         rcvprob_start: 每个包进入网络时的接收概率,默认0.25
         rcvprob_inc: 之后每轮增加的接收概率,默认0.25
         """
-        self.rcvprob_start = rcvprob_start
-        self.rcvprob_inc = rcvprob_inc
-        for rcv_rate in block_prop_times_statistic:
+        if prop_vector is  not None and prop_vector[len(prop_vector)-1] == 1:
+            self.prop_vector = prop_vector
+            self.target_percents = prop_vector
+        for rcv_rate in prop_vector:
             self.ave_block_propagation_times.update({rcv_rate:0})
-            self.block_num_bpt = [0 for _ in range(len(block_prop_times_statistic))]
+            self.block_num_bpt = [0 for _ in range(len(prop_vector))]
+        else:
+            print(f"Use the default Propagation Vector:{self.prop_vector}")
         with open(self.NET_RESULT_PATH / 'network_attributes.txt', 'a') as f:
-            print('Network Type: BoundedDelayNetwork', file=f)
-            print(f'rcvprob_start:{self.rcvprob_start},rcvprob_inc={self.rcvprob_inc}', file=f)
+            print('Network Type: PropVecNetwork', file=f)
+            print(f'propagation_vector:{self.prop_vector}', file=f)
 
 
-    def is_recieved(self, rcvprob_th):
-        """
-        以均匀分布判断本轮是否接收
+    def select_recieve_miners(self, block_packet:BlockPacketPVNet):
+        """选择本轮接收到该区块的矿工
 
         param
         -----
-        rcvprob_th: 接收的概率;
+        block_packet (BlockPacketPVNet): 区块数据包
+
+        Returns:
+        -----
+        rcv_miners(list): 本轮接收该区块的矿工列表
         """
-        return random.uniform(0, 1) < rcvprob_th
+        bp = block_packet
+        rcv_miners:list[Miner] = []
+        if len(bp.remain_prop_vector)>0:
+            rcv_rate = bp.remain_prop_vector.pop(0)
+            rcv_miner_num = round(rcv_rate * self.MINER_NUM)-len(bp.received_miners)
+            if rcv_miner_num > 0:
+                remain_miners = [m for m in self.miners \
+                                if m.Miner_ID not in bp.received_miners]
+                rcv_miners = random.sample(remain_miners, rcv_miner_num)
+        return rcv_miners
 
     def access_network(self, newblock:Block, minerid:int, round:int):
         """
@@ -86,14 +100,14 @@ class BoundedDelayNetwork(Network):
 
         """
         if not self.miners[minerid].isAdversary:
-            block_packet = BlockPacketBDNet(newblock, minerid, round, 
-                                        self.rcvprob_start, self)
+            block_packet = BlockPacketPVNet(newblock, minerid, round, 
+                                        self.prop_vector, self)
             self.network_tape.append(block_packet)
     
-        # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
+        # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
         if self.miners[minerid].isAdversary:
-            block_packet = BlockPacketBDNet(newblock, minerid, round, 
-                                        self.rcvprob_start, self)
+            block_packet = BlockPacketPVNet(newblock, minerid, round, 
+                                        self.prop_vector, self)
             for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
                 block_packet.update_trans_process(miner.Miner_ID, round)
                 miner.receive_block(newblock)
@@ -101,36 +115,32 @@ class BoundedDelayNetwork(Network):
 
 
     def diffuse(self, round):
-        """Diffuse algorism for boundeddelay network"""
-        # recieve_prob=0.7#设置接收概率，目前所有矿工概率一致
-        # 随着轮数的增加，收到的概率越高，无限轮
-        # 超过某轮后所有人收到
-        # 一个人收到之后就不会再次收到这个块了
+        """Diffuse algorism for `propagation vector network`.
+
+        param
+        -----
+        round (int): The current round in the Envrionment.
+        """
         if len(self.network_tape) > 0:
             died_packets = []
-            for i, bp in enumerate(self.network_tape):
-                not_rcv_miners = [m for m in self.miners \
-                                if m.Miner_ID not in bp.received_miners]
-                # 不会重复传给某个矿工
-                for miner in not_rcv_miners:
-                    if self.is_recieved(bp.recieve_prob):
-                        bp.update_trans_process(miner.Miner_ID, round)
+            for bp_idx, bp in enumerate(self.network_tape):
+                rcv_miners = self.select_recieve_miners(bp)
+                if len(rcv_miners) > 0:
+                    for miner in rcv_miners:
                         miner.receive_block(bp.block)
+                        bp.update_trans_process(miner.Miner_ID, round)
                         self.record_block_propagation_time(bp, round)
-                        # 如果一个adv收到，其他adv也立即收到
-                        if miner.isAdversary:
+                        # 如果一个adv收到，其他没收到的adv也立即收到
+                        if not miner.isAdversary:
                             not_rcv_adv_miners = [m for m in self.adv_miners \
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
-                                bp.update_trans_process(miner.Miner_ID, round)
-                                adv_miner.receive_block(bp.block)
-                                self.record_block_propagation_time(bp, round)
-                # 更新recieve_prob
-                if bp.recieve_prob < 1:
-                    bp.recieve_prob += self.rcvprob_inc
-                # 如果所有人都收到了，就丢弃该包
-                if len(set(bp.received_miners)) == self.MINER_NUM:  
-                    died_packets.append(i)
+                                if adv_miner.Miner_ID not in bp.received_miners:
+                                    adv_miner.receive_block(bp.block)
+                                    bp.update_trans_process(miner.Miner_ID, round)
+                                    self.record_block_propagation_time(bp, round)
+                if len(set(bp.received_miners)) == self.MINER_NUM:
+                    died_packets.append(bp_idx)
                     self.save_trans_process(bp)
             # 丢弃传播完成的包，更新network_tape
             self.network_tape = [n for i, n in enumerate(self.network_tape) \
@@ -138,8 +148,8 @@ class BoundedDelayNetwork(Network):
             died_packets = []
 
 
-
-    def record_block_propagation_time(self, block_packet: BlockPacketBDNet, r):
+    
+    def record_block_propagation_time(self, block_packet: BlockPacketPVNet, r):
         '''calculate the block propagation time'''
         bp = block_packet
         rn = len(set(bp.received_miners))
@@ -170,7 +180,7 @@ class BoundedDelayNetwork(Network):
         return self.ave_block_propagation_times
         
 
-    def save_trans_process(self, block_packet: BlockPacketBDNet):
+    def save_trans_process(self, block_packet: BlockPacketPVNet):
         '''
         Save the transmission process of a specific block to network_log.txt
         '''

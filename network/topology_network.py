@@ -1,11 +1,10 @@
 import json
 import sys
-sys.path.append("D:\Files\gitspace\chain-xim")
+import math
+# sys.path.append("D:\Files\gitspace\chain-xim")
 import os
 import logging
 import itertools
-from math import ceil
-from typing import List
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class BlockPacketTpNet(object):
     '''拓扑网络中的区块数据包，包含路由相关信息'''
-    def __init__(self, newblock: Block, minerid, round, TTL, outnetobj):
+    def __init__(self, newblock: Block, minerid, round, TTL, outnetobj:"TopologyNetwork"):
         self.block = newblock
         self.minerid = minerid
         self.round = round
@@ -33,29 +32,17 @@ class BlockPacketTpNet(object):
         self.received_miners = [minerid]
         # links: save link information [scm(source miner), tgm(target miner), delay]
         self.links = [[minerid, mi, d] for mi, d in
-                            zip(self.outnetobj.miners[minerid].neighbor_list,
-                            self.outnetobj.cal_neighbor_delays(newblock, minerid))]
+                    zip(self.outnetobj.miners[minerid].neighbor_list,
+                    self.outnetobj.cal_neighbor_delays(newblock, minerid))]
         # 路由结果记录相关
         self.routing_histroy = {(minerid, tgm): [round, 0] for tgm in
                                 self.outnetobj.miners[minerid].neighbor_list}
-        # self.block_propagation_times = {
-        #     '10%': 0,
-        #     '20%': 0,
-        #     '30%': 0,
-        #     '40%': 0,
-        #     '50%': 0,
-        #     '60%': 0,
-        #     '70%': 0,
-        #     '80%': 0,
-        #     '90%': 0,
-        #     '100%': 0
-        # } 
         
 
 
 class TopologyNetwork(Network):
     '''拓扑P2P网络'''                        
-    def __init__(self, miners: List[miner.Miner]):
+    def __init__(self, miners: list[miner.Miner]):
         super().__init__()
         self.miners = miners
         # parameters, set by set_net_param()
@@ -70,23 +57,10 @@ class TopologyNetwork(Network):
         self.tp_adjacency_matrix = np.zeros((self.MINER_NUM, self.MINER_NUM))
         self.network_graph = nx.Graph(self.tp_adjacency_matrix)
         self.node_pos = None #后面由set_node_pos生成
-        self.network_tape:List[BlockPacketTpNet] = []
+        self.network_tape:list[BlockPacketTpNet] = []
         # status
-        self.ave_block_propagation_times = {
-            '5%': 0,
-            '10%': 0,
-            '20%': 0,
-            '30%': 0,
-            '40%': 0,
-            '50%': 0,
-            '60%': 0,
-            '70%': 0,
-            '80%': 0,
-            '90%': 0,
-            '100%': 0
-        }
-        self.target_percents = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-        self.block_num_bpt = [0 for _ in range(len(self.target_percents))]
+        self.ave_block_propagation_times = {}
+        self.block_num_bpt = []
         # 结果保存路径
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
@@ -97,7 +71,8 @@ class TopologyNetwork(Network):
 
     def set_net_param(self, gen_net_approach = None, TTL = None, ave_degree = None, 
                         bandwidth_honest = None, bandwidth_adv = None,
-                        save_routing_graph = None, show_label = None):
+                        save_routing_graph = None, show_label = None,
+                        block_prop_times_statistic = None):
         ''' 
         set the network parameters
 
@@ -130,6 +105,9 @@ class TopologyNetwork(Network):
             self.TTL = TTL
         if save_routing_graph is not None:
             self.save_routing_graph = save_routing_graph
+        for rcv_rate in block_prop_times_statistic:
+            self.ave_block_propagation_times.update({rcv_rate:0})
+            self.block_num_bpt = [0 for _ in range(len(block_prop_times_statistic))]
   
 
     def access_network(self, newblock, minerid, round):
@@ -221,29 +199,27 @@ class TopologyNetwork(Network):
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
-            return a == round(b * percentage)
+            return a == math.floor(b * percentage)
 
         rcv_rate = -1
-        for p in self.target_percents:
+        rcv_rates = [k for k in self.ave_block_propagation_times.keys()]
+        for p in rcv_rates:
             if is_closest_to_percentage(rn, mn, p):
                 rcv_rate = p
                 break
-        if rcv_rate != -1 and rcv_rate in self.target_percents:
-            logger.info(f"{bp.block.name}:{rcv_rate} of all miners received at round {r}")
-            bpt_key = f'{int(rcv_rate * 100)}%'
-            self.ave_block_propagation_times[bpt_key] += r-bp.round
+        if rcv_rate != -1 and rcv_rate in rcv_rates:
+            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
+            self.ave_block_propagation_times[rcv_rate] += r-bp.round
+            self.block_num_bpt[rcv_rates.index(rcv_rate)] += 1
 
-            self.block_num_bpt[self.target_percents.index(rcv_rate)] += 1
-
-    
     def cal_block_propagation_times(self):
-        for i , p in enumerate(self.target_percents):
-            bpt_key = f'{int(p * 100)}%'
-            total_bpt = self.ave_block_propagation_times[bpt_key]
+        rcv_rates = [k for k in self.ave_block_propagation_times.keys()]
+        for i ,  rcv_rate in enumerate(rcv_rates):
+            total_bpt = self.ave_block_propagation_times[rcv_rate ]
             total_num = self.block_num_bpt[i]
             if total_num == 0:
                 continue
-            self.ave_block_propagation_times[bpt_key] = round(total_bpt/total_num, 3)
+            self.ave_block_propagation_times[rcv_rate] = round(total_bpt/total_num, 3)
         return self.ave_block_propagation_times
 
 
@@ -274,7 +250,7 @@ class TopologyNetwork(Network):
         # 传输时延=块大小除带宽 且传输时延至少1轮
         bw_mean = self.network_graph.edges[sourceid, targetid]['bandwidth']
         bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
-        transmision_delay = ceil(block.blocksize_MB / bandwidth)
+        transmision_delay = math.ceil(block.blocksize_MB / bandwidth)
         # 时延=处理时延+传输时延
         delay = self.miners[sourceid].processing_delay + transmision_delay
         return delay

@@ -37,7 +37,20 @@ logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
 
 # 设置网络参数
 network_param = {}
-if environ_settings['network_type'] == 'network.TopologyNetwork':
+# BoundedDelayNetwork
+if environ_settings['network_type'] == 'network.BoundedDelayNetwork':
+    bdnet_settings = dict(config["BoundedDelayNetworkSettings"])
+    network_param = {
+        'rcvprob_start': float(bdnet_settings['rcvprob_start']),
+        'rcvprob_inc': float(bdnet_settings['rcvprob_inc']),
+        'block_prop_times_statistic':eval(bdnet_settings['block_prop_times_statistic'])
+        }
+# PropVecNetwork
+elif environ_settings['network_type'] == 'network.PropVecNetwork':
+    pvnet_settings = dict(config["PropVecNetworkSettings"])
+    network_param = {'prop_vector':eval(pvnet_settings['prop_vector'])}
+# TopologyNetwork
+elif environ_settings['network_type'] == 'network.TopologyNetwork':
     net_setting = 'TopologyNetworkSettings'
     bool_params = ['show_label', 'save_routing_graph']
     float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv']
@@ -45,11 +58,11 @@ if environ_settings['network_type'] == 'network.TopologyNetwork':
         network_param.update({bparam: config.getboolean(net_setting, bparam)})
     for fparam in float_params:
         network_param.update({fparam: config.getfloat(net_setting, fparam)})
-    network_param.update({'TTL':config.getint(net_setting, 'TTL'),
-            'gen_net_approach': config.get(net_setting, 'gen_net_approach')})
-elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
-    net_setting = 'BoundedDelayNetworkSettings'
-    network_param = {k:float(v) for k,v in dict(config[net_setting]).items()}
+    network_param.update({
+        'TTL':config.getint(net_setting, 'TTL'),
+        'gen_net_approach': config.get(net_setting, 'gen_net_approach'),
+        'block_prop_times_statistic':eval(config.get(net_setting, 'block_prop_times_statistic'))
+        })
 
 # 设置attack参数
 attack_setting = dict(config['AttackModeSettings'])
