@@ -168,14 +168,15 @@ class Environment(object):
 
         
     #@get_time
-    def exec(self, num_rounds):
+    def exec(self, num_rounds, max_height, process_bar_type):
 
         '''
         调用当前miner的BackboneProtocol完成mining
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
-
+        if process_bar_type != 'round' and process_bar_type != 'height':
+            raise ValueError('process_bar_type should be \'round\' or \'height\'')
         ## 开始循环
         t_0 = time.time() # 记录起始时间
         for round in range(1, num_rounds+1):
@@ -207,12 +208,21 @@ class Environment(object):
             self.network.diffuse(round)  # diffuse(C)
             self.assess_common_prefix()
             self.assess_common_prefix_k()
-            self.process_bar(round, num_rounds, t_0) # 这个是显示进度条的，如果不想显示，注释掉就可以
             # 分割一下
         # self.clear_adversary()
             if self.adversary_mem:
                 self.attack.attacklog2txt(round)
-        self.total_round = self.total_round + num_rounds
+        
+            # 全局链高度超过max_height之后就提前停止
+            current_height = self.global_chain.lastblock.BlockHeight()
+            if current_height > max_height:
+                break
+            # 根据process_bar_type决定进度条的显示方式
+            if process_bar_type == 'round':
+                self.process_bar(round, num_rounds, t_0, 'round/s')
+            elif process_bar_type == 'height':
+                self.process_bar(current_height, max_height, t_0, 'block/s')
+        self.total_round = self.total_round + round
         if self.adversary_mem:
             self.attack.resultlog2txt()
         
@@ -283,8 +293,8 @@ class Environment(object):
         cq_dict, chain_quality_property = chain_quality(self.global_chain)
         stats.update({
             'chain_quality_property': cq_dict,
-            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 3),
-            'upper_bound t/(n-t)': round(self.max_adversary / (self.miner_num - self.max_adversary), 3)
+            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
+            'upper_bound t/(n-t)': round(self.max_adversary / (self.miner_num - self.max_adversary), 5)
         })
         # Network Property
         stats.update({'block_propagation_times': {} })
@@ -366,7 +376,7 @@ class Environment(object):
         for block in self.selfblock:
             print(block.name)
 
-    def process_bar(self,process,total,t_0):
+    def process_bar(self,process,total,t_0,unit='round/s'):
         bar_len = 50
         percent = (process)/total
         cplt = "■" * math.ceil(percent*bar_len)
@@ -375,6 +385,6 @@ class Environment(object):
         time_cost = time.gmtime(time_len)
         vel = process/(time_len)
         time_eval = time.gmtime(total/(vel+0.001))
-        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Events: see events.log "\
-        .format(cplt, uncplt, percent*100, process, total, vel, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
+        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} {}  {}:{}:{}>>{}:{}:{}  Events: see events.log "\
+        .format(cplt, uncplt, percent*100, process, total, vel, unit, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)

@@ -15,8 +15,8 @@ def get_time(f):
     return inner
 
 @get_time
-def run(Z, total_round):
-    Z.exec(total_round)
+def run(Z, total_round, max_height, process_bar_type):
+    Z.exec(total_round, max_height, process_bar_type)
     return Z.view()
 
 def main(**args):
@@ -91,7 +91,10 @@ def main(**args):
     global_var.save_configuration()
     Z = Environment(t, q_ave, q_distr, target, adversary_ids, 
                             network_param, genesis_blockextra)
-    return run(Z, args.get('total_round') or int(environ_settings['total_round']))
+    
+    return run(Z, args.get('total_round') or int(environ_settings['total_round']),
+               args.get('total_height') or int(environ_settings.get('total_height') or 2**31 - 2),
+               args.get('process_bar_type') or environ_settings.get('process_bar_type'))
 
 if __name__ == '__main__':
     import argparse
@@ -103,7 +106,9 @@ could be performed with attackers designed in the simulator'
     parser = argparse.ArgumentParser(description=program_description)
     # EnvironmentSettings
     env_setting = parser.add_argument_group('EnvironmentSettings','Settings for Environment')
-    env_setting.add_argument('--total_round', help='The total rounds simulated.', type=int)
+    env_setting.add_argument('--process_bar_type', help='Set the style of process bar: round/height',type=str)
+    env_setting.add_argument('--total_round', help='Total rounds before simulation stops.', type=int)
+    env_setting.add_argument('--total_height', help='Total block height generated before simulation stops.', type=int)
     env_setting.add_argument('--miner_num', help='The total miner number in the network.', type=int)
     env_setting.add_argument('--q_ave', help='The average hash rate per round.',type=int)
     env_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
