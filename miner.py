@@ -73,7 +73,7 @@ class Miner(object):
         return True.
         '''
         flagNotRcvBefore=False
-        if rcvblock not in self.Blockchain and rcvblock not in self.receive_tape:
+        if self.Blockchain.search(rcvblock) is None and rcvblock not in self.receive_tape:
             self.receive_tape.append(rcvblock)
             random.shuffle(self.receive_tape)
             # self.receive_history.append(rcvblock)

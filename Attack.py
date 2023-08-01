@@ -108,11 +108,10 @@ class default_attack_mode(metaclass = ABCMeta):
             temp_miner.input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             self.atlog['input'] = temp_miner.input
 
-            if chain_update.lastblock not in self.base_chain: # update_index 有很大问题只能用这个检测更新的链是否存在的方法
+            #if chain_update.lastblock not in self.base_chain: # update_index 有很大问题只能用这个检测更新的链是否存在的方法
                 # 这是一个非常严重的问题
-                self.base_chain.add_block_copy(chain_update.lastblock) # 如果存在更新将更新的区块添加到基准链上 
-                self.global_chain.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
-                attack_update = True
+            self.base_chain.add_block_copy(chain_update.lastblock) # 如果存在更新将更新的区块添加到基准链上 
+            self.global_chain.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
         # 此时base_chain应是以adversary视角中最优的基准链
         self.atlog['receive_tape'] = rcv_tape
         return attack_update

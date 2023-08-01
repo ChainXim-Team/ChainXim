@@ -179,6 +179,7 @@ class Environment(object):
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
         ## 开始循环
         t_0 = time.time() # 记录起始时间
+        cached_height = self.global_chain.lastblock.BlockHeight()
         for round in range(1, num_rounds+1):
             inputfromz = round # 生成输入
 
@@ -206,8 +207,8 @@ class Environment(object):
 
 
             self.network.diffuse(round)  # diffuse(C)
-            self.assess_common_prefix()
-            self.assess_common_prefix_k()
+            #self.assess_common_prefix()
+            #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
             # 分割一下
         # self.clear_adversary()
             if self.adversary_mem:
@@ -220,7 +221,8 @@ class Environment(object):
             # 根据process_bar_type决定进度条的显示方式
             if process_bar_type == 'round':
                 self.process_bar(round, num_rounds, t_0, 'round/s')
-            elif process_bar_type == 'height':
+            elif current_height > cached_height and process_bar_type == 'height':
+                cached_height = current_height
                 self.process_bar(current_height, max_height, t_0, 'block/s')
         self.total_round = self.total_round + round
         if self.adversary_mem:
@@ -358,7 +360,7 @@ class Environment(object):
             print('Block propagation times:', ave_block_propagation_times)
 
         # show or save figures
-        self.global_chain.ShowStructure(self.miner_num)
+        #self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
         self.miners[0].Blockchain.get_block_interval_distribution()
 
