@@ -274,6 +274,7 @@ class Environment(object):
 
         # Evaluation Results
         stats = self.global_chain.CalculateStatistics(self.total_round)
+        stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
         num_honest = 0
@@ -286,11 +287,11 @@ class Environment(object):
             'average_chain_growth_in_honest_miners\'_chain': growth
         })
         # Common Prefix Property
-        stats.update({
-            'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
-            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
-            'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.max_adversary)*self.total_round)
-        })
+        #stats.update({
+        #    'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
+        #    'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
+        #    'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.max_adversary)*self.total_round)
+        #})
         # Chain Quality Property
         cq_dict, chain_quality_property = chain_quality(self.global_chain)
         stats.update({
@@ -344,12 +345,12 @@ class Environment(object):
         print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
         print("")
         # Common Prefix Property
-        print('Common Prefix Property:')
-        print('The common prefix pdf:')
-        print(self.cp_pdf/self.cp_pdf.sum())
-        print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
-        print('The common prefix cdf with respect to k:')
-        print(self.cp_cdf_k / ((self.miner_num - self.max_adversary) * self.total_round))
+        #print('Common Prefix Property:')
+        #print('The common prefix pdf:')
+        #print(self.cp_pdf/self.cp_pdf.sum())
+        #print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
+        #print('The common prefix cdf with respect to k:')
+        #print(self.cp_cdf_k / ((self.miner_num - self.max_adversary) * self.total_round))
         print("")
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
