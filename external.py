@@ -149,22 +149,3 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         '\nChain_Quality_Property:',chain_quality_property,
         file=f)"""
 
-
-# def print_chain_property2txt(blockchain:Chain,chain_property_url='chain_data.txt'):
-#     '''
-#     打印链参数到文件
-#     param:
-#         blockchain
-#         chain_data_url:打印文件位置,默认与printchain2txt相同为'chain_data.txt'
-#     '''
-#     #chain_property_url='chain_data.txt'
-#     printtype='a'
-#     f=open(chain_property_url,printtype)
-#     print('\nChain Evaluation:\n',file=f)
-#     #chain_quality
-#     cq_dict,chain_quality_property=chain_quality(blockchain)
-#     print('Chain_Quality:',cq_dict,
-#     '\nChain_Quality_Property:',chain_quality_property,
-#     file=f
-#     )
-

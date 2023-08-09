@@ -9,7 +9,8 @@ from functions import hashsha256, hashH
 from .consensus_abc import Consensus
 
 class VDF(Consensus):
-    def __init__(self):
+    def __init__(self,miner_id):
+        super().__init__(miner_id)
         self.target = '0' # 最接近1亿的素数
         self.group = int('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF43',16)
         self.primelist = pd.read_csv("prime_smaller10000000.csv").iloc
@@ -26,14 +27,13 @@ class VDF(Consensus):
         }
         self.ctr = 0
         self.blockmining_prehash = ''
-        self.qmax = global_var.get_qmax()
+
+
+    def setparam(self,**consensus_params):
+        '''设置共识所需参数'''
+        self.qmax = consensus_params['q']
         self.start = 50*self.qmax
         self.gap = 500*self.qmax
-
-    def setparam(self,target):
-        '''设置共识所需参数'''
-        # VDF不需要设置target
-        pass
 
     def primeP(self,x:str,y:str,T):
         # 根据yx的hash计算小于2^T的质数作为证明参数
@@ -56,13 +56,13 @@ class VDF(Consensus):
             n >>= 1
         return ans%b
 
-    def mining_consensus(self,Blockchain:Chain,Miner_ID,isadversary,x,qmax):
+    def mining_consensus(self,Miner_ID,isadversary,x):
         '''共识机制定义的挖矿算法
         应return:
             新产生的区块  type:Block 
             挖矿成功标识    type:bool
         '''
-        bctemp = Blockchain
+        bctemp = self.Blockchain
         b_last = bctemp.last_block()#链中最后一个块
         height = b_last.blockhead.height
         prehashtmp = b_last.calculate_blockhash()
@@ -94,7 +94,7 @@ class VDF(Consensus):
             blocknew.blockhead.blockheadextra.setdefault("start_mine_time",self.start_mine_time)
             blocknew.blockhead.blockheadextra.setdefault("pi_i",self.para['pi'])
             blocknew.blockhead.blockheadextra.setdefault("y_i",self.para['y'])
-            blocknew.blockhead.blockheadextra.setdefault("qmax",qmax)
+            blocknew.blockhead.blockheadextra.setdefault("qmax",self.qmax)
             # blocknew.blockhead.blockheadextra.setdefault("T",self.para['T'])
             # blocknew.blockhead.blockheadextra.setdefault("ex",[Miner_ID,self.start_mine_time,x])
             return (blocknew, True)
@@ -102,9 +102,28 @@ class VDF(Consensus):
             self.ctr -= self.qmax
             return (None, False)
 
-        
-    def valid_partial(self, lastblock: Block, 
-                      local_chain: Chain) -> Tuple[List[Block], Block]:
+    def maxvalid(self):
+        # algorithm 2 比较自己的chain和收到的maxchain并找到最长的一条
+        # output:
+        #   lastblock 最长链的最新一个区块
+        new_update = False  # 有没有更新
+        if self.receive_tape==[]:
+            return self.Blockchain, new_update
+        for otherblock in self.receive_tape:
+            copylist, insert_point = self.valid_partial(otherblock)
+            if copylist is not None:
+                # 把合法链的公共部分加入到本地区块链中
+                blocktmp = self.Blockchain.insert_block_copy(copylist, insert_point)  
+                depthself = self.Blockchain.lastblock.BlockHeight()
+                depthOtherblock = otherblock.BlockHeight()
+                if depthself < depthOtherblock:
+                    self.Blockchain.lastblock = blocktmp
+                    new_update = True
+            else:
+                print('error')  # 验证失败没必要脱出错误
+        return self.Blockchain, new_update
+
+    def valid_partial(self, lastblock: Block) -> Tuple[List[Block], Block]:
         '''验证某条链上不在本地链中的区块
         param:
             lastblock 要验证的链的最后一个区块 type:Block
@@ -117,7 +136,7 @@ class VDF(Consensus):
         if not receive_tmp:  # 接受的链为空，直接返回
             return (None, None)
         copylist = []
-        local_tmp = local_chain.search(receive_tmp)
+        local_tmp = self.Blockchain.search(receive_tmp)
         ss = receive_tmp.calculate_blockhash()
         while receive_tmp and not local_tmp:
             block_vali = self.valid_block(receive_tmp)
@@ -126,7 +145,7 @@ class VDF(Consensus):
                 ss = receive_tmp.blockhead.prehash
                 copylist.append(receive_tmp)
                 receive_tmp = receive_tmp.last
-                local_tmp = local_chain.search(receive_tmp)
+                local_tmp = self.Blockchain.search(receive_tmp)
             else:
                 return (None, None)
         if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):

@@ -125,7 +125,7 @@ class Environment(object):
 
     def create_miners_q_equal(self):
         for miner_id in range(self.miner_num):
-            self.miners.append(Miner(miner_id, self.q_ave, self.target))
+            self.miners.append(Miner(miner_id, target=self.target, q=self.q_ave))
 
     def create_miners_q_rand(self):
         '''
@@ -146,7 +146,7 @@ class Environment(object):
                 idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
                 q_dist[idx] += sign_diff
         for miner_id, q in zip(range(self.miner_num), q_dist):
-            self.miners.append(Miner(miner_id, q, self.target))
+            self.miners.append(Miner(miner_id, target=self.target, q=q))
         return q_dist
 
     def create_miners_q_custom(self, q_dist_str):
@@ -158,7 +158,7 @@ class Environment(object):
         '''create genesis block for all the miners in the system.'''
         self.global_chain.create_genesis_block(**blockextra)
         for miner in self.miners:
-            miner.Blockchain.create_genesis_block(**blockextra)
+            miner.consensus.Blockchain.create_genesis_block(**blockextra)
 
     def attack_excute(self,round):
         if self.attack_excute_type == 'excute_sample0':
@@ -202,7 +202,7 @@ class Environment(object):
                         self.network.access_network(newblock,temp_miner.Miner_ID,round)
                         self.global_chain.add_block_copy(newblock)
                     temp_miner.input_tape = []  # clear the input tape
-                    temp_miner.receive_tape = []  # clear the communication tape
+                    temp_miner.consensus.receive_tape = []  # clear the communication tape
                     ##
 
 
@@ -231,13 +231,13 @@ class Environment(object):
         
     def assess_common_prefix(self):
         # Common Prefix Property
-        cp = self.miners[0].Blockchain.lastblock
+        cp = self.miners[0].consensus.Blockchain.lastblock
         for i in range(1, self.miner_num):
             if not self.miners[i].isAdversary:
-                cp = common_prefix(cp, self.miners[i].Blockchain)
+                cp = common_prefix(cp, self.miners[i].consensus.Blockchain)
         len_cp = cp.blockhead.height
         for i in range(0, self.miner_num):
-            len_suffix = self.miners[0].Blockchain.lastblock.blockhead.height - len_cp
+            len_suffix = self.miners[0].consensus.Blockchain.lastblock.blockhead.height - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
     def assess_common_prefix_k(self):
@@ -256,7 +256,7 @@ class Environment(object):
                     if cp_stat[0, i] == 1:
                         cp_sum_k += 1
                     else:
-                        if cp_k == common_prefix(cp_k, self.miners[i].Blockchain):
+                        if cp_k == common_prefix(cp_k, self.miners[i].consensus.Blockchain):
                             cp_stat[0, i] = 1
                             cp_sum_k += 1
             self.cp_cdf_k[0, k] += cp_sum_k
@@ -267,7 +267,7 @@ class Environment(object):
         print('\n')
         self.global_chain.printchain2txt()
         for miner in self.miners:
-            miner.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
+            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
         print("Global Tree Structure:", "")
         self.global_chain.ShowStructure1()
         print("End of Global Tree", "")
@@ -280,7 +280,7 @@ class Environment(object):
         num_honest = 0
         for i in range(self.miner_num):
             if not self.miners[i].isAdversary:
-                growth = growth + chain_growth(self.miners[i].Blockchain)
+                growth = growth + chain_growth(self.miners[i].consensus.Blockchain)
                 num_honest = num_honest + 1
         growth = growth / num_honest
         stats.update({
@@ -363,13 +363,12 @@ class Environment(object):
         # show or save figures
         #self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
-        self.miners[0].Blockchain.get_block_interval_distribution()
+        self.miners[0].consensus.Blockchain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
 
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
-        # print_chain_property2txt(self.miners[9].Blockchain)
 
         return stats
 

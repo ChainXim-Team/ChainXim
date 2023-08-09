@@ -96,7 +96,7 @@ class BoundedDelayNetwork(Network):
                                         self.rcvprob_start, self)
             for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
                 block_packet.update_trans_process(miner.Miner_ID, round)
-                miner.receive_block(newblock)
+                miner.consensus.receive_block(newblock)
             self.network_tape.append(block_packet)
 
 
@@ -115,7 +115,7 @@ class BoundedDelayNetwork(Network):
                 for miner in not_rcv_miners:
                     if self.is_recieved(bp.recieve_prob):
                         bp.update_trans_process(miner.Miner_ID, round)
-                        miner.receive_block(bp.block)
+                        miner.consensus.receive_block(bp.block)
                         self.record_block_propagation_time(bp, round)
                         # 如果一个adv收到，其他adv也立即收到
                         if miner.isAdversary:
@@ -123,7 +123,7 @@ class BoundedDelayNetwork(Network):
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
                                 bp.update_trans_process(miner.Miner_ID, round)
-                                adv_miner.receive_block(bp.block)
+                                adv_miner.consensus.receive_block(bp.block)
                                 self.record_block_propagation_time(bp, round)
                 # 更新recieve_prob
                 if bp.recieve_prob < 1:

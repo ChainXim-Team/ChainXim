@@ -51,5 +51,5 @@ class SynchronousNetwork(Network):
             for j in range(self.MINER_NUM):
                 for block_packet in self.network_tape:
                     if j != block_packet.minerid:
-                        self.miners[j].receive_block(block_packet.block)
+                        self.miners[j].consensus.receive_block(block_packet.block)
             self.clear_NetworkTape()

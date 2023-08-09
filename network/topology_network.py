@@ -121,7 +121,7 @@ class TopologyNetwork(Network):
         '''
         block_packet = BlockPacketTpNet(newblock, minerid, round, self.TTL, self)
         self.network_tape.append(block_packet)
-        self.miners[minerid].receive_block(newblock)  
+        self.miners[minerid].consensus.receive_block(newblock)  
         # 这一条防止adversary集团发出区块的代表，自己的链上没有该区块
         logger.info("access network miner:%d %s at round %d", minerid, newblock.name, round)
 
@@ -185,7 +185,7 @@ class TopologyNetwork(Network):
         收到一个包,本地链上没有,就添加到receive_tape中并转发给接下来的目标
         否则不对该包进行处理
         '''
-        receive_success = self.miners[current_miner].receive_block(block_packet.block)
+        receive_success = self.miners[current_miner].consensus.receive_block(block_packet.block)
         # if the block not in local chain, receive.
         if  receive_success is True:
             # record the miner received the block

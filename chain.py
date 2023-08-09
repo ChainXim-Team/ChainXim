@@ -122,10 +122,7 @@ class Block(object):
 class Chain(object):
 
     def __init__(self, miner_id = None):
-        if miner_id is not None:
-            self.miner_id = miner_id
-        else: 
-            self.miner_id = None
+        self.miner_id = miner_id
         self.head = None
         self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
 
@@ -525,7 +522,7 @@ class Chain(object):
             return
         
         with open(CHAIN_DATA_PATH /chain_data_url,'a') as f:
-            print("Blockchian maintained BY Miner",self.miner_id,file=f)    
+            print("Blockchian maintained BY Miner",self.miner_id,file=f)
             # 打印主链
             save_chain_structure(self,f)
             #打印链信息

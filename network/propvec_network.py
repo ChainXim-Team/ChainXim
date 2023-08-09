@@ -113,7 +113,7 @@ class PropVecNetwork(Network):
                                         self.prop_vector, self)
             for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
                 block_packet.update_trans_process(miner.Miner_ID, round)
-                miner.receive_block(newblock)
+                miner.consensus.receive_block(newblock)
             self.network_tape.append(block_packet)
 
 
@@ -131,7 +131,7 @@ class PropVecNetwork(Network):
                 rcv_miners = self.select_recieve_miners(bp)
                 if len(rcv_miners) > 0:
                     for miner in rcv_miners:
-                        miner.receive_block(bp.block)
+                        miner.consensus.receive_block(bp.block)
                         bp.update_trans_process(miner.Miner_ID, round)
                         self.record_block_propagation_time(bp, round)
                         # 如果一个adv收到，其他没收到的adv也立即收到
@@ -140,7 +140,7 @@ class PropVecNetwork(Network):
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
                                 if adv_miner.Miner_ID not in bp.received_miners:
-                                    adv_miner.receive_block(bp.block)
+                                    adv_miner.consensus.receive_block(bp.block)
                                     bp.update_trans_process(miner.Miner_ID, round)
                                     self.record_block_propagation_time(bp, round)
                 if len(set(bp.received_miners)) == self.MINER_NUM:
