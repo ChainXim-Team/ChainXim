@@ -1,4 +1,5 @@
 import random
+from consensus import Consensus
 from chain import Block, Chain
 from external import I
 from miner import Miner
@@ -71,8 +72,10 @@ class default_attack_mode(metaclass = ABCMeta):
         self.last_brd_block = None
         for temp_miner in self.adversary:
             # 重新设置adversary的 q 和 blockchian，原因在 mine_randmon_miner 部分详细解释了
-            temp_miner.q = self.q_adver
-            temp_miner.Blockchain.add_block_copy(self.Adverchain.lastblock)
+            temp_miner.consensus.q = self.q_adver
+            temp_miner.consensus.Blockchain.add_block_copy(self.Adverchain.lastblock)
+        self.Adverminer = AdverMiner(q=self.q_adver,target=self.adversary[0].consensus.target) 
+        self.Adverminer.consensus.Blockchain = self.Adverchain
         self.atlog={
             'chain_update': None,
             'input': None,
@@ -98,15 +101,14 @@ class default_attack_mode(metaclass = ABCMeta):
         rcv_tape = []
         adminer_chain = []
         for temp_miner in self.adversary:
-            rcv_tape.append([i.name for i in temp_miner.receive_tape])
-            adminer_chain.append(temp_miner.Blockchain.lastblock.name)
+            rcv_tape.append([i.name for i in temp_miner.consensus.receive_tape])
+            adminer_chain.append(temp_miner.consensus.Blockchain.lastblock.name)
 
-            chain_update, update_index = temp_miner.maxvalid() # 模拟诚实矿工的BBP--验证区块 返回是否有更新
+            chain_update, update_index = temp_miner.consensus.maxvalid() # 模拟诚实矿工的BBP--验证区块 返回是否有更新
 
             self.atlog['adminer_chain'] = adminer_chain
             self.atlog['chain_update'] = chain_update.lastblock.name
-            temp_miner.input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
-            self.atlog['input'] = temp_miner.input
+            self.atlog['input'] = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
 
             #if chain_update.lastblock not in self.base_chain: # update_index 有很大问题只能用这个检测更新的链是否存在的方法
                 # 这是一个非常严重的问题
@@ -119,7 +121,7 @@ class default_attack_mode(metaclass = ABCMeta):
     def clear(self): # 清除矿工的input tape和communication tape
         for temp_miner in self.adversary:
             temp_miner.input_tape = []  # clear the input tape
-            temp_miner.receive_tape = []  # clear the communication tape
+            temp_miner.consensus.receive_tape = []  # clear the communication tape
 
     def mine(self):
         # 以下是attack模块攻击者挖矿部分的思路及原因
@@ -141,10 +143,8 @@ class default_attack_mode(metaclass = ABCMeta):
         # 特别提醒： Miner_ID 和 isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
         self.current_miner = random.choice(self.adversary) # 随机选取当前攻击者
         self.atlog['current_miner'] = self.current_miner.Miner_ID
-        #newblock, mine_success = self.current_miner.Mining()
-        self.current_miner.input = round
-        adm_newblock, mine_success = self.current_miner.consensus.mining_consensus(\
-            self.Adverchain,self.current_miner.Miner_ID,True,self.atlog['input'],self.current_miner.q)
+        adm_newblock, mine_success = self.Adverminer.consensus.mining_consensus(self.current_miner.Miner_ID,
+                                                                                True,self.atlog['input'])
         attack_mine = False
         if adm_newblock:
             self.atlog['block_content'] = adm_newblock.content
@@ -153,7 +153,7 @@ class default_attack_mode(metaclass = ABCMeta):
             self.Adverchain.lastblock = adm_newblock
             self.global_chain.add_block_copy(adm_newblock) # 作为历史可能分叉的一部添加到全局链中
             for temp_miner in self.adversary:
-                temp_miner.receive_tape.append(adm_newblock)
+                temp_miner.consensus.receive_tape.append(adm_newblock)
                 # 将新挖出的区块放在攻击者的receive_tape
         # return (newblock, mine_success)  # 返回挖出的区块，
         self.atlog['atk_mine'] = attack_mine
@@ -175,7 +175,7 @@ class default_attack_mode(metaclass = ABCMeta):
     def mine_ID_miner(self, Miner_ID: int):
         # 所有功能与mine_randmon_miner一致 不赘述
         self.current_miner = self.adversary[Miner_ID] # 根据ID指定选取当前攻击者
-        newblock, mine_success = self.current_miner.mining()
+        newblock, mine_success = self.current_miner.mining(self.atlog['input'])
         attack_mine = False
         if mine_success:
             attack_mine = True
@@ -183,7 +183,7 @@ class default_attack_mode(metaclass = ABCMeta):
                 #temp_miner.maxvalid() 
                 # 虽然想直接使用maxvalid部分 但是从逻辑上来说adversary之间利益是一致的 他们可以直接通信所以应该直接addchain
                 # 循环遍历了所有的adversary 保证所有人都更新了区块
-                temp_miner.Blockchain.add_block_copy(newblock)
+                temp_miner.consensus.Blockchain.add_block_copy(newblock)
                 # 另外特别提醒：AddChain部分本身使用了copy功能（且仅是对块的深拷贝） 此外attack模块最好不要再使用copy功能
                 self.global_chain.add_block_copy(newblock) # 作为历史可能分叉的一部添加到全局链中
                 self.Adverchain.add_block_copy(newblock)
@@ -210,7 +210,7 @@ class default_attack_mode(metaclass = ABCMeta):
         self.Adverchain.add_block_copy(self.base_chain.lastblock)
         # 首先将attack内的adverchain更新为attack可以接收到的最新的链
         for temp_miner in self.adversary:
-            temp_miner.Blockchain.add_block_copy(self.base_chain.lastblock)
+            temp_miner.consensus.Blockchain.add_block_copy(self.base_chain.lastblock)
             # 更新所有攻击者的链
         
 
@@ -305,7 +305,16 @@ class default_attack_mode(metaclass = ABCMeta):
         pass
 
 
-
+class AdverMiner():
+    '''代表整个攻击者集团的虚拟矿工对象，以Adverchain作为本地链，与全体攻击者共享共识参数'''
+    ADVERMINER_ID = -1 # Miner_ID默认为ADVERMINER_ID
+    def __init__(self, **consensus_params):
+        '''重写初始化函数，仅按需初始化Miner_ID、isAdversary以及共识对象'''
+        self.Miner_ID = AdverMiner.ADVERMINER_ID #矿工ID
+        self.isAdversary = True
+        #共识相关
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())(AdverMiner.ADVERMINER_ID)
+        self.consensus.setparam(**consensus_params) # 设置共识参数
 
 
             
