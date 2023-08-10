@@ -17,7 +17,7 @@ def get_time(f):
 @get_time
 def run(Z, total_round, max_height, process_bar_type):
     Z.exec(total_round, max_height, process_bar_type)
-    return Z.view()
+    return Z.view_and_write()
 
 def main(**args):
     '''主程序'''

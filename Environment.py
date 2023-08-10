@@ -265,9 +265,6 @@ class Environment(object):
     def view(self) -> dict:
         # 展示一些仿真结果
         print('\n')
-        self.global_chain.printchain2txt()
-        for miner in self.miners:
-            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
         print("Global Tree Structure:", "")
         self.global_chain.ShowStructure1()
         print("End of Global Tree", "")
@@ -311,23 +308,6 @@ class Environment(object):
             if type(v) is float:
                 stats.update({k:round(v,8)})
 
-        # save the results in the evaluation results.txt
-        RESULT_PATH = global_var.get_result_path()
-        with open(RESULT_PATH / 'evaluation results.txt', 'a+',  encoding='utf-8') as f:
-            blocks_round = ['block_throughput_main', 'block_throughput_total']
-            MB_round = ['throughput_main_MB', 'throughput_total_MB']
-            rounds_block = ['average_block_time_main', 'average_block_time_total']
-
-            for k,v in stats.items():
-                if k in blocks_round:
-                    print(f'{k}: {v} blocks/round', file=f)
-                elif k in MB_round:
-                    print(f'{k}: {v} MB/round', file=f)
-                elif k in rounds_block:
-                    print(f'{k}: {v} rounds/block', file=f)
-                else:
-                    print(f'{k}: {v}', file=f)
-
         # show the results in the terminal
         # Chain Growth Property
         print('Chain Growth Property:')
@@ -360,6 +340,31 @@ class Environment(object):
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)
 
+        return stats
+
+    def view_and_write(self):
+        stats = self.view()
+        self.global_chain.printchain2txt()
+        for miner in self.miners:
+            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
+
+        # save the results in the evaluation results.txt
+        RESULT_PATH = global_var.get_result_path()
+        with open(RESULT_PATH / 'evaluation results.txt', 'a+',  encoding='utf-8') as f:
+            blocks_round = ['block_throughput_main', 'block_throughput_total']
+            MB_round = ['throughput_main_MB', 'throughput_total_MB']
+            rounds_block = ['average_block_time_main', 'average_block_time_total']
+
+            for k,v in stats.items():
+                if k in blocks_round:
+                    print(f'{k}: {v} blocks/round', file=f)
+                elif k in MB_round:
+                    print(f'{k}: {v} MB/round', file=f)
+                elif k in rounds_block:
+                    print(f'{k}: {v} rounds/block', file=f)
+                else:
+                    print(f'{k}: {v}', file=f)
+        
         # show or save figures
         #self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
