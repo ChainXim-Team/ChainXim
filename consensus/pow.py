@@ -21,20 +21,25 @@ class PoW(Consensus):
         def calculate_blockhash(self):
             return hashH([self.miner, self.nonce, hashG([self.prehash, self.content])])
 
-    def __init__(self,miner_id):
+    def __init__(self,miner_id,consensus_params:dict):
         super().__init__(miner_id=miner_id)
-        #self.target=global_var.get_PoW_target()
-        # 严格来说target不应该出现在这里，因为这是跟共识有关的参数
-        self.target = '0'
-        self.q = 1
         self.ctr=0 #计数器
+        self.target = consensus_params['target']
+        if consensus_params['q_distr'] == 'equal':
+            self.q = consensus_params['q_ave']
+        else:
+            q_distr = eval(consensus_params['q_distr'])
+            if isinstance(q_distr,list):
+                self.q = q_distr[miner_id]
+            else:
+                raise ValueError("q_distr should be a list or the string 'equal'")
 
     def setparam(self,**consensus_params):
         '''
         设置pow参数,主要是target
         '''
-        self.target = consensus_params['target']
-        self.q = consensus_params['q']
+        self.target = consensus_params.get('target') or self.target
+        self.q = consensus_params.get('q') or self.q
 
     def mining_consensus(self,Miner_ID,isadversary,x):
         '''计算PoW\n
@@ -65,7 +70,7 @@ class PoW(Consensus):
             if int(currenthash,16)<int(self.target,16):
                 pow_success = True
                 blockhead = PoW.BlockHead(b_last,time.time_ns(),x,Miner_ID,self.target,self.ctr)
-                blocknew = PoW.Block(blockhead,b_last,isadversary)
+                blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
                 self.ctr = 0
                 return (blocknew, pow_success)
             else:

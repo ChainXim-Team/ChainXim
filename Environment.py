@@ -29,18 +29,16 @@ def get_time(f):
 
 class Environment(object):
 
-    def __init__(self,  t:int = None, q_ave:int = None, q_distr:str = None, 
-            target:str = None, adversary_ids:tuple = None, network_param:dict = None, 
-            genesis_blockheadextra:dict = None, genesis_blockextra:dict = None):
+    def __init__(self,  t:int = None, adversary_ids:tuple = None,
+                 consensus_param:dict = None, network_param:dict = None, 
+                 genesis_blockheadextra:dict = None, genesis_blockextra:dict = None):
         '''initiate the running environment
 
         Param
         -----
         t: maximum number of miners(int)
-        q_ave: the average number of hash trials in a round(int)
-        q_distr: 'equal'or 'rand' (str)
-        target: the PoW target (str)
         adversary_ids: The IDs of adverary members (tuple)
+        consensus_param: consensus parameters (dict)
         network_param: network parameters (dict)
         genesis_blockheadextra: initialize variables in the head of genesis block (dict)
         genesis_blockextra: initialize variables in the genesis block (dict)
@@ -48,8 +46,6 @@ class Environment(object):
         '''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
-        self.q_ave = q_ave  # number of hash trials in a round
-        self.target = target
         self.total_round = 0
         # configure extra genesis block info
         consensus_type = for_name(global_var.get_consensus_type())
@@ -57,13 +53,8 @@ class Environment(object):
         consensus_type.genesis_blockextra = genesis_blockextra
         # generate miners
         self.miners:List[Miner] = []
-        if q_distr == 'rand':
-            self.create_miners_q_rand()
-        elif q_distr == 'equal':
-            self.create_miners_q_equal()
-        else:
-            self.create_miners_q_custom(q_distr)
-        # self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
+        for miner_id in range(self.miner_num):
+            self.miners.append(Miner(miner_id, consensus_param))
         self.envir_create_global_chain()
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
@@ -85,19 +76,18 @@ class Environment(object):
             self.select_adversary_random()
             adversary_ids = [adversary.Miner_ID for adversary in self.adversary_mem]
         if self.adversary_mem: # 如果有攻击者，则创建攻击实例
-            self.attack = default_attack_mode(self.q_ave, self.adversary_mem, self.global_chain, self.network)
+            self.attack = default_attack_mode(self.adversary_mem, self.global_chain, self.network)
             self.adverflag = random.randint(1,len(self.adversary_mem))
         self.attack_excute_type = global_var.get_attack_excute_type()
         
         print(
             'Parameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
-            'q_ave: ', self.q_ave, '\n', 
             'Adversary Miners: ', adversary_ids, '\n',
-            'Consensus Protocol: ', global_var.get_consensus_type(), '\n',
-            'Target: ', self.target, '\n',
-            'Network Type: ', self.network.__class__.__name__, '\n', 
-            'Network Param: ', network_param, '\n'
+            'Consensus Protocol: ', consensus_type.__name__, '\n',
+            'Network Type: ', type(self.network).__name__, '\n', 
+            'Network Param: ', network_param, '\n',
+            'Consensus Param: ', consensus_param, '\n',
         )
         ##
 
@@ -125,37 +115,6 @@ class Environment(object):
             adversary.set_adversary(False)
         self.adversary_mem=[]
     '''
-
-    def create_miners_q_equal(self):
-        for miner_id in range(self.miner_num):
-            self.miners.append(Miner(miner_id, target=self.target, q=self.q_ave))
-
-    def create_miners_q_rand(self):
-        '''
-        随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
-        且满足全网总算力为q_ave*miner_num
-        '''
-        # 生成均值为ave_q，方差为0.2*q_ave的高斯分布
-        q_dist = np.random.normal(self.q_ave, 0.2*self.q_ave, self.miner_num)
-        # 归一化到总和为total_q，并四舍五入为整数
-        total_q = self.q_ave * self.miner_num
-        q_dist = total_q / np.sum(q_dist) * q_dist
-        q_dist = np.round(q_dist).astype(int)
-        # 修正，如果和不为total_q就把差值分摊在最小值或最大值上
-        if np.sum(q_dist) != total_q:
-            diff = total_q - np.sum(q_dist)
-            for _ in range(abs(diff)):
-                sign_diff = np.sign(diff)
-                idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
-                q_dist[idx] += sign_diff
-        for miner_id, q in zip(range(self.miner_num), q_dist):
-            self.miners.append(Miner(miner_id, target=self.target, q=q))
-        return q_dist
-
-    def create_miners_q_custom(self, q_dist_str):
-        q_dist = eval(q_dist_str)  # 把字符串转成数组
-        for miner_id in range(self.miner_num):
-            self.miners.append(Miner(miner_id, q_dist[miner_id], self.target))
 
     def envir_create_global_chain(self):
         '''create global chain and its genesis block by copying local chain from the first miner.'''

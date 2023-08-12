@@ -3,6 +3,7 @@ import time
 import logging
 import global_var
 import configparser
+import numpy as np
 
 
 def get_time(f):
@@ -27,21 +28,29 @@ def main(**args):
     config.read('system_config.ini',encoding='utf-8')
     environ_settings = dict(config['EnvironmentSettings'])
     #设置全局变量
+    miner_num = args.get('miner_num') or int(environ_settings['miner_num'])
     network_type = args.get('network_type') or environ_settings['network_type']
-    q_ave = args.get('q_ave') or int(environ_settings['q_ave'])
-    target = args.get('target') or environ_settings['target']
     global_var.__init__(args.get('result_path'))
-    global_var.set_PoW_target(target)
     global_var.set_consensus_type(args.get('consensus_type') or environ_settings['consensus_type'])
     global_var.set_network_type(network_type)
-    global_var.set_miner_num(args.get('miner_num') or int(environ_settings['miner_num']))
-    global_var.set_ave_q(q_ave)
+    global_var.set_miner_num(miner_num)
     global_var.set_blocksize(args.get('blocksize') or int(environ_settings['blocksize']))
     global_var.set_show_fig(False)
 
     # 配置日志文件
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                         level=global_var.get_log_level(), filemode='w')
+
+    # 设置PoW共识协议参数
+    consensus_settings = dict(config['ConsensusSettings'])
+    target = args.get('target') or consensus_settings['target']
+    global_var.set_PoW_target(target)
+    q_ave = args.get('q_ave') or int(consensus_settings['q_ave'])
+    global_var.set_ave_q(q_ave)
+    q_distr = args.get('q_distr') or consensus_settings['q_distr']
+    if q_distr == 'rand':
+        q_distr = get_random_q_distr(miner_num,q_ave)
+    consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
 
     # 设置网络参数
     network_param = {}
@@ -85,17 +94,37 @@ def main(**args):
     t = args.get('t') if args.get('t') is not None else int(attack_setting['t'])
 
     # 生成环境
-    q_distr = args.get('q_distr') or environ_settings['q_distr']
     genesis_blockheadextra = {}
     genesis_blockextra = {}
-
     global_var.save_configuration()
-    Z = Environment(t, q_ave, q_distr, target, adversary_ids, 
-                    network_param, genesis_blockheadextra, genesis_blockextra)
+
+    Z = Environment(t, adversary_ids, consensus_param, network_param,
+                    genesis_blockheadextra, genesis_blockextra)
     
     return run(Z, args.get('total_round') or int(environ_settings['total_round']),
                args.get('total_height') or int(environ_settings.get('total_height') or 2**31 - 2),
                args.get('process_bar_type') or environ_settings.get('process_bar_type'))
+
+def get_random_q_distr(miner_num,q_ave):
+    '''
+    随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
+    且满足全网总算力为q_ave*miner_num
+    '''
+    # 生成均值为ave_q，方差为0.2*q_ave的高斯分布
+    q_dist = np.random.normal(q_ave, 0.2*q_ave, miner_num)
+    # 归一化到总和为total_q，并四舍五入为整数
+    total_q = q_ave * miner_num
+    q_dist = total_q / np.sum(q_dist) * q_dist
+    q_dist = np.round(q_dist).astype(int)
+    # 修正，如果和不为total_q就把差值分摊在最小值或最大值上
+    if np.sum(q_dist) != total_q:
+        diff = total_q - np.sum(q_dist)
+        for _ in range(abs(diff)):
+            sign_diff = np.sign(diff)
+            idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
+            q_dist[idx] += sign_diff
+    return str(list(q_dist))
+
 
 if __name__ == '__main__':
     import argparse
@@ -111,15 +140,17 @@ could be performed with attackers designed in the simulator'
     env_setting.add_argument('--total_round', help='Total rounds before simulation stops.', type=int)
     env_setting.add_argument('--total_height', help='Total block height generated before simulation stops.', type=int)
     env_setting.add_argument('--miner_num', help='The total miner number in the network.', type=int)
-    env_setting.add_argument('--q_ave', help='The average hash rate per round.',type=int)
-    env_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
-                        \'equal\': all miners have equal hash rate;\
-                        \'rand\': q satisfies gaussion distribution.',type=str)
     env_setting.add_argument('--consensus_type',help='The consensus class imported during simulation',type=str)
-    env_setting.add_argument('--difficulty', help='The number of zero prefix of valid block hash.\
-                    A metric for Proof of Work difficulty.',type=int)
     env_setting.add_argument('--network_type',help='The network class imported during simulation',type=str)
     env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=int)
+    # ConsensusSettings
+    consensus_setting = parser.add_argument_group('ConsensusSettings', 'Settings for Consensus Protocol')
+    consensus_setting.add_argument('--q_ave', help='The average number of hash trials in a round.',type=int)
+    consensus_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
+                        \'equal\': all miners have equal hash rate;\
+                        \'rand\': q satisfies gaussion distribution.',type=str)
+    consensus_setting.add_argument('--difficulty', help='The number of zero prefix of valid block hash.\
+                    A metric for Proof of Work difficulty.',type=int)
     # AttackModeSettings
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
     attack_setting.add_argument('-t',help='The total number of attackers. If t non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)

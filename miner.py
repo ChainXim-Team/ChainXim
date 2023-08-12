@@ -7,12 +7,12 @@ import global_var
 
 class Miner(object):
 
-    def __init__(self, Miner_ID, **consensus_params):
+    def __init__(self, Miner_ID, consensus_params:dict):
         self.Miner_ID = Miner_ID #矿工ID
         self.isAdversary = False
         #共识相关
-        self.consensus:Consensus = for_name(global_var.get_consensus_type())(Miner_ID)    # 共识
-        self.consensus.setparam(**consensus_params)                                # 设置共识参数
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())(Miner_ID, 
+                                                                             consensus_params)    # 共识
         #输入内容相关
         self.input_tape = []
         #网络相关

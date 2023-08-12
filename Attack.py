@@ -59,22 +59,23 @@ class Attack(metaclass=ABCMeta):
     
 class default_attack_mode(metaclass = ABCMeta):
 
-    def __init__(self, q_ave, adversary_miner: list[Miner], global_chain: Chain, Environment_network: network):
+    def __init__(self, adversary_miner: list[Miner], global_chain: Chain, Environment_network: network):
         self.adversary: list[Miner] = adversary_miner # 使用list[Miner]为这个list及其元素定义类型
         self.current_miner = self.adversary[0] # 初始当前矿工代表
-        self.q_ave = q_ave
         self.global_chain: Chain = global_chain
         self.Adverchain = copy.deepcopy(self.global_chain) # 攻击链 攻击者攻击手段挖出的块都暂时先加到这条链上
         self.base_chain = copy.deepcopy(self.global_chain) # 基准链 攻击者参考的链, 始终是以adversary视角出发的最新的链
         self.network: network = Environment_network
         self.adversary_miner_num = len(self.adversary) # 获取攻击者的数量
-        self.q_adver = self.q_ave * self.adversary_miner_num # 计算攻击者全算力
+        self.q_adver = sum([attacker.consensus.q for attacker in self.adversary]) # 计算攻击者总算力
         self.last_brd_block = None
         for temp_miner in self.adversary:
             # 重新设置adversary的 q 和 blockchian，原因在 mine_randmon_miner 部分详细解释了
             temp_miner.consensus.q = self.q_adver
             temp_miner.consensus.Blockchain.add_block_copy(self.Adverchain.lastblock)
-        self.Adverminer = AdverMiner(q=self.q_adver,target=self.adversary[0].consensus.target) 
+        adver_consensus_param = {'q_ave': self.q_adver, 'q_distr':'equal', 
+                                 'target': temp_miner.consensus.target}
+        self.Adverminer = AdverMiner(adver_consensus_param)
         self.Adverminer.consensus.Blockchain = self.Adverchain
         self.atlog={
             'chain_update': None,
@@ -308,14 +309,13 @@ class default_attack_mode(metaclass = ABCMeta):
 class AdverMiner():
     '''代表整个攻击者集团的虚拟矿工对象，以Adverchain作为本地链，与全体攻击者共享共识参数'''
     ADVERMINER_ID = -1 # Miner_ID默认为ADVERMINER_ID
-    def __init__(self, **consensus_params):
+    def __init__(self, consensus_params):
         '''重写初始化函数，仅按需初始化Miner_ID、isAdversary以及共识对象'''
         self.Miner_ID = AdverMiner.ADVERMINER_ID #矿工ID
         self.isAdversary = True
         #共识相关
-        self.consensus:Consensus = for_name(global_var.get_consensus_type())(AdverMiner.ADVERMINER_ID)
-        self.consensus.setparam(**consensus_params) # 设置共识参数
-
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())(AdverMiner.ADVERMINER_ID,
+                                                                             consensus_params)
 
             
              
