@@ -86,11 +86,12 @@ def main(**args):
 
     # 生成环境
     q_distr = args.get('q_distr') or environ_settings['q_distr']
+    genesis_blockheadextra = {}
     genesis_blockextra = {}
 
     global_var.save_configuration()
     Z = Environment(t, q_ave, q_distr, target, adversary_ids, 
-                            network_param, genesis_blockextra)
+                    network_param, genesis_blockheadextra, genesis_blockextra)
     
     return run(Z, args.get('total_round') or int(environ_settings['total_round']),
                args.get('total_height') or int(environ_settings.get('total_height') or 2**31 - 2),

@@ -1,16 +1,46 @@
 import random
 from abc import ABCMeta, abstractmethod
 
-from chain import Block, Chain
-from functions import hashG, hashH
+import chain
+import global_var
+from chain import Chain
 
 class Consensus(metaclass=ABCMeta):        #抽象类
+    genesis_blockheadextra = {}
+    genesis_blockextra = {}
+
+    class BlockHead(chain.BlockHead):
+        '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
+        def __init__(self, preblock:chain.Block=None, timestamp=0, content=0, miner_id=-1):
+            '''此处的默认值为创世区块中的值'''
+            prehash = preblock.calculate_blockhash() if preblock else 0
+            super().__init__(prehash, timestamp, content, miner_id)
+
+    class Block(chain.Block):
+        '''与chain.Block功能相同但是重写初始化方法'''
+        def __init__(self, blockhead: chain.BlockHead, preblock: chain.Block = None,
+                     isadversary=False, blocksize_MB=2):
+            '''当preblock没有指定时默认为创世区块，高度为0'''
+            block_number = global_var.get_block_number() if preblock else 0
+            height = preblock.height+1 if preblock else 0
+            is_genesis = False if preblock else True
+            super().__init__(f"B{block_number}", blockhead, height, isadversary, is_genesis, blocksize_MB)
+
+    def create_genesis_block(self, chain:Chain, blockheadextra:dict = None, blockextra:dict = None):
+        '''为指定链生成创世区块'''
+        chain.head = self.Block(self.BlockHead())
+        chain.lastblock = chain.head
+        for k,v in blockheadextra or {}:
+            setattr(chain.head.blockhead,k,v)
+        for k,v in blockextra or {}:
+            setattr(chain.head,k,v)
 
     def __init__(self,miner_id):
         self.Blockchain = Chain(miner_id)   # 维护的区块链
+        self.create_genesis_block(self.Blockchain,self.genesis_blockheadextra,self.genesis_blockextra)
         self.receive_tape = [] #接收链相关
 
-    def is_in_local_chain(self,block:Block):
+    def is_in_local_chain(self,block:chain.Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''

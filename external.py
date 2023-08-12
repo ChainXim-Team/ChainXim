@@ -41,7 +41,7 @@ def R(blockchain:Chain):
             if block is None:
                 print("block is None!")
                 return
-            xc.append(block.content)
+            xc.append(block.blockhead.content)
             for i in block.next:
                 q.append(i)
     return xc
@@ -127,17 +127,14 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             #print("is_adversary_block:",block.blockhead.is_adversary_block,file=f)
             print("isAdversaryBlock:",block.isAdversaryBlock,'\n'
             "prehash:",block.blockhead.prehash,'\n'
-            "blockhash:",block.blockhead.blockhash,'\n'
+            "blockhash:",block.blockhash,'\n'
             "target:",block.blockhead.target,'\n'
             "nonce:",block.blockhead.nonce,'\n'
-            "height:",block.blockhead.height,'\n'
+            "height:",block.height,'\n'
             "Miner:",block.blockhead.miner,'\n'
             "timestamp:",block.blockhead.timestamp,'\n'
-            "content:",block.content,'\n',
+            "content:",block.blockhead.content,'\n',
             "blocksize",block.blocksize_MB,'byte','\n',file=f)
-            if not block.blockextra:
-                for k,v in block.blockextra:
-                    print(f'{k}:',v,'\n',file=f)
             for i in block.next:
                 q.append(i)
         

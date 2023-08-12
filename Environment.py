@@ -1,5 +1,6 @@
 import time
 import math
+import copy
 import random
 from typing import List
 
@@ -30,7 +31,7 @@ class Environment(object):
 
     def __init__(self,  t:int = None, q_ave:int = None, q_distr:str = None, 
             target:str = None, adversary_ids:tuple = None, network_param:dict = None, 
-            genesis_blockextra:dict = None):
+            genesis_blockheadextra:dict = None, genesis_blockextra:dict = None):
         '''initiate the running environment
 
         Param
@@ -41,16 +42,19 @@ class Environment(object):
         target: the PoW target (str)
         adversary_ids: The IDs of adverary members (tuple)
         network_param: network parameters (dict)
-        genesis_blockextra: the blockextra field in the genesis block (dict)
+        genesis_blockheadextra: initialize variables in the head of genesis block (dict)
+        genesis_blockextra: initialize variables in the genesis block (dict)
         
         '''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
         self.q_ave = q_ave  # number of hash trials in a round
-        self.q_distr = [] #
         self.target = target
         self.total_round = 0
-        self.global_chain = Chain()  # a global tree-like data structure
+        # configure extra genesis block info
+        consensus_type = for_name(global_var.get_consensus_type())
+        consensus_type.genesis_blockheadextra = genesis_blockheadextra
+        consensus_type.genesis_blockextra = genesis_blockextra
         # generate miners
         self.miners:List[Miner] = []
         if q_distr == 'rand':
@@ -60,8 +64,7 @@ class Environment(object):
         else:
             self.create_miners_q_custom(q_distr)
         # self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
-        print(genesis_blockextra)
-        self.envir_create_genesis_block(genesis_blockextra)
+        self.envir_create_global_chain()
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         self.network.set_net_param(**network_param)
@@ -154,11 +157,11 @@ class Environment(object):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, q_dist[miner_id], self.target))
 
-    def envir_create_genesis_block(self, blockextra):
-        '''create genesis block for all the miners in the system.'''
-        self.global_chain.create_genesis_block(**blockextra)
-        for miner in self.miners:
-            miner.consensus.Blockchain.create_genesis_block(**blockextra)
+    def envir_create_global_chain(self):
+        '''create global chain and its genesis block by copying local chain from the first miner.'''
+        self.global_chain = Chain()
+        self.global_chain.head = copy.deepcopy(self.miners[0].consensus.Blockchain.head)
+        self.global_chain.lastblock = self.global_chain.head
 
     def attack_excute(self,round):
         if self.attack_excute_type == 'excute_sample0':
@@ -235,9 +238,9 @@ class Environment(object):
         for i in range(1, self.miner_num):
             if not self.miners[i].isAdversary:
                 cp = common_prefix(cp, self.miners[i].consensus.Blockchain)
-        len_cp = cp.blockhead.height
+        len_cp = cp.height
         for i in range(0, self.miner_num):
-            len_suffix = self.miners[0].consensus.Blockchain.lastblock.blockhead.height - len_cp
+            len_suffix = self.miners[0].consensus.Blockchain.lastblock.height - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
     def assess_common_prefix_k(self):

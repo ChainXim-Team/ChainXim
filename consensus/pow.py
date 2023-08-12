@@ -2,12 +2,24 @@ import time
 from typing import List, Tuple
 import global_var
 
-from functions import hashsha256
-from chain import BlockHead, Block, Chain
+import chain
+from functions import hashsha256, hashH, hashG
 from .consensus_abc import Consensus
 
 
 class PoW(Consensus):
+
+    class BlockHead(Consensus.BlockHead):
+        '''适用于PoW共识协议的区块头'''
+        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,
+                     target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+                     nonce = 0):
+            super().__init__(preblock, timestamp, content, miner_id)
+            self.target = target  # 难度目标
+            self.nonce = nonce  # 随机数
+
+        def calculate_blockhash(self):
+            return hashH([self.miner, self.nonce, hashG([self.prehash, self.content])])
 
     def __init__(self,miner_id):
         super().__init__(miner_id=miner_id)
@@ -41,7 +53,7 @@ class PoW(Consensus):
             height = 0
         else:
             b_last = self.Blockchain.last_block()#链中最后一个块
-            height = b_last.blockhead.height
+            height = b_last.height
             prehash = b_last.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
@@ -51,10 +63,9 @@ class PoW(Consensus):
             #     self._ctr=0
             currenthash=hashsha256([Miner_ID,self.ctr,currenthashtmp])#计算哈希
             if int(currenthash,16)<int(self.target,16):
-                pow_success = True              
-                blocknew=Block(''.join(['B',str(global_var.get_block_number())]),
-                               BlockHead(prehash,currenthash,time.time_ns(),self.target,self.ctr,height+1,Miner_ID),
-                               x,isadversary,False,global_var.get_blocksize())
+                pow_success = True
+                blockhead = PoW.BlockHead(b_last,time.time_ns(),x,Miner_ID,self.target,self.ctr)
+                blocknew = PoW.Block(blockhead,b_last,isadversary)
                 self.ctr = 0
                 return (blocknew, pow_success)
             else:
@@ -82,7 +93,7 @@ class PoW(Consensus):
                 print('error')  # 验证失败没必要脱出错误
         return self.Blockchain, new_update
 
-    def valid_partial(self, lastblock: Block) -> Tuple[List[Block], Block]:
+    def valid_partial(self, lastblock: Consensus.Block) -> Tuple[List[Consensus.Block], Consensus.Block]:
         '''验证某条链上不在本地链中的区块
         param:
             lastblock 要验证的链的最后一个区块 type:Block
@@ -111,7 +122,7 @@ class PoW(Consensus):
         else:
             return (None, None)
 
-    def valid_chain(self, lastblock: Block):
+    def valid_chain(self, lastblock: Consensus.Block):
         '''验证区块链是否PoW合法\n
         param:
             lastblock 要验证的区块链的最后一个区块 type:Block
@@ -134,7 +145,7 @@ class PoW(Consensus):
                     chain_vali = False
         return chain_vali
 
-    def valid_block(self,block:Block):
+    def valid_block(self,block:Consensus.Block):
         '''
         验证单个区块是否PoW合法\n
         param:
@@ -142,12 +153,10 @@ class PoW(Consensus):
         return:
             block_vali 合法标识 type:bool
         '''
-        block_vali = False
         btemp = block
         target = btemp.blockhead.target
         hash = btemp.calculate_blockhash()
         if int(hash, 16) >= int(target, 16):
-            return block_vali
+            return False
         else:
-            block_vali = True
-            return block_vali
+            return True

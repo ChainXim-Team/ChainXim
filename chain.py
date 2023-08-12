@@ -1,5 +1,6 @@
 import copy
 from typing import List
+from abc import ABCMeta, abstractmethod
 
 import graphviz
 import matplotlib.pyplot as plt
@@ -8,59 +9,42 @@ import global_var
 from functions import hashG, hashH
 
 
-class BlockHead(object):
-
-    def __init__(self, prehash=None, blockhash=None, timestamp=None, target=None, 
-                 nonce=None, height=None, Miner=None):
+class BlockHead(metaclass=ABCMeta):
+    __omit_keys = {}
+    def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
         self.prehash = prehash  # 前一个区块的hash
         self.timestamp = timestamp  # 时间戳
-        self.target = target  # 难度目标
-        self.nonce = nonce  # 随机数
-        self.height = height  # 高度
-        self.blockhash = blockhash  # 区块哈希
+        self.content = content
         self.miner = Miner  # 矿工
-        self.blockheadextra = {}  # 其他共识协议需要用的，使用字典添加
-        # 这里有个问题, blockhash靠blockhead自身是算不出来的
-        # 块头里面应该包含content的哈希?(其实无所谓)
     
+    @abstractmethod
+    def calculate_blockhash(self):
+        '''
+        计算区块的hash
+        return:
+            hash type:str
+        '''
+        return hashH([self.miner, hashG([self.prehash, self.content])])
+
     def __repr__(self) -> str:
         bhlist = []
-        omit_keys = {'blockheadextra'}
         for k, v in self.__dict__.items():
-            if k not in omit_keys:
+            if k not in self.__omit_keys:
                 bhlist.append(k + ': ' + str(v))
         return '\n'.join(bhlist)
-
-    # def printblockhead(self):
-    #     print("prehash:", self.prehash)
-    #     print("blockhash:", self.blockhash)
-    #     print("target:", self.target)
-    #     print("nouce:", self.nonce)
-    #     print("height:", self.height)
-    #     print("Miner:", self.miner)
-    #     print("timestamp:", self.timestamp)
-
-    # def readlist(self):
-    #     return [self.prehash, self.timestamp, self.target, 
-    #               self.nonce, self.height, self.blockhash, self.miner]
-
-    # def readstr(self):
-    #     s = self.readlist()
-    #     data = ''.join([str(x) for x in s])
-    #     return data
 
 
 class Block(object):
 
-    def __init__(self, name=None, blockhead: BlockHead = None, content=None, 
+    def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
         self.name = name
         self.blockhead = blockhead
+        self.height = height
+        self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
-        self.content = content
         self.next = []  # 子块列表
         self.last = None  # 母块
-        self.blockextra = {}  # 其他共识协议需要用的，使用字典添加
         self.isGenesis = isgenesis
         self.blocksize_MB = blocksize_MB
         # self.blocksize_byte = int(random.uniform(0.5, 2))  
@@ -80,9 +64,9 @@ class Block(object):
             if cls.__name__ != 'Block':
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
-    
+
+    __omit_keys = {}
     def __repr__(self) -> str:
-        omit_keys = {}
 
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
@@ -97,26 +81,16 @@ class Block(object):
         bdict = copy.deepcopy(self.__dict__)
         bdict.update({'next': [b.name for b in self.next if self.next], 
                       'last': self.last.name if self.last is not None else None})
-        for omk in omit_keys:
+        for omk in self.__omit_keys:
             del bdict[omk]
         return '\n'+ _formatter(bdict)
         
     def calculate_blockhash(self):
-        '''
-        计算区块的hash
-        return:
-            hash type:str
-        '''
-        content = self.content
-        prehash = self.blockhead.prehash
-        nonce = self.blockhead.nonce
-        # target = self.blockhead.target
-        minerid = self.blockhead.miner
-        hash = hashH([minerid, nonce, hashG([prehash, content])])  # 计算哈希
-        return hash
+        self.blockhash = self.blockhead.calculate_blockhash()
+        return self.blockhash
 
     def BlockHeight(self):
-        return self.blockhead.height
+        return self.height
 
 
 class Chain(object):
@@ -132,7 +106,7 @@ class Chain(object):
         q = [self.head]
         while q:
             blocktmp = q.pop(0)
-            if block.blockhead.blockhash == blocktmp.blockhead.blockhash:
+            if block.blockhash == blocktmp.blockhash:
                 return True
             for i in blocktmp.next:
                 q.append(i)
@@ -170,37 +144,18 @@ class Chain(object):
             q.pop(0)
             q_o.pop(0)
         return copy_chain
-    
-    def create_genesis_block(self, **blockextra):
-        prehash = 0
-        time = 0
-        target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
-        nonce = 0
-        height = 0
-        Miner_ID = -1  # 创世区块不由任何一个矿工创建
-        input = 0
-        currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
-        self.head = Block('B0', 
-                BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID),
-                input, False, True)
-        self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
-        if blockextra:
-            self.head.blockextra.update(blockextra)
-        self.lastblock = self.head
 
-        
-    
     def search(self, block: Block, searchdepth=500):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
         if not self.head or not block:
             return None
         searchroot = self.lastblock
-        if block.blockhead.height < searchroot.blockhead.height - searchdepth:
+        if block.height < searchroot.height - searchdepth:
             return None  # 如果搜索的块高度太低 直接不搜了
         i = 0
         while searchroot and searchroot.last and i <= searchdepth:
-            if block.blockhead.blockhash == searchroot.blockhead.blockhash:
+            if block.blockhash == searchroot.blockhash:
                 return searchroot
             else:
                 searchroot = searchroot.last
@@ -208,7 +163,7 @@ class Chain(object):
         q = [searchroot]
         while q:
             blocktmp = q.pop(0)
-            if block.blockhead.blockhash == blocktmp.blockhead.blockhash:
+            if block.blockhash == blocktmp.blockhash:
                 return blocktmp
             for i in blocktmp.next:
                 q.append(i)
@@ -222,7 +177,7 @@ class Chain(object):
         blocktmp = self.lastblock
         i = 0
         while blocktmp and i <= searchdepth:
-            if block.blockhead.blockhash == blocktmp.blockhead.blockhash:
+            if block.blockhash == blocktmp.blockhash:
                 return blocktmp
             blocktmp = blocktmp.last
             i = i + 1
@@ -414,9 +369,9 @@ class Chain(object):
         fork_list = []
         while blocktmp:
             if blocktmp.isGenesis is False:
-                rd2 = blocktmp.content + blocktmp.blockhead.miner / miner_num
-                rd1 = blocktmp.last.content + blocktmp.last.blockhead.miner / miner_num
-                ht2 = blocktmp.blockhead.height
+                rd2 = blocktmp.blockhead.content + blocktmp.blockhead.miner / miner_num
+                rd1 = blocktmp.last.blockhead.content + blocktmp.last.blockhead.miner / miner_num
+                ht2 = blocktmp.height
                 ht1 = ht2 - 1
                 if blocktmp.isAdversaryBlock:
                     plt.scatter(rd2, ht2, color='r', marker='o')
@@ -480,7 +435,7 @@ class Chain(object):
         blocktmp2 = self.lastblock
         while not blocktmp2.isGenesis:
             blocktmp1 = blocktmp2.last
-            stat.append(blocktmp2.content - blocktmp1.content)
+            stat.append(blocktmp2.blockhead.content - blocktmp1.blockhead.content)
             blocktmp2 = blocktmp1
         plt.hist(stat, bins=10, histtype='bar', range=(0, max(stat)))
         plt.xlabel('Rounds')
@@ -556,8 +511,8 @@ class Chain(object):
         while q:
             stats["num_of_generated_blocks"] = stats["num_of_generated_blocks"] + 1
             blocktmp = q.pop(0)
-            if blocktmp.blockhead.height > stats["num_of_valid_blocks"]:
-                stats["num_of_valid_blocks"] = blocktmp.blockhead.height
+            if blocktmp.height > stats["num_of_valid_blocks"]:
+                stats["num_of_valid_blocks"] = blocktmp.height
             nextlist = blocktmp.next
             q.extend(nextlist)
 

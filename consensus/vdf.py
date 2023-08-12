@@ -64,7 +64,7 @@ class VDF(Consensus):
         '''
         bctemp = self.Blockchain
         b_last = bctemp.last_block()#链中最后一个块
-        height = b_last.blockhead.height
+        height = b_last.height
         prehashtmp = b_last.calculate_blockhash()
         # 每轮mine q次前都要看看现在最新的块是不是自己正在挖的
         if prehashtmp != self.blockmining_prehash:
@@ -186,7 +186,7 @@ class VDF(Consensus):
         
         Miner = block.blockhead.miner
         
-        content = block.content
+        content = block.blockhead.content
         prehash = block.blockhead.prehash
         y_i = block.blockhead.blockheadextra['y_i']
         pi_i = block.blockhead.blockheadextra['pi_i']

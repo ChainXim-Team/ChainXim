@@ -147,7 +147,7 @@ class default_attack_mode(metaclass = ABCMeta):
                                                                                 True,self.atlog['input'])
         attack_mine = False
         if adm_newblock:
-            self.atlog['block_content'] = adm_newblock.content
+            self.atlog['block_content'] = adm_newblock.blockhead.content
             attack_mine = True
             self.Adverchain.add_block_direct(adm_newblock)  # 自己挖出来的块直接用AddBlock即可
             self.Adverchain.lastblock = adm_newblock

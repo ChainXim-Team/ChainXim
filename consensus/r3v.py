@@ -63,12 +63,12 @@ class R3V(Consensus):
             s = 0            
             self.Blockchain.lastblock.blockhead.blockheadextra.setdefault("s",s)
             lastblock = self.Blockchain.last_block()
-            height = lastblock.blockhead.height
+            height = lastblock.height
             prehash = lastblock.calculate_blockhash()
         else:
             lastblock = self.Blockchain.last_block()
             s = lastblock.blockhead.blockheadextra["s"]
-            height = lastblock.blockhead.height
+            height = lastblock.height
             prehash = lastblock.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])
         inputx = hex(int(hashH([Miner_ID,s]),16)%self.group)[2:]
