@@ -34,16 +34,6 @@ def for_name(name):
     clazz = getattr(file, class_name)
  
     return clazz
-    
-def primestream(n):
-    # 质数迭代生成器，n为给定范围
-    lst = [True]*(n+1)
-    for i in range(2,n+1):
-        if lst[i]:
-            yield i
-            for j in range(i, n//i+1):
-                lst[i*j] = False
-
 
 def targetG(p_per_round,miner_num,group,q):
     '''
@@ -69,13 +59,3 @@ def target_adjust(difficulty):
     target = '0' * leading_zeros_num + 'F' * (64 - leading_zeros_num)  # 在前导零之前插入0字符
     return target
 
- 
-# global_var._init()
-# #global_var.set_consensus_type("dbprt")
-# print(global_var.get_consensus_type())
-# # Test = for_name("testforname.Test")
-# # print(Test)
-# tt = for_name("testforname.Test")("dede",  18)
-# tt =testforname.Test("dede",  18)
-# print(tt.get_name())
-# print(tt.get_age())

@@ -4,7 +4,7 @@
 from pathlib import Path
 import time
 import logging
-# MINER_NUM = 10
+
 def __init__(result_path:Path = None): 
     current_time = time.strftime("%Y%m%d-%H%M%S")
     RESULT_PATH=result_path or Path.cwd() / 'Results' / current_time
@@ -27,7 +27,6 @@ def __init__(result_path:Path = None):
     _var_dict['RESULT_PATH'] = RESULT_PATH
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
     _var_dict['CHAIN_DATA_PATH'] = CHAIN_DATA_PATH
-    _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
@@ -89,9 +88,6 @@ def set_network_type(network_type):
 def get_network_type():
     '''获得网络类型'''
     return _var_dict['NETWORK_TYPE']
-
-def activate_attacktion():
-    _var_dict['Attack'] = True
 
 def set_blocksize(blocksize):
     _var_dict['Blocksize'] = blocksize

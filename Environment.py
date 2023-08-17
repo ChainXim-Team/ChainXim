@@ -13,19 +13,8 @@ from chain import Chain,Block
 from miner import Miner
 from Attack import default_attack_mode
 from functions import for_name
-from external import common_prefix, chain_quality, chain_growth, printchain2txt
+from external import common_prefix, chain_quality, chain_growth
 
-
-
-def get_time(f):
-
-    def inner(*arg,**kwarg):
-        s_time = time.time()
-        res = f(*arg,**kwarg)
-        e_time = time.time()
-        print('耗时：{}秒'.format(e_time - s_time))
-        return res
-    return inner
 
 class Environment(object):
 
@@ -60,7 +49,6 @@ class Environment(object):
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         self.network.set_net_param(**network_param)
         # evaluation
-        self.selfblock = []
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
@@ -129,7 +117,6 @@ class Environment(object):
             self.attack.excute_sample1(round)
 
         
-    #@get_time
     def exec(self, num_rounds, max_height, process_bar_type):
 
         '''
@@ -338,12 +325,6 @@ class Environment(object):
             self.network.gen_routing_gragh_from_json()
 
         return stats
-
-    def showselfblock(self):
-        print("")
-        print("Adversary的块：")
-        for block in self.selfblock:
-            print(block.name)
 
     def process_bar(self,process,total,t_0,unit='round/s'):
         bar_len = 50

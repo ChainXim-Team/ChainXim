@@ -533,40 +533,4 @@ class Chain(object):
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats
-    
-if __name__ == "__main__":
-    def print_kargs(k1,k2,**kargs):
-        print(k1,k2)
-        k1.update({'value':1})
-        k2.update({'value':1})
-        print(kargs)
-        if kargs:
-            k1.update(copy.deepcopy(kargs))
-            k2.update(kargs)
-        print(k1,k2)
-        # print(kl)
-        # print(1)
-        # for k,v in kl.items():
-        #     print(f'{k}:{v}')
-        # print(2)
-        # for k,v in klv.items():
-        #     print(f'{k}:{v}')
-    
-    k1 = {}
-    k2 = {}
-
-    k = {"nname":"B0",
-         "blcao":101,
-         "block":{
-            "b": "cccc",
-            "a": 1111
-         }
-         }
-    print_kargs(k1,k2)
-    print(k1,k2)
-    k.popitem()
-    print(k)
-    print(k1,k2)
-
-
 

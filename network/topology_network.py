@@ -578,35 +578,3 @@ class TopologyNetwork(Network):
         plt.savefig(NET_RESULT_PATH / (f'routing_graph{blockname}.svg'))
         plt.close()
 
-
-if __name__ == '__main__':
-    # rn = 5
-    # mn = 23
-    # block_propagation_times = {
-    #         '10%': 0,
-    #         '20%': 0,
-    #         '30%': 0,
-    #         '40%': 0,
-    #         '50%': 0,
-    #         '60%': 0,
-    #         '70%': 0,
-    #         '80%': 0,
-    #         '90%': 0,
-    #         '100%': 0
-    #     }
-    # def is_closest_to_percentage(a, b, percentage):
-    #     return a == round(b * percentage)
-
-    # rcv_rate = -1
-    # for i in range(10):
-    #     if is_closest_to_percentage(rn, mn, 0.1*(i+1)):
-    #         rcv_rate = 0.1*(i+1)
-    #         break
-    # if rcv_rate > 0:
-    #     bpt_key = f'{int(rcv_rate * 100)}%'
-    #     block_propagation_times[bpt_key] += 1
-    
-    # print(block_propagation_times)
-    bw_mean = 4300000
-    bandwidth = np.random.normal(bw_mean,100000)
-    print(bandwidth)
