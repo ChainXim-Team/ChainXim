@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import global_var
 from functions import hashG, hashH
-
+from network import Message
 
 class BlockHead(metaclass=ABCMeta):
     __omit_keys = {}
@@ -34,7 +34,7 @@ class BlockHead(metaclass=ABCMeta):
         return '\n'.join(bhlist)
 
 
-class Block(object):
+class Block(Message):
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
@@ -46,8 +46,8 @@ class Block(object):
         self.next = []  # 子块列表
         self.last = None  # 母块
         self.isGenesis = isgenesis
-        self.blocksize_MB = blocksize_MB
-        # self.blocksize_byte = int(random.uniform(0.5, 2))  
+        super().__init__(blocksize_MB)
+        # super().__init__(int(random.uniform(0.5, 2)))
         # 单位:MB 随机 0.5~1 MB
         
     def __deepcopy__(self, memo):

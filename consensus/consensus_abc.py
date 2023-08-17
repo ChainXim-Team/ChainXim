@@ -1,9 +1,10 @@
 import random
 from abc import ABCMeta, abstractmethod
-
+from typing import Union
 import chain
 import global_var
-from chain import Chain
+from chain import Chain, Block
+from network import Message
 
 class Consensus(metaclass=ABCMeta):        #抽象类
     genesis_blockheadextra = {}
@@ -63,17 +64,24 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         else:
             return False
 
+    def receive(self, msg: Message):
+        '''接收事件处理，调用相应函数处理传入的对象'''
+        if isinstance(msg,Block):
+            return self.receive_block(msg)
+
     def consensus_process(self, Miner_ID, isadversary, x):
         '''典型共识过程：挖出新区块并添加到本地链
         return:
-            self.Blockchain.lastblock 挖出的新区块没有就返回none type:Block/None
-            mine_success 挖矿成功标识 type:Bool
+            msg_list 包含挖出的新区块的列表，无新区块则为None type:list[Block]/None
+            msg_available 如果有新的消息产生则为True type:Bool
         '''
         newblock, mine_success = self.mining_consensus(Miner_ID, isadversary, x)
         if mine_success is True:
             self.Blockchain.add_block_direct(newblock)
             self.Blockchain.lastblock = newblock
-        return newblock, mine_success # 返回挖出的区块
+            return [newblock], True # 返回挖出的区块
+        else:
+            return None, False
 
     @abstractmethod
     def setparam(self,**consensus_params):

@@ -3,14 +3,14 @@ import logging
 import math
 from miner import Miner
 from chain import Block
-from .network_abc import Network
+from .network_abc import Network, Message
 
 logger = logging.getLogger(__name__)
 
-class BlockPacketBDNet(object):
-    '''BoundedDelay网络中的区块数据包，包含路由相关信息'''
-    def __init__(self, newblock: Block, minerid: int, round: int, rcvprob_start, outnetobj):
-        self.block = newblock
+class PacketBDNet(object):
+    '''BoundedDelay网络中的数据包，包含路由相关信息'''
+    def __init__(self, payload, minerid: int, round: int, rcvprob_start, outnetobj):
+        self.payload = payload
         self.minerid = minerid
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
@@ -24,7 +24,7 @@ class BlockPacketBDNet(object):
         self.recieve_prob = rcvprob_start
 
     def update_trans_process(self, minerid, round):
-        # if a miner received the block update the trans_process
+        # if a miner received the message update the trans_process
         self.received_miners.append(minerid)
         # self.received_rounds = [round]
         self.trans_process_dict.update({
@@ -32,13 +32,13 @@ class BlockPacketBDNet(object):
         })
 
 class BoundedDelayNetwork(Network):
-    """矿工以概率接收到区块，在特定轮数前必定所有矿工都收到区块"""
+    """矿工以概率接收到消息，在特定轮数前必定所有矿工都收到消息"""
 
     def __init__(self, miners: list[Miner]):
         super().__init__()
         self.miners:list[Miner] = miners
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
-        self.network_tape:list[BlockPacketBDNet] = []
+        self.network_tape:list[PacketBDNet] = []
         self.rcvprob_start = 0.25
         self.rcvprob_inc = 0.25
         # status
@@ -74,64 +74,64 @@ class BoundedDelayNetwork(Network):
         """
         return random.uniform(0, 1) < rcvprob_th
 
-    def access_network(self, newblock:Block, minerid:int, round:int):
+    def access_network(self, new_msg: list[Message], minerid:int, round:int):
         """
-        Package the newblock and related information to network_tape.
+        Package the new message and related information to network_tape.
 
         param
         -----
-        newblock (Block) : The newly mined block 
-        minerid (int) : Miner_ID of the miner generated the block. 
+        new_msg (list) : The newly generated message 
+        minerid (int) : Miner_ID of the miner generated the message. 
         round (int) : Current round. 
 
         """
-        if not self.miners[minerid].isAdversary:
-            block_packet = BlockPacketBDNet(newblock, minerid, round, 
-                                        self.rcvprob_start, self)
-            self.network_tape.append(block_packet)
-    
-        # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
-        if self.miners[minerid].isAdversary:
-            block_packet = BlockPacketBDNet(newblock, minerid, round, 
-                                        self.rcvprob_start, self)
-            for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
-                block_packet.update_trans_process(miner.Miner_ID, round)
-                miner.consensus.receive_block(newblock)
-            self.network_tape.append(block_packet)
+        for msg in new_msg:
+            if not self.miners[minerid].isAdversary:
+                packet = PacketBDNet(msg, minerid, round, 
+                                            self.rcvprob_start, self)
+                self.network_tape.append(packet)
+            else:
+            # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
+                packet = PacketBDNet(msg, minerid, round, 
+                                            self.rcvprob_start, self)
+                for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
+                    packet.update_trans_process(miner.Miner_ID, round)
+                    miner.receive(msg)
+                self.network_tape.append(packet)
 
 
     def diffuse(self, round):
-        """Diffuse algorism for boundeddelay network"""
+        """Diffuse algorithm for boundeddelay network"""
         # recieve_prob=0.7#设置接收概率，目前所有矿工概率一致
         # 随着轮数的增加，收到的概率越高，无限轮
         # 超过某轮后所有人收到
-        # 一个人收到之后就不会再次收到这个块了
+        # 一个人收到之后就不会再次收到这个数据包了
         if len(self.network_tape) > 0:
             died_packets = []
-            for i, bp in enumerate(self.network_tape):
+            for i, packet in enumerate(self.network_tape):
                 not_rcv_miners = [m for m in self.miners \
-                                if m.Miner_ID not in bp.received_miners]
+                                if m.Miner_ID not in packet.received_miners]
                 # 不会重复传给某个矿工
                 for miner in not_rcv_miners:
-                    if self.is_recieved(bp.recieve_prob):
-                        bp.update_trans_process(miner.Miner_ID, round)
-                        miner.consensus.receive_block(bp.block)
-                        self.record_block_propagation_time(bp, round)
+                    if self.is_recieved(packet.recieve_prob):
+                        packet.update_trans_process(miner.Miner_ID, round)
+                        miner.receive(packet.payload)
+                        self.record_block_propagation_time(packet, round)
                         # 如果一个adv收到，其他adv也立即收到
                         if miner.isAdversary:
                             not_rcv_adv_miners = [m for m in self.adv_miners \
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
-                                bp.update_trans_process(miner.Miner_ID, round)
-                                adv_miner.consensus.receive_block(bp.block)
-                                self.record_block_propagation_time(bp, round)
+                                packet.update_trans_process(miner.Miner_ID, round)
+                                adv_miner.receive(packet.payload)
+                                self.record_block_propagation_time(packet, round)
                 # 更新recieve_prob
-                if bp.recieve_prob < 1:
-                    bp.recieve_prob += self.rcvprob_inc
+                if packet.recieve_prob < 1:
+                    packet.recieve_prob += self.rcvprob_inc
                 # 如果所有人都收到了，就丢弃该包
-                if len(set(bp.received_miners)) == self.MINER_NUM:  
+                if len(set(packet.received_miners)) == self.MINER_NUM:  
                     died_packets.append(i)
-                    self.save_trans_process(bp)
+                    self.save_trans_process(packet)
             # 丢弃传播完成的包，更新network_tape
             self.network_tape = [n for i, n in enumerate(self.network_tape) \
                                     if i not in died_packets]
@@ -139,10 +139,12 @@ class BoundedDelayNetwork(Network):
 
 
 
-    def record_block_propagation_time(self, block_packet: BlockPacketBDNet, r):
+    def record_block_propagation_time(self, packet: PacketBDNet, r):
         '''calculate the block propagation time'''
-        bp = block_packet
-        rn = len(set(bp.received_miners))
+        if not isinstance(packet.payload, Block):
+            return
+
+        rn = len(set(packet.received_miners))
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
@@ -155,8 +157,8 @@ class BoundedDelayNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in rcv_rates:
-            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
-            self.ave_block_propagation_times[rcv_rate] += r-bp.round
+            logger.info(f"{packet.payload.name}:{rn},{rcv_rate} at round {r}")
+            self.ave_block_propagation_times[rcv_rate] += r-packet.round
             self.block_num_bpt[rcv_rates.index(rcv_rate)] += 1
 
     def cal_block_propagation_times(self):
@@ -170,13 +172,13 @@ class BoundedDelayNetwork(Network):
         return self.ave_block_propagation_times
         
 
-    def save_trans_process(self, block_packet: BlockPacketBDNet):
+    def save_trans_process(self, packet: PacketBDNet):
         '''
         Save the transmission process of a specific block to network_log.txt
         '''
-        bp = block_packet
-        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
-            result_str = f'{bp.block.name}:'+'\n'+'recieved miner in round'
-            print(result_str, file=f)
-            for miner_str,round in bp.trans_process_dict.items():
-                print(' '*4, miner_str.ljust(10), ': ', round, file=f)
+        if isinstance(packet.payload,Block):
+            with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
+                result_str = f'{packet.payload.name}:'+'\n'+'recieved miner in round'
+                print(result_str, file=f)
+                for miner_str,round in packet.trans_process_dict.items():
+                    print(' '*4, miner_str.ljust(10), ': ', round, file=f)

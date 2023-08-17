@@ -16,14 +16,14 @@ import miner
 import errors
 import global_var
 from chain import Block
-from network.network_abc import Network
+from network.network_abc import Network,Message
 
 logger = logging.getLogger(__name__)
 
-class BlockPacketTpNet(object):
-    '''拓扑网络中的区块数据包，包含路由相关信息'''
-    def __init__(self, newblock: Block, minerid, round, TTL, outnetobj:"TopologyNetwork"):
-        self.block = newblock
+class PacketTpNet(object):
+    '''拓扑网络中的数据包，包含路由相关信息'''
+    def __init__(self, payload: Message, minerid, round, TTL, outnetobj:"TopologyNetwork"):
+        self.payload = payload
         self.minerid = minerid
         self.round = round
         self.TTL = TTL  # 剩余存活时间
@@ -33,7 +33,7 @@ class BlockPacketTpNet(object):
         # links: save link information [scm(source miner), tgm(target miner), delay]
         self.links = [[minerid, mi, d] for mi, d in
                     zip(self.outnetobj.miners[minerid].neighbor_list,
-                    self.outnetobj.cal_neighbor_delays(newblock, minerid))]
+                    self.outnetobj.cal_neighbor_delays(payload, minerid))]
         # 路由结果记录相关
         self.routing_histroy = {(minerid, tgm): [round, 0] for tgm in
                                 self.outnetobj.miners[minerid].neighbor_list}
@@ -57,7 +57,7 @@ class TopologyNetwork(Network):
         self.tp_adjacency_matrix = np.zeros((self.MINER_NUM, self.MINER_NUM))
         self.network_graph = nx.Graph(self.tp_adjacency_matrix)
         self.node_pos = None #后面由set_node_pos生成
-        self.network_tape:list[BlockPacketTpNet] = []
+        self.network_tape:list[PacketTpNet] = []
         # status
         self.ave_block_propagation_times = {}
         self.block_num_bpt = []
@@ -79,7 +79,7 @@ class TopologyNetwork(Network):
         param
         -----  
         gen_net_approach (str): 生成网络的方式, 'adj'邻接矩阵, 'coo'稀疏矩阵, 'rand'随机
-        TTL (int): 区块的最大生存周期, 为了防止因孤立节点或日蚀攻击,导致该块一直在网络中
+        TTL (int): 数据包的最大生存周期, 为了防止因孤立节点或日蚀攻击,导致该包一直在网络中
         ave_degree (int): ; If 'rand', set the average degree
         bandwidth_honest(float): bandwidth between honest miners and between the honest and adversaries(MB/round)
         bandwidth_adv (float): bandwidth between adversaries(MB/round)
@@ -110,96 +110,96 @@ class TopologyNetwork(Network):
             self.block_num_bpt = [0 for _ in range(len(block_prop_times_statistic))]
   
 
-    def access_network(self, newblock, minerid, round):
-        '''本轮新产生的块添加到network_tape.
+    def access_network(self, new_msg:list[Message], minerid:int, round:int):
+        '''本轮新产生的消息添加到network_tape.
 
         param
         -----
-        newblock (Block) : The newly mined block 
-        minerid (int) : Miner_ID of the miner generated the block. 
+        new_msg (list) : The newly generated message 
+        minerid (int) : Miner_ID of the miner generated the message.
         round (int) : Current round. 
-        '''
-        block_packet = BlockPacketTpNet(newblock, minerid, round, self.TTL, self)
-        self.network_tape.append(block_packet)
-        self.miners[minerid].consensus.receive_block(newblock)  
-        # 这一条防止adversary集团发出区块的代表，自己的链上没有该区块
-        logger.info("access network miner:%d %s at round %d", minerid, newblock.name, round)
+        '''        
+        for msg in new_msg:
+            packet = PacketTpNet(msg, minerid, round, self.TTL, self)
+            self.network_tape.append(packet)
+            self.miners[minerid].receive(packet)  
+            # 这一条防止adversary集团的代表，自己没有接收到该消息
+            if isinstance(msg, Block):
+                logger.info("access network miner:%d %s at round %d", minerid, msg.name, round)
 
 
     def diffuse(self, round):
         '''传播过程
         传播的思路类似图的遍历:
-        block_packet(以下用bp)中links记录路由过程中的各链路(link),元素[scm, tgm ,delay]
+        数据包(packet)中links记录路由过程中的各链路(link),元素[scm, tgm ,delay]
         每轮delay值减1,直到delay为0,该link传播完成, 将对应的index添加到trans_complete_links,
-        使用receiveBlock(bp.block)使tgm接收该块,并把tgm添加到bp.reiceved_miners中,
+        使用receive(packet.payload)使tgm接收该数据包,并把tgm添加到packet.reiceved_miners中,
         此时tgm(即forward中的current_miner)变为下一个传播链路的scm,对应的scm为from_miner。
 
         此时来到forward():
         >>选择接下来传播的target
             current_miner选择接下来要传给的next_targets,计算cal_delay,
-            生成链路[current_miner,nexttg,nextd],并添加到bp.next_miners_and_delays中;
+            生成链路[current_miner,nexttg,nextd],并添加到packet.next_miners_and_delays中;
         >>记录路由:
-            bp.routing_histroy字典,键值对(scm,tgm):[begin_round,complete_round],
+            packet.routing_histroy字典,键值对(scm,tgm):[begin_round,complete_round],
             对于新加入的link,将begin_round设为当前round,complete_round设为0;
             对于完成的link,将对应的complete_round设为当前ruond。
 
-        当本轮中该bp的所有操作完成后,将trans_complete_links中对应的link从links中删除。
-        最后,当bp.reiceved_miners中包含了所有的矿工或超过了TTL,表示该block传播完成,
+        当本轮中该packet的所有操作完成后,将trans_complete_links中对应的link从links中删除。
+        最后,当packet.reiceved_miners中包含了所有的矿工或超过了TTL,表示该packet传播完成,
         将其从network_tape中删除,并在json文件中记录其路由。
         '''
-        died_packets = []  # record the finished-propagation blocks
+        died_packets = []  # record the finished-propagation packet
         if self.network_tape:
-            for i, bp in enumerate(self.network_tape):
-                # judge whether all the miners have received the block,
+            for i, packet in enumerate(self.network_tape):
+                # judge whether all the miners have received the packet,
                 # 'diffuse' only applies to networks without isolated nodes or subnets
-                if len(set(bp.received_miners)) < self.MINER_NUM and bp.TTL > 0:
+                if len(set(packet.received_miners)) < self.MINER_NUM and packet.TTL > 0:
                     trans_complete_links = []  # record the completed transmission links
                     rcv_success = False
-                    for j, [scm, tgm, delay] in enumerate(bp.links):
+                    for j, [scm, tgm, delay] in enumerate(packet.links):
                         if delay <= 0:
-                            rs = self.receive_forward(scm, tgm, bp, round)
+                            rs = self.receive_forward(scm, tgm, packet, round)
                             rcv_success = rs or rcv_success
                             trans_complete_links.append(j)
                         else:
-                            bp.links[j][2] -= 1
+                            packet.links[j][2] -= 1
                     # delete the complete links
                     if trans_complete_links:
-                        bp.links = [n for j, n in enumerate(bp.links) 
+                        packet.links = [n for j, n in enumerate(packet.links) 
                                     if j not in trans_complete_links]
                     trans_complete_links.clear()
-                    bp.TTL -= 1
-                    # if rcv_success:
-                    #     self.record_block_propagation_time(bp, round)
-                else:# 所有人都收到了或该bp的生存周期结束，该block传播结束
-                    died_packets.append(i)# 该block加入died_packets
-                    self.write_routing_to_json(bp)# 将路由结果记录在json文件中
+                    packet.TTL -= 1
+                else:# 所有人都收到了或该数据包的生存周期结束，该数据包传播结束
+                    died_packets.append(i)# 该数据包的索引加入died_packets
+                    self.write_routing_to_json(packet)# 将路由结果记录在json文件中
                 
-            if died_packets:# 在network_tape中清理掉传播结束的块
+            if died_packets:# 在network_tape中清理掉传播结束的数据包
                 self.network_tape = [n for i, n in enumerate(self.network_tape) 
                                      if i not in died_packets]
                 died_packets.clear()
 
 
-    def receive_forward(self, from_miner, current_miner, block_packet: BlockPacketTpNet, round):
-        '''接收并转发区块
-        收到一个包,本地链上没有,就添加到receive_tape中并转发给接下来的目标
+    def receive_forward(self, from_miner:int, current_miner:int, packet: PacketTpNet, round:int):
+        '''接收并转发数据包
+        如果收到一个区块数据包,且区块本地链上没有,就添加到receive_tape中并转发给接下来的目标
         否则不对该包进行处理
         '''
-        receive_success = self.miners[current_miner].consensus.receive_block(block_packet.block)
-        # if the block not in local chain, receive.
+        receive_success = self.miners[current_miner].receive(packet.payload)
         if  receive_success is True:
-            # record the miner received the block
-            block_packet.received_miners.append(current_miner)
-            self.record_block_propagation_time(block_packet, round)
-            # logger.info(f"{block_packet.block.name}:{len(block_packet.received_miners)} at round {round}") 
+            # record the miner received the packet
+            packet.received_miners.append(current_miner)
+            self.record_block_propagation_time(packet, round)
             # execute forward strategy
-            self.normal_forward(from_miner, current_miner, block_packet, round)
+            self.normal_forward(from_miner, current_miner, packet, round)
         return receive_success
 
-    def record_block_propagation_time(self, block_packet: BlockPacketTpNet, r):
+    def record_block_propagation_time(self, packet: PacketTpNet, r):
         '''calculate the block propagation time'''
-        bp = block_packet
-        rn = len(set(bp.received_miners))
+        if not isinstance(packet.payload, Block):
+            return
+
+        rn = len(set(packet.received_miners))
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
@@ -212,8 +212,8 @@ class TopologyNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in rcv_rates:
-            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
-            self.ave_block_propagation_times[rcv_rate] += r-bp.round
+            logger.info(f"{packet.payload.name}:{rn},{rcv_rate} at round {r}")
+            self.ave_block_propagation_times[rcv_rate] += r-packet.round
             self.block_num_bpt[rcv_rates.index(rcv_rate)] += 1
 
     def cal_block_propagation_times(self):
@@ -227,44 +227,43 @@ class TopologyNetwork(Network):
         return self.ave_block_propagation_times
 
 
-    def normal_forward(self, from_miner, cur_miner, block_packet: BlockPacketTpNet, round):
-        '''一般转发策略。接下来转发的目标为除了from_miner和本地链中已包含该块的所有neighbor矿工。
+    def normal_forward(self, from_miner:int, cur_miner:int, packet: PacketTpNet, round:int):
+        '''一般转发策略。接下来转发的目标为除了from_miner和已接收该数据包的所有neighbor矿工。
         param:
-        from_miner:该block_packet的来源     type:int  (MinerID)
+        from_miner:该数据包的来源     type:int  (MinerID)
         current_miner:当前的矿工            type:int  (MinerID)
-        block_packet:当前处理的区块数据包    type:BlockPacketTpNet
+        packet:当前处理的数据包    type:PacketTpNet
         round:当前轮数                      type:int
         '''
-        # 选择接下来赚翻的目标--除了from_miner和已包含该块的所有neighbor矿工
-        bp = block_packet
+        # 选择接下来转发的目标--除了from_miner和已接收该数据包的所有neighbor矿工
         next_targets = [mi for mi in self.miners[cur_miner].neighbor_list 
-                        if mi != from_miner and mi not in block_packet.received_miners]
+                        if mi != from_miner and mi not in packet.received_miners]
         next_delays = []
         for nexttg in next_targets:
-            next_delays.append(self.cal_delay(bp.block, cur_miner, nexttg))
-        bp.links.extend([cur_miner, nexttg, nextd] for nexttg, nextd in zip(next_targets, next_delays))
+            next_delays.append(self.cal_delay(packet.payload, cur_miner, nexttg))
+        packet.links.extend([cur_miner, nexttg, nextd] for nexttg, nextd in zip(next_targets, next_delays))
 
         # 记录路由
-        bp.routing_histroy.update({(cur_miner, nexttg): [round, 0] for nexttg in next_targets})
-        bp.routing_histroy[(from_miner, cur_miner)][1] = round
+        packet.routing_histroy.update({(cur_miner, nexttg): [round, 0] for nexttg in next_targets})
+        packet.routing_histroy[(from_miner, cur_miner)][1] = round
 
 
-    def cal_delay(self, block:Block, sourceid, targetid):
+    def cal_delay(self, msg: Message, sourceid:int, targetid:int):
         '''计算sourceid和targetid之间的时延'''
-        # 传输时延=块大小除带宽 且传输时延至少1轮
+        # 传输时延=消息大小除带宽 且传输时延至少1轮
         bw_mean = self.network_graph.edges[sourceid, targetid]['bandwidth']
         bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
-        transmision_delay = math.ceil(block.blocksize_MB / bandwidth)
+        transmision_delay = math.ceil(msg.size / bandwidth)
         # 时延=处理时延+传输时延
         delay = self.miners[sourceid].processing_delay + transmision_delay
         return delay
 
 
-    def cal_neighbor_delays(self, block, minerid):
+    def cal_neighbor_delays(self, msg: Message, minerid:int):
         '''计算minerid的邻居的时延'''
         neighbor_delays = []
         for neighborid in self.miners[minerid].neighbor_list:
-            delay = self.cal_delay(block, minerid, neighborid)
+            delay = self.cal_delay(msg, minerid, neighborid)
             neighbor_delays.append(delay)
         return neighbor_delays
     
@@ -471,19 +470,22 @@ class TopologyNetwork(Network):
 
 
 
-    def write_routing_to_json(self, block_packet):
+    def write_routing_to_json(self, block_packet:PacketTpNet):
         """
         每当一个block传播结束,将其路由结果记录在json文件中
         json文件包含origin_miner和routing_histroy两种信息
         """
+        if not isinstance(block_packet.payload, Block):
+            return
+
         bp = block_packet
         with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', encoding = 'utf-8') as f:
             f.seek(f.tell() - 1, os.SEEK_SET)
             f.truncate()
             f.write(',')
             bp.routing_histroy = {str(k): bp.routing_histroy[k] for k in bp.routing_histroy}
-            json.dump({str(bp.block.name): {'origin_miner': bp.minerid, 'routing_histroy': bp.routing_histroy}}, f,
-                      indent=2)
+            json.dump({str(bp.payload.name): {'origin_miner': bp.minerid, 'routing_histroy': bp.routing_histroy}},
+                      f, indent=2)
             f.write(']')
 
 
@@ -577,31 +579,6 @@ class TopologyNetwork(Network):
         plt.close()
 
 
-    def calculate_stats(self):
-        stats = {
-            "average_network_delay" : 0
-        }
-        delay_list = []
-        RECEIVED_RATIO = 1 # 网络中收到区块的矿工数量相对所有矿工数量之比如果超过这一常量，计算网络延迟
-        miner_num = len(self.miners)
-        NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH / 'routing_history.json', 'r', encoding = 'utf-8') as load_obj:
-            a = json.load(load_obj)
-            for v_dict in a[1:]:
-                for _, origin_routing_dict in v_dict.items():
-                    routing_history = origin_routing_dict["routing_histroy"]
-                    miner_received = 0
-                    access_network_time = 0
-                    for transmision,time_span in routing_history.items():
-                        arrival_time = time_span[1]
-                        if tuple(eval(transmision))[0] == origin_routing_dict["origin_miner"]:
-                            access_network_time = time_span[0]
-                        if arrival_time:
-                            miner_received += 1
-                            if miner_received + 1>= miner_num * RECEIVED_RATIO:
-                                delay_list.append(arrival_time - access_network_time)
-        stats['average_network_delay'] = sum(delay_list)/len(delay_list)
-        return stats
 if __name__ == '__main__':
     # rn = 5
     # mn = 23

@@ -1,6 +1,12 @@
 from abc import ABCMeta, abstractmethod
 import global_var
 
+class Message(object):
+    '''定义网络中传输的消息'''
+    def __init__(self, size:float = 2):
+        '''size消息长度，单位MB'''
+        self.size = size
+
 class Network(metaclass=ABCMeta):
     """网络抽象基类"""
 
@@ -13,7 +19,7 @@ class Network(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def access_network(self, newblock, minerid, round):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int):
         pass
 
     @abstractmethod

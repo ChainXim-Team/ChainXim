@@ -176,7 +176,8 @@ class default_attack_mode(metaclass = ABCMeta):
     def mine_ID_miner(self, Miner_ID: int):
         # 所有功能与mine_randmon_miner一致 不赘述
         self.current_miner = self.adversary[Miner_ID] # 根据ID指定选取当前攻击者
-        newblock, mine_success = self.current_miner.mining(self.atlog['input'])
+        new_msg, mine_success = self.current_miner.launch_consensus(self.atlog['input'])
+        newblock = new_msg[0]
         attack_mine = False
         if mine_success:
             attack_mine = True
@@ -200,7 +201,7 @@ class default_attack_mode(metaclass = ABCMeta):
         attack_override = False
         if self.Adverchain.lastblock.BlockHeight() - self.base_chain.lastblock.BlockHeight() >= cri \
             and self.last_brd_block != self.Adverchain.lastblock:
-            self.network.access_network(self.Adverchain.lastblock, self.current_miner.Miner_ID, round)
+            self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
             attack_override = True
             self.last_brd_block = self.Adverchain.lastblock
         self.atlog['override'] = attack_override
@@ -227,7 +228,7 @@ class default_attack_mode(metaclass = ABCMeta):
         # match 的功能可以视为 Override 的一种, 但是又不完全相同
         # match 做到的行为本质上也是直接接入网络
         # 不论当前adverchain有多高, 即使比base_chain矮很多也发布
-        self.network.access_network(self.Adverchain.lastblock, self.current_miner.Miner_ID, round)
+        self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
 
     def attacklog2txt(self, round):
         RESULT_PATH = global_var.get_result_path()
@@ -255,7 +256,7 @@ class default_attack_mode(metaclass = ABCMeta):
         self.clear()
         # 执行override, 标准cri设定为高度2
         if attack_mine:
-            self.network.access_network(self.Adverchain.lastblock, self.current_miner.Miner_ID, round)
+            self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
             self.sttic['over_ride'] = self.sttic['over_ride']+1
         else:
             self.wait()

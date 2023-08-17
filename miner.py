@@ -4,6 +4,7 @@ from functions import for_name
 from external import I
 # from external import validate
 import global_var
+from network import Message
 
 class Miner(object):
 
@@ -34,21 +35,25 @@ class Miner(object):
         '''
         self.isAdversary = isAdversary
 
-    def mining(self,input):
-        '''挖矿\n
+    def receive(self, msg: Message):
+        '''处理接收到的消息，直接调用consensus.receive'''
+        return self.consensus.receive(msg)
+
+    def launch_consensus(self, input):
+        '''开始共识过程\n
         return:
-            self.Blockchain.lastblock 挖出的新区块没有就返回none type:Block/None
-            mine_success 挖矿成功标识 type:Bool
+            new_msg 由共识类产生的新消息，没有就返回None type:list[Message]/None
+            msg_available 如果有新的消息产生则为True type:Bool
         '''
-        newblock, mine_success = self.consensus.consensus_process(self.Miner_ID,self.isAdversary,input)
-        return newblock, mine_success  # 返回挖出的区块，
+        new_msg, msg_available = self.consensus.consensus_process(self.Miner_ID,self.isAdversary,input)
+        return new_msg, msg_available  # 返回挖出的区块，
 
     def BackboneProtocol(self, round):
         chain_update, update_index = self.consensus.maxvalid()
         input = I(round, self.input_tape)  # I function
-        newblock, mine_success = self.mining(input)
-        if update_index or mine_success:
-            return newblock
+        new_msg, msg_available = self.launch_consensus(input)
+        if update_index or msg_available:
+            return new_msg
         else:
             return None  #  如果没有更新 返回空告诉environment回合结束
         

@@ -9,7 +9,7 @@ import numpy as np
 
 import global_var
 import network
-from chain import Chain
+from chain import Chain,Block
 from miner import Miner
 from Attack import default_attack_mode
 from functions import for_name
@@ -158,15 +158,15 @@ class Environment(object):
                 else:
                     ## 处理诚实矿工
                     temp_miner.input_tape.append(("INSERT", inputfromz))
-                    # run the bitcoin backbone protocol
-                    newblock = temp_miner.BackboneProtocol(round) # BBP 返回区块和msg(设置成类) 考虑放到consensus
-                    if newblock is not None:
-                        self.network.access_network(newblock,temp_miner.Miner_ID,round)
-                        self.global_chain.add_block_copy(newblock)
+                    # run backbone protocol
+                    if (new_msgs := temp_miner.BackboneProtocol(round)) is not None:
+                        self.network.access_network(new_msgs,temp_miner.Miner_ID,round)
+                        for msg in new_msgs:
+                            if isinstance(msg, Block):
+                                self.global_chain.add_block_copy(msg)
                     temp_miner.input_tape = []  # clear the input tape
                     temp_miner.consensus.receive_tape = []  # clear the communication tape
                     ##
-
 
             self.network.diffuse(round)  # diffuse(C)
             #self.assess_common_prefix()
