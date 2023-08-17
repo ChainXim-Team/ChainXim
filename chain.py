@@ -39,7 +39,7 @@ class Block(Message):
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
         self.name = name
-        self.blockhead = blockhead
+        self._blockhead = blockhead
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
@@ -84,7 +84,11 @@ class Block(Message):
         for omk in self.__omit_keys:
             del bdict[omk]
         return '\n'+ _formatter(bdict)
-        
+
+    @property
+    def blockhead(self):
+        return self._blockhead
+
     def calculate_blockhash(self):
         self.blockhash = self.blockhead.calculate_blockhash()
         return self.blockhash

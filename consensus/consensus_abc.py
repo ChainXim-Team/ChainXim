@@ -14,7 +14,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         def __init__(self, preblock:chain.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
-            prehash = preblock.calculate_blockhash() if preblock else 0
+            prehash = preblock.blockhash if preblock else 0
             super().__init__(prehash, timestamp, content, miner_id)
 
     class Block(chain.Block):
@@ -29,10 +29,11 @@ class Consensus(metaclass=ABCMeta):        #抽象类
 
     def create_genesis_block(self, chain:Chain, blockheadextra:dict = None, blockextra:dict = None):
         '''为指定链生成创世区块'''
-        chain.head = self.Block(self.BlockHead())
-        chain.lastblock = chain.head
+        genesis_blockhead = self.BlockHead()
         for k,v in blockheadextra or {}:
-            setattr(chain.head.blockhead,k,v)
+            setattr(genesis_blockhead,k,v)
+        chain.head = self.Block(genesis_blockhead)
+        chain.lastblock = chain.head
         for k,v in blockextra or {}:
             setattr(chain.head,k,v)
 

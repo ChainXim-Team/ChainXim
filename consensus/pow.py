@@ -55,11 +55,9 @@ class PoW(Consensus):
         #print("mine",Blockchain)
         if self.Blockchain.is_empty():#如果区块链为空
             prehash = 0
-            height = 0
         else:
             b_last = self.Blockchain.last_block()#链中最后一个块
-            height = b_last.height
-            prehash = b_last.calculate_blockhash()
+            prehash = b_last.blockhash
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
         while i < self.q:
@@ -113,8 +111,8 @@ class PoW(Consensus):
         local_tmp = self.Blockchain.search(receive_tmp)
         ss = receive_tmp.calculate_blockhash()
         while receive_tmp and not local_tmp:
-            block_vali = self.valid_block(receive_tmp)
             hash = receive_tmp.calculate_blockhash()
+            block_vali = self.valid_block(receive_tmp)
             if block_vali and int(hash, 16) == int(ss, 16):
                 ss = receive_tmp.blockhead.prehash
                 copylist.append(receive_tmp)
@@ -141,8 +139,8 @@ class PoW(Consensus):
             blocktmp = lastblock
             ss = blocktmp.calculate_blockhash()
             while chain_vali and blocktmp is not None:
-                block_vali = self.valid_block(blocktmp)
                 hash=blocktmp.calculate_blockhash()
+                block_vali = self.valid_block(blocktmp)
                 if block_vali and int(hash, 16) == int(ss, 16):
                     ss = blocktmp.blockhead.prehash
                     blocktmp = blocktmp.last
@@ -160,7 +158,7 @@ class PoW(Consensus):
         '''
         btemp = block
         target = btemp.blockhead.target
-        hash = btemp.calculate_blockhash()
+        hash = btemp.blockhash
         if int(hash, 16) >= int(target, 16):
             return False
         else:
