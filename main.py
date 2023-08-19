@@ -35,7 +35,9 @@ def main(**args):
     global_var.set_network_type(network_type)
     global_var.set_miner_num(miner_num)
     global_var.set_blocksize(args.get('blocksize') or int(environ_settings['blocksize']))
-    global_var.set_show_fig(False)
+    global_var.set_show_fig(args.get('show_fig') or config.getboolean('EnvironmentSettings','show_fig'))
+    global_var.set_compact_outputfile(config.getboolean('EnvironmentSettings','compact_outputfile') \
+                                      if not args.get('no_compact_outputfile') else False)
 
     # 配置日志文件
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
@@ -96,7 +98,6 @@ def main(**args):
     # 生成环境
     genesis_blockheadextra = {}
     genesis_blockextra = {}
-    global_var.save_configuration()
 
     Z = Environment(t, adversary_ids, consensus_param, network_param,
                     genesis_blockheadextra, genesis_blockextra)
@@ -143,6 +144,9 @@ could be performed with attackers designed in the simulator'
     env_setting.add_argument('--consensus_type',help='The consensus class imported during simulation',type=str)
     env_setting.add_argument('--network_type',help='The network class imported during simulation',type=str)
     env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=int)
+    env_setting.add_argument('--show_fig', help='Show figures during simulation.',action='store_true')
+    env_setting.add_argument('--no_compact_outputfile', action='store_true',
+                             help='Simplify log and result outputs to reduce disk space consumption. True by default.')
     # ConsensusSettings
     consensus_setting = parser.add_argument_group('ConsensusSettings', 'Settings for Consensus Protocol')
     consensus_setting.add_argument('--q_ave', help='The average number of hash trials in a round.',type=int)

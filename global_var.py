@@ -30,6 +30,7 @@ def __init__(result_path:Path = None):
     _var_dict['Blocksize'] = 2
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
+    _var_dict['COMPACT_OUTPUT'] = True
     _var_dict['ATTACK_EXCUTE_TYPE']='excute_sample0'
 
 def set_log_level(log_level):
@@ -101,16 +102,16 @@ def set_show_fig(show_fig):
 def get_show_fig():
     return _var_dict['Show_Fig']
 
-def save_configuration():
-    '''将_var_dict中的内容保存到configuration.txt中'''
-    with open(_var_dict['RESULT_PATH'] / "configuration.txt",
-              'w+') as config:
-        for key,value in _var_dict.items():
-            print(key,": ",value,file=config)
+def set_compact_outputfile(compact_outputfile):
+    _var_dict['COMPACT_OUTPUT'] = compact_outputfile
+
+def get_compact_outputfile():
+    return _var_dict['COMPACT_OUTPUT']
 
 def set_attack_excute_type(attack_excute_type):
     '''定义网络类型 type:str'''
     _var_dict['ATTACK_EXCUTE_TYPE'] = attack_excute_type
+
 def get_attack_excute_type():
     '''获得网络类型'''
     return _var_dict['ATTACK_EXCUTE_TYPE']

@@ -172,7 +172,8 @@ class TopologyNetwork(Network):
                     packet.TTL -= 1
                 else:# 所有人都收到了或该数据包的生存周期结束，该数据包传播结束
                     died_packets.append(i)# 该数据包的索引加入died_packets
-                    self.write_routing_to_json(packet)# 将路由结果记录在json文件中
+                    if not global_var.get_compact_outputfile():
+                        self.write_routing_to_json(packet)# 将路由结果记录在json文件中
                 
             if died_packets:# 在network_tape中清理掉传播结束的数据包
                 self.network_tape = [n for i, n in enumerate(self.network_tape) 

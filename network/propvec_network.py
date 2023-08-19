@@ -2,6 +2,7 @@ import random
 import logging
 import copy
 import math
+import global_var
 from miner import Miner
 from chain import Block
 from .network_abc import Network,Message
@@ -145,7 +146,8 @@ class PropVecNetwork(Network):
                                     self.record_block_propagation_time(packet, round)
                 if len(set(packet.received_miners)) == self.MINER_NUM:
                     died_packets.append(i)
-                    self.save_trans_process(packet)
+                    if not global_var.get_compact_outputfile():
+                        self.save_trans_process(packet)
             # 丢弃传播完成的包，更新network_tape
             self.network_tape = [n for i, n in enumerate(self.network_tape) \
                                     if i not in died_packets]

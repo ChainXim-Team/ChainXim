@@ -3,9 +3,7 @@ import math
 import copy
 import random
 from typing import List
-
 import numpy as np
-
 
 import global_var
 import network
@@ -68,16 +66,18 @@ class Environment(object):
             self.adverflag = random.randint(1,len(self.adversary_mem))
         self.attack_excute_type = global_var.get_attack_excute_type()
         
-        print(
-            'Parameters:','\n',
-            'Miner Number: ', self.miner_num,'\n',
-            'Adversary Miners: ', adversary_ids, '\n',
-            'Consensus Protocol: ', consensus_type.__name__, '\n',
-            'Network Type: ', type(self.network).__name__, '\n', 
-            'Network Param: ', network_param, '\n',
-            'Consensus Param: ', consensus_param, '\n',
-        )
-        ##
+        parameter_str = 'Parameters:\n' + \
+            f'Miner Number: {self.miner_num} \n' + \
+            f'Adversary Miners: {adversary_ids} \n' + \
+            f'Consensus Protocol: {consensus_type.__name__} \n' + \
+            f'Network Type: {type(self.network).__name__} \n' + \
+            f'Network Param:  {network_param} \n' + \
+            f'Consensus Param: {consensus_param} \n'
+        if self.adversary_mem:
+            parameter_str += f'Attack Execute Type: {self.attack_excute_type} \n'
+        print(parameter_str)
+        with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
+            print(parameter_str, file=conf)
 
     def select_adversary_random(self):
         '''
@@ -160,7 +160,7 @@ class Environment(object):
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
             # 分割一下
         # self.clear_adversary()
-            if self.adversary_mem:
+            if self.adversary_mem and not global_var.get_compact_outputfile():
                 self.attack.attacklog2txt(round)
         
             # 全局链高度超过max_height之后就提前停止
@@ -294,8 +294,6 @@ class Environment(object):
     def view_and_write(self):
         stats = self.view()
         self.global_chain.printchain2txt()
-        for miner in self.miners:
-            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
 
         # save the results in the evaluation results.txt
         RESULT_PATH = global_var.get_result_path()
@@ -313,9 +311,16 @@ class Environment(object):
                     print(f'{k}: {v} rounds/block', file=f)
                 else:
                     print(f'{k}: {v}', file=f)
-        
+
+        if global_var.get_compact_outputfile():
+            return stats
+
+        # save local chain for all miners
+        for miner in self.miners:
+            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
+
         # show or save figures
-        #self.global_chain.ShowStructure(self.miner_num)
+        self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
         self.miners[0].consensus.Blockchain.get_block_interval_distribution()
 
