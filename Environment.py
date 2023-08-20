@@ -43,15 +43,12 @@ class Environment(object):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, consensus_param))
         self.envir_create_global_chain()
-        # generate network
-        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        self.network.set_net_param(**network_param)
         # evaluation
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
         
-        ## 初始化攻击模组
+        # select adversay
         self.max_adversary = t  # maximum number of adversary
         self.adversary_mem:List[Miner] = []
         if adversary_ids is not None:
@@ -61,11 +58,20 @@ class Environment(object):
         elif self.max_adversary > 0:
             self.select_adversary_random()
             adversary_ids = [adversary.Miner_ID for adversary in self.adversary_mem]
+        # generate network
+        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
+        self.network.set_net_param(**network_param)
+        ## 初始化攻击模组
         if self.adversary_mem: # 如果有攻击者，则创建攻击实例
             self.attack = default_attack_mode(self.adversary_mem, self.global_chain, self.network)
             self.adverflag = random.randint(1,len(self.adversary_mem))
         self.attack_excute_type = global_var.get_attack_excute_type()
         
+        # add a line in chain data to distinguish adversaries from non-adversaries
+        CHAIN_DATA_PATH=global_var.get_chain_data_path()
+        for miner in self.miners:
+            with open(CHAIN_DATA_PATH / f'chain_data{str(miner.Miner_ID)}.txt','a') as f:
+                print(f"isAdversary: {miner.isAdversary}\n", file=f)
         parameter_str = 'Parameters:\n' + \
             f'Miner Number: {self.miner_num} \n' + \
             f'Adversary Miners: {adversary_ids} \n' + \

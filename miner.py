@@ -24,8 +24,7 @@ class Miner(object):
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         with open(CHAIN_DATA_PATH / f'chain_data{str(self.Miner_ID)}.txt','a') as f:
             print(f"Miner {self.Miner_ID}\n"
-                f"is_adversary: {self.isAdversary}\n"
-                f"consensus_params: {consensus_params}\n", file= f)
+                  f"consensus_params: {consensus_params}", file=f)
 
 
     def set_adversary(self, isAdversary:bool):
