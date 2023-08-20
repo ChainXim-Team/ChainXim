@@ -114,7 +114,8 @@ class BoundedDelayNetwork(Network):
                                 if m.Miner_ID not in packet.received_miners]
                 # 不会重复传给某个矿工
                 for miner in not_rcv_miners:
-                    if self.is_recieved(packet.recieve_prob):
+                    if miner.Miner_ID not in packet.received_miners and \
+                        self.is_recieved(packet.recieve_prob):
                         packet.update_trans_process(miner.Miner_ID, round)
                         miner.receive(packet.payload)
                         self.record_block_propagation_time(packet, round)
@@ -123,7 +124,7 @@ class BoundedDelayNetwork(Network):
                             not_rcv_adv_miners = [m for m in self.adv_miners \
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
-                                packet.update_trans_process(miner.Miner_ID, round)
+                                packet.update_trans_process(adv_miner.Miner_ID, round)
                                 adv_miner.receive(packet.payload)
                                 self.record_block_propagation_time(packet, round)
                 # 更新recieve_prob

@@ -132,17 +132,18 @@ class PropVecNetwork(Network):
                 rcv_miners = self.select_recieve_miners(packet)
                 if len(rcv_miners) > 0:
                     for miner in rcv_miners:
+                        if miner.Miner_ID in packet.received_miners:
+                            continue
                         miner.receive(packet.payload)
                         packet.update_trans_process(miner.Miner_ID, round)
                         self.record_block_propagation_time(packet, round)
                         # 如果一个adv收到，其他没收到的adv也立即收到
-                        if not miner.isAdversary:
+                        if miner.isAdversary:
                             not_rcv_adv_miners = [m for m in self.adv_miners \
                                                 if m.Miner_ID != miner.Miner_ID]
                             for adv_miner in not_rcv_adv_miners:
-                                if adv_miner.Miner_ID not in packet.received_miners:
                                     adv_miner.receive(packet.payload)
-                                    packet.update_trans_process(miner.Miner_ID, round)
+                                    packet.update_trans_process(adv_miner.Miner_ID, round)
                                     self.record_block_propagation_time(packet, round)
                 if len(set(packet.received_miners)) == self.MINER_NUM:
                     died_packets.append(i)
