@@ -481,7 +481,7 @@ class Chain(object):
             return
         
         with open(CHAIN_DATA_PATH /chain_data_url,'a') as f:
-            print("Blockchian maintained BY Miner",self.miner_id,file=f)
+            print("Blockchain maintained BY Miner",self.miner_id,file=f)
             # 打印主链
             save_chain_structure(self,f)
             #打印链信息

@@ -70,7 +70,7 @@ class default_attack_mode(metaclass = ABCMeta):
         self.q_adver = sum([attacker.consensus.q for attacker in self.adversary]) # 计算攻击者总算力
         self.last_brd_block = None
         for temp_miner in self.adversary:
-            # 重新设置adversary的 q 和 blockchian，原因在 mine_randmon_miner 部分详细解释了
+            # 重新设置adversary的 q 和 blockchain，原因在 mine_randmon_miner 部分详细解释了
             temp_miner.consensus.q = self.q_adver
             temp_miner.consensus.Blockchain.add_block_copy(self.Adverchain.lastblock)
         adver_consensus_param = {'q_ave': self.q_adver, 'q_distr':'equal', 
@@ -243,7 +243,7 @@ class default_attack_mode(metaclass = ABCMeta):
         with open(RESULT_PATH / 'Attack_result.txt','a') as f:
             print(self.sttic, '\n',file=f)
 
-    def excute_sample0(self, round):
+    def execute_sample0(self, round):
         # 这是attack模块执行的攻击范例0: 算力攻击
         # 作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
 
@@ -266,7 +266,7 @@ class default_attack_mode(metaclass = ABCMeta):
 
 
 
-    def excute_sample1(self, round):
+    def execute_sample1(self, round):
         # 这是attack模块执行的攻击范例1: 自私挖矿
         # 作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
 
@@ -298,11 +298,11 @@ class default_attack_mode(metaclass = ABCMeta):
                 self.wait() # 没成功执行override，也过
                 self.sttic['wait'] = self.sttic['wait']+1
 
-    def excute_sample2(self, round):
+    def execute_sample2(self, round):
         # 这是attack模块执行的攻击返利2：双花攻击
         pass
 
-    def excute_sample3(self, round):
+    def execute_sample3(self, round):
         # 这是attack模块执行的攻击返利3：日蚀攻击
         pass
 

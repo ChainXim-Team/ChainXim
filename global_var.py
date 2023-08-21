@@ -19,7 +19,7 @@ def __init__(result_path:Path = None):
     global _var_dict
     _var_dict = {}
     _var_dict['MINER_NUM']=0
-    _var_dict['POW_TARFET']=''
+    _var_dict['POW_TARGET']=''
     _var_dict['AVE_Q']=0
     _var_dict['CONSENSUS_TYPE']='consensus.PoW'
     _var_dict['NETWORK_TYPE']='network.FullConnectedNetwork'
@@ -31,7 +31,7 @@ def __init__(result_path:Path = None):
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
     _var_dict['COMPACT_OUTPUT'] = True
-    _var_dict['ATTACK_EXCUTE_TYPE']='excute_sample0'
+    _var_dict['ATTACK_EXECUTE_TYPE']='execute_sample0'
 
 def set_log_level(log_level):
     '''设置日志级别'''
@@ -57,10 +57,10 @@ def get_miner_num():
 
 def set_PoW_target(PoW_target):
     '''定义pow目标 type:str'''
-    _var_dict['POW_TARFET'] = PoW_target
+    _var_dict['POW_TARGET'] = PoW_target
 def get_PoW_target():
     '''获得pow目标'''
-    return _var_dict['POW_TARFET']
+    return _var_dict['POW_TARGET']
 
 def set_ave_q(ave_q):
     '''定义pow,每round最多hash计算次数 type:int'''
@@ -108,10 +108,10 @@ def set_compact_outputfile(compact_outputfile):
 def get_compact_outputfile():
     return _var_dict['COMPACT_OUTPUT']
 
-def set_attack_excute_type(attack_excute_type):
+def set_attack_execute_type(attack_execute_type):
     '''定义网络类型 type:str'''
-    _var_dict['ATTACK_EXCUTE_TYPE'] = attack_excute_type
+    _var_dict['ATTACK_EXECUTE_TYPE'] = attack_execute_type
 
-def get_attack_excute_type():
+def get_attack_execute_type():
     '''获得网络类型'''
-    return _var_dict['ATTACK_EXCUTE_TYPE']
+    return _var_dict['ATTACK_EXECUTE_TYPE']

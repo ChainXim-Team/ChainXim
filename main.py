@@ -92,7 +92,7 @@ def main(**args):
     attack_setting = dict(config['AttackModeSettings'])
     adversary_ids = args.get('adversary_ids') if args.get('adversary_ids') is not None \
                                               else eval(attack_setting.get('adversary_ids') or 'None')
-    global_var.set_attack_excute_type(args.get('attack_excute_type') or attack_setting['attack_excute_type'])
+    global_var.set_attack_execute_type(args.get('attack_execute_type') or attack_setting['attack_execute_type'])
     t = args.get('t') if args.get('t') is not None else int(attack_setting['t'])
 
     # 生成环境
@@ -158,7 +158,7 @@ could be performed with attackers designed in the simulator'
     # AttackModeSettings
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
     attack_setting.add_argument('-t',help='The total number of attackers. If t non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
-    attack_setting.add_argument('--attack_excute_type', help='The name of attack type defined in attack mode.',type=str)
+    attack_setting.add_argument('--attack_execute_type', help='The name of attack type defined in attack mode.',type=str)
     # BoundedDelayNetworkSettings
     bound_setting = parser.add_argument_group('BoundedDelayNetworkSettings','Settings for BoundedDelayNetwork')
     bound_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)

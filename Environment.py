@@ -65,7 +65,7 @@ class Environment(object):
         if self.adversary_mem: # 如果有攻击者，则创建攻击实例
             self.attack = default_attack_mode(self.adversary_mem, self.global_chain, self.network)
             self.adverflag = random.randint(1,len(self.adversary_mem))
-        self.attack_excute_type = global_var.get_attack_excute_type()
+        self.attack_execute_type = global_var.get_attack_execute_type()
         
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
@@ -80,7 +80,7 @@ class Environment(object):
             f'Network Param:  {network_param} \n' + \
             f'Consensus Param: {consensus_param} \n'
         if self.adversary_mem:
-            parameter_str += f'Attack Execute Type: {self.attack_excute_type} \n'
+            parameter_str += f'Attack Execute Type: {self.attack_execute_type} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
@@ -116,11 +116,11 @@ class Environment(object):
         self.global_chain.head = copy.deepcopy(self.miners[0].consensus.Blockchain.head)
         self.global_chain.lastblock = self.global_chain.head
 
-    def attack_excute(self,round):
-        if self.attack_excute_type == 'excute_sample0':
-            self.attack.excute_sample0(round)
-        elif self.attack_excute_type == 'excute_sample1':
-            self.attack.excute_sample1(round)
+    def attack_execute(self,round):
+        if self.attack_execute_type == 'execute_sample0':
+            self.attack.execute_sample0(round)
+        elif self.attack_execute_type == 'execute_sample1':
+            self.attack.execute_sample1(round)
 
         
     def exec(self, num_rounds, max_height, process_bar_type):
@@ -143,7 +143,7 @@ class Environment(object):
                 if temp_miner.isAdversary:
                     temp_miner.input_tape.append(("INSERT", inputfromz))
                     if adver_tmpflag == self.adverflag:
-                        self.attack_excute(round)
+                        self.attack_execute(round)
                         adver_tmpflag = adver_tmpflag + 1
                     else:
                         adver_tmpflag = adver_tmpflag + 1
