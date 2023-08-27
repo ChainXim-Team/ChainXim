@@ -127,8 +127,8 @@ class Environment(object):
 
         '''
         调用当前miner的BackboneProtocol完成mining
-        当前miner用addblock功能添加上链
-        之后gobal_chain用深拷贝的addchain上链
+        当前miner用add_block_direct添加上链
+        之后gobal_chain用深拷贝的add_block_copy上链
         '''
         if process_bar_type != 'round' and process_bar_type != 'height':
             raise ValueError('process_bar_type should be \'round\' or \'height\'')

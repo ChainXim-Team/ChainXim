@@ -207,9 +207,9 @@ class Chain(object):
             popb.last = None
             return popb
 
-    def add_block_direct(self, block: Block, lastBlock: Block = None, nextBlock: Block = None):
-        # 根据定位添加block，如果没有指定位置，加在最深的block后
-        # 和AddChain的区别是这个是不拷贝直接连接的
+    def add_block_direct(self, block: Block):
+        # 将block直接添加到主链末尾，并将lastblock指向block
+        # 和add_block_copy的区别是这个是不拷贝直接连接的
         if self.search(block):
             print("Block {} is already included.".format(block.name))
             return block
@@ -217,16 +217,15 @@ class Chain(object):
         if not self.head:
             self.head = block
             self.lastblock = block
-            print("Add Block {} Successfully.".format(block.name))
-            return block
-
-        if not lastBlock and not nextBlock:
-            last_Block = self.last_block()
-            last_Block.next.append(block)
-            block.last = last_Block
-            self.lastblock = block
             # print("Add Block {} Successfully.".format(block.name))
             return block
+
+        last_Block = self.last_block()
+        last_Block.next.append(block)
+        block.last = last_Block
+        self.lastblock = block
+        # print("Add Block {} Successfully.".format(block.name))
+        return block
 
 
     def insert_block_copy(self, copylist: List[Block], insert_point: Block):
@@ -271,29 +270,6 @@ class Chain(object):
                 self.lastblock = local_tmp  # 更新global chain的lastblock
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
-    '''
-    def Depth(self,method="level"): # 计算chain的最大长度
-        if self.head:
-            if method == "level":
-                q = [(self.head, 1)]
-                while q:
-                    block, depth = q.pop(0)
-                    for i in block.next:
-                        q.append((i, depth+1))
-            else:
-                def ddepth(block:Block):
-                    if block.next == []:
-                        return 0
-                    depth = [0]
-                    for i in block.next:
-                        depth.append(ddepth(i))
-                    return max(depth)+1       
-                depth = ddepth(self.head)
-        else:
-            depth = 0
-        return depth
-    '''
-
     def ShowBlock(self):  # 按从上到下从左到右展示block,打印块名
         if not self.head:
             print()
@@ -308,8 +284,8 @@ class Chain(object):
         print("")
         return blocklist
 
-    def InversShowBlock(self, block: Block = None):
-        # 按指定块为起始逆向打印块名，若未指定块从最深的块开始，返回逆序的链
+    def InversShowBlock(self):
+        # 返回逆序的主链
         cur = self.last_block()
         blocklist = []
         while cur:
@@ -326,27 +302,6 @@ class Chain(object):
             print("{}→→→→".format(i.name), end="")
         print("")
         return blocklist
-
-    '''
-    def ShowStructure(self):
-        # 打印树状结构
-        blocktmp = self.head
-        fork_list = []
-        while blocktmp:
-            print("{}→→→→".format(blocktmp.name), end="")
-            list_tmp = copy.copy(blocktmp.next)
-            if list_tmp:
-                blocktmp = list_tmp.pop(0)
-                fork_list.extend(list_tmp)
-            else:
-                if fork_list:
-                    print("")
-                    blocktmp = fork_list.pop(0)
-                    print("{}→→→→".format(blocktmp.last.name), end="")
-                else:
-                    blocktmp = None
-        print("")
-    '''
 
     def ShowStructure1(self):
         # 打印树状结构
@@ -455,7 +410,6 @@ class Chain(object):
         '''
         前向遍历打印链中所有块到文件
         param:
-            blockchain
             chain_data_url:打印文件位置,默认'chain_data.txt'
         '''
         def save_chain_structure(chain,f):
