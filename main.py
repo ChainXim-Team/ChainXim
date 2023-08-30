@@ -45,14 +45,19 @@ def main(**args):
 
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
-    target = args.get('target') or consensus_settings['target']
-    global_var.set_PoW_target(target)
-    q_ave = args.get('q_ave') or int(consensus_settings['q_ave'])
-    global_var.set_ave_q(q_ave)
-    q_distr = args.get('q_distr') or consensus_settings['q_distr']
-    if q_distr == 'rand':
-        q_distr = get_random_q_distr(miner_num,q_ave)
-    consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
+    if global_var.get_consensus_type() == 'consensus.PoW':
+        target = args.get('target') or consensus_settings['target']
+        global_var.set_PoW_target(target)
+        q_ave = args.get('q_ave') or int(consensus_settings['q_ave'])
+        global_var.set_ave_q(q_ave)
+        q_distr = args.get('q_distr') or consensus_settings['q_distr']
+        if q_distr == 'rand':
+            q_distr = get_random_q_distr(miner_num,q_ave)
+        consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
+    else:
+        consensus_param = {}
+        for key, value in consensus_settings.items():
+            consensus_param[key] = args.get(key) or value
 
     # 设置网络参数
     network_param = {}
@@ -143,7 +148,7 @@ could be performed with attackers designed in the simulator'
     env_setting.add_argument('--miner_num', help='The total miner number in the network.', type=int)
     env_setting.add_argument('--consensus_type',help='The consensus class imported during simulation',type=str)
     env_setting.add_argument('--network_type',help='The network class imported during simulation',type=str)
-    env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=int)
+    env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=float)
     env_setting.add_argument('--show_fig', help='Show figures during simulation.',action='store_true')
     env_setting.add_argument('--no_compact_outputfile', action='store_true',
                              help='Simplify log and result outputs to reduce disk space consumption. True by default.')
