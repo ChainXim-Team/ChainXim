@@ -43,7 +43,7 @@ ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全
 - **随机预言（Random Oracle）**：以PoW共识为例，各矿工在每一轮次最多可执行q次行动（不同矿工的q可能为不同值），即q次进行哈希计算的机会。每个矿工都将进行q次随机查询操作，即将某一随机数输入哈希函数，验证其结果是否小于给定难度值。若矿工成功找到了低于难度值的结果，则视为其成功产生了一个区块。**同一轮次中不同矿工产生的区块视作是同时产生的。**
 - **扩散（Diffuse）**：当矿工产生了新的区块，它会将这个区块上传到网络，由网络层负责消息传播。根据网络层配置的不同，传播逻辑也会有所不同。此外，攻击者也可能选择不上传自己本轮次挖到的区块，只有上传到网络层的区块才会经由该方法进行传播。**在ChainXim的模型中，认为攻击者所控制的矿工拥有独立于区块链系统的专用通信通道，即任一隶属于攻击者一旦接收到某个区块，则攻击者麾下的所有矿工均会在下一轮次收到该区块。**
 
-**注意，上述的扩散方法主要与Network组件对接，而随机预言方法则与Consensus组件对接。随即预言建模最初是针对比特币中的的PoW共识协议提出的。为使仿真器能够兼容诸如PBFT这类基于交互的共识，例如PBFT这类基于交互的共识，ChainXim后续将考虑在Consensus组件中对这一方法进行重载。**
+**注意，上述的扩散方法主要与Network组件对接，而随机预言方法则与Consensus组件对接。随即预言建模最初是针对比特币中的的PoW共识协议提出的。为使仿真器能够兼容其它共识，例如PBFT这类基于交互的共识，ChainXim后续将考虑在Consensus组件中对这一方法进行重载。**
 **Environment中设置了exec函数来一次性完成上述两种方法**：每一轮次中，所有矿工将依次被唤醒，并各自执行随机预言方法：如果矿工为诚实方，那么exec函数将调用Consensus组件执行进行相关操作；如果激活了攻击者，则调用Attacker组件进行相关操作。（每一轮次中只会调用一次Attacker组件）
 当所有矿工都完成自己的行动，即回合结束时，exec函数中将执行Network组件中的扩散方法，在网络中传播区块。一个具体的实例如下图所示：
 
@@ -144,7 +144,7 @@ Chain类具有多种方法，可以用于添加新区块、合并链、搜索区
 | last_block                      | -                                         | Block       | 返回Chain.lastblock                                          |
 | add_block_direct                | block: Block                              | Block       | 将block直接添加到主链末尾，并将lastblock指向block，返回block |
 | insert_block_copy               | copylist:List[Block], insert_point: Block | Block\|None | 在指定的插入点insert_point将copylist中指定的区块合入多叉树，返回合并后链末端的区块，如果没有合并返回None |
-| add_block_copy                  | lastblock:Block                           | Block\|None | 合并lastblock所在的链，返回合并后链末端的区块，如果没有合并放回None |
+| add_block_copy                  | lastblock:Block                           | Block\|None | 合并lastblock所在的链，返回合并后链末端的区块，如果没有合并返回None |
 | ShowStructure1                  | -                                         | -           | 以head为根节点，在stdout打印整个多叉树                       |
 | ShowStructure                   | miner_num:int                                | -           | 生成blockchain visualisation.svg，显示区块链中每个区块产生的轮次以及父子关系 |
 | ShowStructureWithGraphviz       | -                                         | -           | 在blockchain_visualization目录下借助Graphviz生成区块链可视化图 |
