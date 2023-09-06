@@ -121,6 +121,9 @@ class Environment(object):
             self.attack.execute_sample0(round)
         elif self.attack_execute_type == 'execute_sample1':
             self.attack.execute_sample1(round)
+        else:
+            print('Undefined attack mode, please check the system_config.ini')
+            exit()
 
         
     def exec(self, num_rounds, max_height, process_bar_type):
@@ -165,9 +168,6 @@ class Environment(object):
             #self.assess_common_prefix()
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
             # 分割一下
-        # self.clear_adversary()
-            if self.adversary_mem and not global_var.get_compact_outputfile():
-                self.attack.attacklog2txt(round)
         
             # 全局链高度超过max_height之后就提前停止
             current_height = self.global_chain.lastblock.BlockHeight()
@@ -180,8 +180,8 @@ class Environment(object):
                 cached_height = current_height
                 self.process_bar(current_height, max_height, t_0, 'block/s')
         self.total_round = self.total_round + round
-        if self.adversary_mem:
-            self.attack.resultlog2txt()
+
+
         
         
     def assess_common_prefix(self):

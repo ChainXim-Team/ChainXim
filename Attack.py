@@ -8,6 +8,7 @@ import global_var
 import copy
 import time
 import network
+import operator
 
 def get_time(f):
     def inner(*arg,**kwarg):
@@ -65,59 +66,41 @@ class default_attack_mode(metaclass = ABCMeta):
         self.global_chain: Chain = global_chain
         self.Adverchain = copy.deepcopy(self.global_chain) # 攻击链 攻击者攻击手段挖出的块都暂时先加到这条链上
         self.base_chain = copy.deepcopy(self.global_chain) # 基准链 攻击者参考的链, 始终是以adversary视角出发的最新的链
-        self.network: network = Environment_network
+        self.network: network.Network = Environment_network
         self.adversary_miner_num = len(self.adversary) # 获取攻击者的数量
         self.q_adver = sum([attacker.consensus.q for attacker in self.adversary]) # 计算攻击者总算力
         self.last_brd_block = None
         for temp_miner in self.adversary:
             # 重新设置adversary的 q 和 blockchain，原因在 mine_randmon_miner 部分详细解释了
             temp_miner.consensus.q = self.q_adver
-            temp_miner.consensus.Blockchain.add_block_copy(self.Adverchain.lastblock)
+            temp_miner.consensus.Blockchain.add_block_copy(self.base_chain.lastblock)
         adver_consensus_param = {'q_ave': self.q_adver, 'q_distr':'equal', 
                                  'target': temp_miner.consensus.target}
         self.Adverminer = AdverMiner(adver_consensus_param)
         self.Adverminer.consensus.Blockchain = self.Adverchain
-        self.atlog={
-            'chain_update': None,
-            'input': None,
-            'current_miner': None,
-            'atk_mine': None,
-            'override': None,
-            'adopt': None,
-            'receive_tape':[],
-            'adminer_chain':[],
-            'block_content': None,
-            'base_chain': None,
-            'adver_chain': None
-        } # 对attack行为进行追踪记录的字典
-        self.sttic={
-            'over_ride': 0,
-            'wait': 0,
-            'give_up': 0
-        } # 对attack行为进行统计的字典
+        self.fork_blockhash = global_chain.lastblock.blockhash
+        self.log={
+            'round':0,
+            'state_trans':None,
+            'behaviour':None,
+            'honest_block':None,
+            'adver_block':None,
+            'input': None
+        }
+        self.tmplog = copy.copy(self.log)
 
+    def attack_record_chain(self):
+        return self.local_record
 
     def renew(self, round): # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
-        attack_update = False
-        rcv_tape = []
-        adminer_chain = []
+        
         for temp_miner in self.adversary:
-            rcv_tape.append([i.name for i in temp_miner.consensus.receive_tape])
-            adminer_chain.append(temp_miner.consensus.Blockchain.lastblock.name)
-
-            chain_update, update_index = temp_miner.consensus.maxvalid() # 模拟诚实矿工的BBP--验证区块 返回是否有更新
-
-            self.atlog['adminer_chain'] = adminer_chain
-            self.atlog['chain_update'] = chain_update.lastblock.name
-            self.atlog['input'] = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
-
-            #if chain_update.lastblock not in self.base_chain: # update_index 有很大问题只能用这个检测更新的链是否存在的方法
-                # 这是一个非常严重的问题
+            chain_update, update_index = temp_miner.consensus.maxvalid() 
+            self.log['input'] = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             self.base_chain.add_block_copy(chain_update.lastblock) # 如果存在更新将更新的区块添加到基准链上 
-            self.global_chain.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
-        # 此时base_chain应是以adversary视角中最优的基准链
-        self.atlog['receive_tape'] = rcv_tape
-        return attack_update
+            #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
+        newest_block = self.base_chain.lastblock
+        return newest_block
     
     def clear(self): # 清除矿工的input tape和communication tape
         for temp_miner in self.adversary:
@@ -126,29 +109,16 @@ class default_attack_mode(metaclass = ABCMeta):
 
     def mine(self):
         # 以下是attack模块攻击者挖矿部分的思路及原因
-        '''
-        miner 的 Mining 函数如下
-        def Mining(self):
-        return:
-            self.Blockchain.lastblock 挖出的新区块没有就返回none type:Block/None
-            mine_success 挖矿成功标识 type:Bool
-
-        newblock, mine_success = self.consensus.mining_consensus(self.Blockchain,self.Miner_ID,self.isAdversary,self.input,self.q)
-        if mine_success == True:
-            self.Blockchain.AddBlock(newblock)
-            self.Blockchain.lastblock = newblock
-        return (newblock, mine_success)  # 返回挖出的区块，
-        '''
         # 这里注意到如果调用 miner 自身的 mining 函数, 其使用的是 miner 自身的链以及 miner 自身的 q 
         # 因此为了能方便后续使用者便于书写attack模块, 在 attack 模块中的初始化部分替换 miner 的这两部分内容
         # 特别提醒： Miner_ID 和 isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
         self.current_miner = random.choice(self.adversary) # 随机选取当前攻击者
-        self.atlog['current_miner'] = self.current_miner.Miner_ID
+        #self.atlog['current_miner'] = self.current_miner.Miner_ID
         adm_newblock, mine_success = self.Adverminer.consensus.mining_consensus(self.current_miner.Miner_ID,
-                                                                                True,self.atlog['input'])
+                                                                                True,self.log['input'])
         attack_mine = False
         if adm_newblock:
-            self.atlog['block_content'] = adm_newblock.blockhead.content
+            #self.atlog['block_content'] = adm_newblock.blockhead.content
             attack_mine = True
             self.Adverchain.add_block_direct(adm_newblock)  # 自己挖出来的块直接用AddBlock即可
             self.Adverchain.lastblock = adm_newblock
@@ -156,147 +126,150 @@ class default_attack_mode(metaclass = ABCMeta):
             for temp_miner in self.adversary:
                 temp_miner.consensus.receive_tape.append(adm_newblock)
                 # 将新挖出的区块放在攻击者的receive_tape
-        # return (newblock, mine_success)  # 返回挖出的区块，
-        self.atlog['atk_mine'] = attack_mine
-        '''
-        
-        if mine_success:
-            attack_mine = True
-            for temp_miner in self.adversary:
-                #temp_miner.maxvalid() 
-                # 虽然想直接使用maxvalid部分, 但是从逻辑上来说adversary之间利益是一致的, 他们可以直接通信所以应该直接addchain
-                # 循环遍历了所有的adversary, 保证所有人都更新了区块
-                #temp_miner.Blockchain.AddChain(newblock)
-                # 另外特别提醒：AddChain部分本身使用了copy功能（且仅是对块的深拷贝）, 此外attack模块最好不要再使用copy功能
-                self.global_chain.AddChain(newblock) # 作为历史可能分叉的一部添加到全局链中
-                self.Adverchain.AddChain(newblock) # 攻击者挖出来的肯定要添加到Adverchain, 根据定义
-                '''
         return attack_mine
-    
-    def mine_ID_miner(self, Miner_ID: int):
-        # 所有功能与mine_randmon_miner一致 不赘述
-        self.current_miner = self.adversary[Miner_ID] # 根据ID指定选取当前攻击者
-        new_msg, mine_success = self.current_miner.launch_consensus(self.atlog['input'])
-        newblock = new_msg[0]
-        attack_mine = False
-        if mine_success:
-            attack_mine = True
-            for temp_miner in self.adversary:
-                #temp_miner.maxvalid() 
-                # 虽然想直接使用maxvalid部分 但是从逻辑上来说adversary之间利益是一致的 他们可以直接通信所以应该直接addchain
-                # 循环遍历了所有的adversary 保证所有人都更新了区块
-                temp_miner.consensus.Blockchain.add_block_copy(newblock)
-                # 另外特别提醒：AddChain部分本身使用了copy功能（且仅是对块的深拷贝） 此外attack模块最好不要再使用copy功能
-                self.global_chain.add_block_copy(newblock) # 作为历史可能分叉的一部添加到全局链中
-                self.Adverchain.add_block_copy(newblock)
-        return attack_mine
-    
-    def Override(self, round, cri = 1):
-        # Override作为attack模块中最为直观的内容, 其功能是将adversary矿工挖到的区块发布出去
-        # 但是这需要考虑adversary的行为策略：即何时将区块公布
-        # 该基本实例中不考虑额外的行为模式, 只要执行了这个功能adversaery就将此时最新的区块接入网络中
-        # 其中 cri 表示攻击链比环境主链高多少时执行接入网络
-        # 即使是这种最基本的模式也能组合形成一些新的攻击策略
-        # 前面也提到所有adversary挖出的区块都会被跟新到adverchain上所以要接入网络的就是该链
-        attack_override = False
-        if self.Adverchain.lastblock.BlockHeight() - self.base_chain.lastblock.BlockHeight() >= cri \
-            and self.last_brd_block != self.Adverchain.lastblock:
-            self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
-            attack_override = True
-            self.last_brd_block = self.Adverchain.lastblock
-        self.atlog['override'] = attack_override
-        return attack_override
        
     def adopt(self):
         # 该功能是接纳环境中目前最新的链
         self.Adverchain.add_block_copy(self.base_chain.lastblock)
-        # 首先将attack内的adverchain更新为attack可以接收到的最新的链
-        for temp_miner in self.adversary:
-            temp_miner.consensus.Blockchain.add_block_copy(self.base_chain.lastblock)
-            # 更新所有攻击者的链
+        # 首先将attack内的adverchain更新为attacker可以接收到的最新的链
+        self.fork_blockhash = self.Adverchain.lastblock.blockhash
+        return self.fork_blockhash
+    
+    def upload(self, round):
+        self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
+        return self.Adverchain.lastblock
         
-
     def wait(self):
         # 这个功能就是什么都不干
         pass
 
-    def giveup(self):
-        # 放弃什么都不干
-        pass
-
-    def match(self, round):
-        # match 的功能可以视为 Override 的一种, 但是又不完全相同
-        # match 做到的行为本质上也是直接接入网络
-        # 不论当前adverchain有多高, 即使比base_chain矮很多也发布
-        self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
-
-    def attacklog2txt(self, round):
-        RESULT_PATH = global_var.get_result_path()
-        with open(RESULT_PATH / 'Attack_log.txt','a') as f:
-            print('Round:',round,file=f)
-            print('base chain:', self.base_chain.lastblock.BlockHeight(), self.base_chain.lastblock.name, file=f)
-            print('Adverchain:', self.Adverchain.lastblock.BlockHeight(), self.Adverchain.lastblock.name, file=f)
-            print(self.atlog, '\n',file=f)
     
     def resultlog2txt(self):
         RESULT_PATH = global_var.get_result_path()
         with open(RESULT_PATH / 'Attack_result.txt','a') as f:
-            print(self.sttic, '\n',file=f)
+            print(self.log, '\n',file=f)
 
     def execute_sample0(self, round):
         # 这是attack模块执行的攻击范例0: 算力攻击
         # 作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
-
-        # 每轮固定更新攻击状态
-        
+        # 每轮固定更新攻击状态      
         attack_update = self.renew(round)
-        # 执行挖掘
-        attack_mine = self.mine()
-        # 清空
-        self.clear()
+        attack_mine = self.mine()# 挖矿 
+        self.clear()# 清空
+        self.adopt()
         # 执行override, 标准cri设定为高度2
         if attack_mine:
-            self.network.access_network([self.Adverchain.lastblock], self.current_miner.Miner_ID, round)
-            self.sttic['over_ride'] = self.sttic['over_ride']+1
+            self.upload(round)
         else:
             self.wait()
-            self.sttic['wait'] = self.sttic['wait']+1
-        
-        self.adopt()
-
-
 
     def execute_sample1(self, round):
-        # 这是attack模块执行的攻击范例1: 自私挖矿
+        # 这是attack模块执行的攻击范例1: 自私挖矿的beta版本，不同的实现思路
         # 作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
-
         # 每轮固定更新攻击状态
-        
-        attack_update = self.renew(round)
-        # 执行挖掘
-        attack_mine = self.mine()
-        # 清空
-        self.clear()
-        # 执行override, 标准cri设定为高度2
-        attack_override = self.Override(round, cri=2)
-        
-        if attack_override: # 如果成功执行了override, 就过
-            self.atlog['adopt'] = False
-            self.sttic['over_ride'] = self.sttic['over_ride']+1
-        else:
-            T1 = self.base_chain.lastblock.BlockHeight()
-            T2 = self.Adverchain.lastblock.BlockHeight()
-            self.atlog['base_chain'] = T1
-            self.atlog['adver_chain'] = T2
-            self.atlog['adopt'] = False
-            if  T1-T2 >=2:
-                # 如果没执行但是基准链比adverchaian高2, 则执行adopt, 认为attack在当前形式下无法超过基准链
-                self.sttic['give_up'] = self.sttic['give_up']+1
-                self.adopt()
-                self.atlog['adopt'] = True
+        newest_block = self.renew(round)
+        base_height = self.base_chain.lastblock.BlockHeight()
+        adver_height = self.Adverchain.lastblock.BlockHeight()
+        self.log['round']=round
+        if base_height > adver_height:
+            # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
+            self.adopt()
+            # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，收益块数为从adverchain与base_chain产生分歧的块数开始。
+            attack_mine = self.mine()
+            if attack_mine:
+                # 如果攻击者出块成功（在新主链上），从0状态进入1状态，攻击者处于领先1位置
+                self.wait()
+                #self.upload(round) #可能要upload
+                self.log['state_trans']='1'
+                self.log['behaviour']='wait'
+                self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+                # 
             else:
-                self.wait() # 没成功执行override，也过
-                self.sttic['wait'] = self.sttic['wait']+1
+                # 如果攻击者出块失败，在0状态停留，全矿工认可唯一主链
+                self.wait()
+                self.log['state_trans']='0'
+                self.log['behaviour']='wait'
+                self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+        else:
+            # 当攻击链不低于基准链时，诚实矿工应该处于被攻击链主导状态或者与攻击链match状态。而攻击者能做的是尽可能挖矿，保持或占据主导地位，所以不存在接受链这一行为。
+            # 故统计矿池收益的过程被设计在renew内完成。
+            if base_height == adver_height:
+                # 此时攻击链与诚实链等高
+                if self.base_chain.lastblock.blockhash == self.Adverchain.lastblock.blockhash:
+                    # 同高位置的区块相同，因此为0状态，攻击者尝试挖矿，挖出与否都不公布
+                    attack_mine = self.mine()
+                    # 如果挖出区块则进入1状态，否则停留在0状态
+                    if attack_mine:
+                        self.log['state_trans']='1'
+                        self.log['behaviour']='mine selfly'
+                        #self.upload(round) # chaixim适应性调整，挖出来必须要公布
+                    else:
+                        self.log['state_trans']='0'
+                        self.log['behaviour']='wait'                   
+                    self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                    self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+                else:
+                    # 同高位置的区块不相同，因此为0'状态，攻击者依然尝试挖矿
+                    attack_mine = self.mine()
+                    if attack_mine:
+                        # 0'状态下攻击者若挖矿成功，以alpha概率进入0状态
+                        block = self.upload(round)
+                        self.log['state_trans']='0'
+                        self.log['behaviour']='mine compete successfully, and upload'+ str(block.name)
+                        self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                        self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+                    else:
+                        # 否则等待至下一回合，进入match状态。
+                        '''
+                        此时局面应是一部分诚实矿工本地连为攻击链，一部分为诚实链。攻击者本地全部为攻击链。
+                        '''
+                        block = self.upload(round) 
+                        # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
+                        self.wait()
+                        # 但本质行为逻辑是wait
+                        self.log['state_trans']='0#'
+                        self.log['behaviour']='wait, and insist' + block.name
+                        self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                        self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+            else:
+                # 这时，攻击链比诚实链高，高多少不知道。什么状态也不确定。
+                if self.base_chain.lastblock.blockhash != self.fork_blockhash:
+                    # 此时，攻击链和诚实链处于分叉了很久的状态。
+                    if adver_height - base_height >=2:
+                        # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
+                        attack_mine = self.mine()
+                        self.log['state_trans']=str(adver_height - base_height+1) if attack_mine else str(adver_height - base_height)
+                        self.log['behaviour']=str(str(adver_height - base_height)+'→'+str(adver_height - base_height+1)\
+                              if attack_mine else str(adver_height - base_height)+'→'+str(adver_height - base_height)) +', and wait'
+                        self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                        self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+                    else:
+                        # 否则，攻击链仅比诚实链高1，受到威胁，攻击者必须立马公布当前区块，再挖矿，挖矿结果不影响
+                        if self.log['state_trans'] !='1':
+                            block = self.upload(round)
+                            self.log['behaviour']='2→1, and upload' + block.name
+                        attack_mine = self.mine()
+                        self.log['behaviour']=str('1→2' if attack_mine else '1→1')
+                        self.log['state_trans']='2' if attack_mine else '1'
+                        
+                        self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                        self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+                else:
+                    # 此时，攻击链从主链挖出若干隐形块，不需要担心受到威胁
+                    attack_mine = self.mine()
+                    self.wait()
+                    self.log['state_trans']=str(adver_height - base_height+1) if attack_mine else str(adver_height - base_height)
+                    self.log['behaviour']=str(str(adver_height - base_height)+'→'+str(adver_height - base_height+1)\
+                          if attack_mine else str(adver_height - base_height)+'→'+str(adver_height - base_height))+', and wait'
+                    self.log['honest_block']=self.base_chain.lastblock.name,self.base_chain.lastblock.height
+                    self.log['adver_block']=self.Adverchain.lastblock.name,self.Adverchain.lastblock.height
+        self.clear()
+        #self.resultlog2txt()
+
+
+        
 
     def execute_sample2(self, round):
         # 这是attack模块执行的攻击返利2：双花攻击
