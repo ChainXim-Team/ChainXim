@@ -42,13 +42,8 @@ class Attack(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def giveup(self):
-        # Adversary gives up current attacking, like mining the blocks based on formal chain.
-        pass
-
-    @abstractmethod
-    def match(self):
-        # Although adversary did not attack successfuly, it broadcast the block at the same height of the main chain.
+    def upload(self):
+        # acceess to network
         pass
 
     @abstractmethod
@@ -88,9 +83,6 @@ class default_attack_mode(metaclass = ABCMeta):
             'input': None
         }
         self.tmplog = copy.copy(self.log)
-
-    def attack_record_chain(self):
-        return self.local_record
 
     def renew(self, round): # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         
@@ -143,7 +135,6 @@ class default_attack_mode(metaclass = ABCMeta):
         # 这个功能就是什么都不干
         pass
 
-    
     def resultlog2txt(self):
         RESULT_PATH = global_var.get_result_path()
         with open(RESULT_PATH / 'Attack_result.txt','a') as f:
