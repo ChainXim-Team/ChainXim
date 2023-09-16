@@ -324,6 +324,8 @@ class Chain(object):
         # 打印树状结构
         # 可能需要miner数量 也许放在这里不是非常合适？
         plt.figure()
+        plt.rcParams['font.size'] = 16
+        plt.rcParams['font.family'] = 'Times New Roman'
         blocktmp = self.head
         fork_list = []
         while blocktmp:
@@ -349,9 +351,8 @@ class Chain(object):
                     blocktmp = fork_list.pop(0)
                 else:
                     blocktmp = None
-        plt.xlabel('round')
-        plt.ylabel('block height')
-        plt.title('blockchain visualisation')
+        plt.xlabel('Round')
+        plt.ylabel('Block Height')
         plt.grid(True)
         RESULT_PATH = global_var.get_result_path()
         plt.savefig(RESULT_PATH / 'blockchain visualisation.svg')
@@ -392,14 +393,21 @@ class Chain(object):
     def get_block_interval_distribution(self):
         stat = []
         blocktmp2 = self.lastblock
+        height = blocktmp2.height
         while not blocktmp2.isGenesis:
             blocktmp1 = blocktmp2.last
             stat.append(blocktmp2.blockhead.content - blocktmp1.blockhead.content)
             blocktmp2 = blocktmp1
-        plt.hist(stat, bins=10, histtype='bar', range=(0, max(stat)))
+        if height <= 1000:
+            bins = 10
+        else:
+            bins = 20
+        plt.rcParams['font.size'] = 16
+        plt.rcParams['font.family'] = 'Times New Roman'
+        plt.hist(stat, bins=bins, histtype='bar', range=(0, max(stat)))
         plt.xlabel('Rounds')
         plt.ylabel('Times')
-        plt.title('Block generation interval distribution')
+        # plt.title('Block generation interval distribution')
         RESULT_PATH = global_var.get_result_path()
         plt.savefig(RESULT_PATH / 'block interval distribution.svg')
         if global_var.get_show_fig():
@@ -457,6 +465,7 @@ class Chain(object):
             "num_of_stale_blocks": 0,
             "stale_rate": 0,
             "num_of_forks": 0,
+            "num_of_heights_with_fork":0,
             "fork_rate": 0,
             "average_block_time_main": 0,
             "block_throughput_main": 0,
@@ -477,6 +486,7 @@ class Chain(object):
         last_block = self.lastblock.last
         while last_block:
             stats["num_of_forks"] += len(last_block.next) - 1
+            stats["num_of_heights_with_fork"] += (len(last_block.next) > 1)
             last_block = last_block.last
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
@@ -487,7 +497,7 @@ class Chain(object):
         stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]
         stats["block_throughput_total"] = 1 / stats["average_block_time_total"]
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
-        stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_valid_blocks"]
+        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["num_of_valid_blocks"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats
