@@ -81,6 +81,8 @@ class Environment(object):
             f'Consensus Param: {consensus_param} \n'
         if self.adversary_mem:
             parameter_str += f'Attack Execute Type: {self.attack_execute_type} \n'
+        if isinstance(self.network, network.TopologyNetwork):
+            parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
