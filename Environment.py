@@ -63,7 +63,7 @@ class Environment(object):
         self.network.set_net_param(**network_param)
         ## 初始化攻击模组
         if self.adversary_mem: # 如果有攻击者，则创建攻击实例
-            self.attack = default_attack_mode(self.adversary_mem, self.global_chain, self.network)
+            self.attack = default_attack_mode(self.miners,self.adversary_mem, self.global_chain, self.network)
             self.adverflag = random.randint(1,len(self.adversary_mem))
         self.attack_execute_type = global_var.get_attack_execute_type()
         
@@ -121,6 +121,10 @@ class Environment(object):
             self.attack.execute_sample0(round)
         elif self.attack_execute_type == 'execute_sample1':
             self.attack.execute_sample1(round)
+        elif self.attack_execute_type == 'execute_sample2':
+            self.attack.execute_sample2(round)
+        elif self.attack_execute_type == 'execute_sample3':
+            self.attack.execute_sample3(round)
         else:
             print('Undefined attack mode, please check the system_config.ini')
             exit()
