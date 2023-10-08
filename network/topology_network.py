@@ -46,7 +46,6 @@ class TopologyNetwork(Network):
         super().__init__()
         self.miners = miners
         self.adv_minerids = [m.Miner_ID for m in miners if m.isAdversary]
-        print([m.neighbor_list for m in miners])
         # parameters, set by set_net_param()
         self.show_label = None
         self.gen_net_approach = None
@@ -513,7 +512,6 @@ class TopologyNetwork(Network):
         """
         读取Result->Network Routing文件夹下的routing_histroy.json,并将其转化为routing_gragh
         """
-        print('ffasfas')
         if self.save_routing_graph is False:
             print('Fail to generate routing gragh for each block from json.')
         elif self.save_routing_graph is True:  
