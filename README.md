@@ -88,7 +88,7 @@ python main.py
 
 
 ## 测试用例 
-将以下参数传递给主程序，将会使ChainXim随机生成一个包含10个节点的矿工网络，其中2个节点为攻击者，采用的网络模型为TopologyNetowrk，仿真总共持续3000轮次。
+将以下参数传递给主程序，将会使ChainXim随机生成一个包含10个节点的矿工网络，其中2个节点为攻击者，采用的网络模型为TopologyNetwork，仿真总共持续3000轮次。
 ```
 python main.py --total_round 3000 --miner_num 10 -t 2 --network_type network.TopologyNetwork --no_compact_outputfile --save_routing_graph --show_label
 ```
@@ -304,8 +304,81 @@ Results/20230819-232107/
 | events.log | 仿真过程日志，记录重要事件如产生区块、接入网络等 |
 | parameters.txt | 仿真环境参数 |
 
+## 结果展示
+### 传播时延随区块大小的变化
+轮数：100000
+矿工数：100
+共识类型：PoW
+难度：00008F...
+网络类型：TopologyNetwork
+网络参数：默认
+
+---
+传播时延与90%有效吞吐量随区块大小的变化示意图
+
+![latency_effective_throughput90](doc/latency_effective_throughput90.svg)
+
+
+### 不同网络最大时延下的分叉率、孤块率、吞吐量与一致性
+轮数：100000
+矿工数：100
+共识类型：PoW
+难度：0002FF...
+网络类型：TopologyNetwork
+网络参数：rcvprob_start=rcvprob_inc=1/最大轮数
+
+---
+分叉率/孤块率与吞吐量随最大传播时延的变化示意图
+
+![latency-throughput](doc/latency-throughput.svg)
+
+---
+一致性指标随最大传播时延的变化示意图
+
+![cp_bounded_delay](doc/cp_bounded_delay.svg)
+
+
+### 不同区块大小下的分叉率、孤块率、吞吐量与一致性
+轮数：500000
+曲线上单点重复次数：5
+矿工数：20
+共识类型：PoW
+难度：0000FF...
+网络类型：TopologyNetwork
+网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5；
+bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+---
+分叉率/孤块率与吞吐量随区块大小的变化示意图
+
+![Blocksize-simulation](doc/Blocksize-simulation.png)
+
+---
+一致性指标随区块大小的变化示意图
+
+![Blocksize-CommonPrefix](doc/Blocksize-CommonPrefix.png)
+
+该图中，1L、2L、3L分别代表三种长度从短到长的共同前缀，PDF正对应本地链上含有这几种前缀的矿工比例。此外，图中各PDF对应的色柱为重叠状，其值均应从高度0开始测算。
+
+
+### 不同攻击向量下的攻击者出块占比示意图
+轮数：100000
+曲线上单点重复次数：20
+矿工数：40
+共识类型：PoW
+难度：000FFF...
+网络参数设置：四种网络参数均为默认
+
+1.算力攻击（honest mining）
+
+![honest_mining](doc/honest_mining.png)
+
+2.区块截留攻击（selfish mining）
+
+![selfish_mining](doc/selfish_mining.png)
+
 ## 开发者文档
-[开发者文档](doc/developer-guide.md)
+详见[developer-guide](doc/developer-guide.md)
 
 ## 贡献者
 曹苇杭，陈炳文，陈阳，崔自翔，陈喜年，凌昕彤
