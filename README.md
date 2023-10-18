@@ -369,7 +369,7 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 
 ![Blocksize-CommonPrefix](doc/Blocksize-CommonPrefix.png)
 
-该图中，1L、2L、3L分别代表三种长度从短到长的共同前缀，PDF正对应本地链上含有这几种前缀的矿工比例。此外，图中各PDF对应的色柱为重叠状，其值均应从高度0开始测算。
+该图中，CommonPrefix [0][1][2]分别代表一致性指标中的前三个数据，其中序数代表共同前缀与主链长度的差值（具体见“仿真器输出”部分）
 
 
 ### 不同攻击向量下的攻击者出块占比示意图
@@ -394,3 +394,4 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 ## 贡献者
 曹苇杭，陈炳文，陈阳，崔自翔，陈喜年，凌昕彤
 
+![输入图片说明](doc/Figure_1.png)
