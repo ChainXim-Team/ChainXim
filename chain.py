@@ -249,6 +249,7 @@ class Chain(object):
 
     def add_block_copy(self, lastblock: Block):
         # 返回值：深拷贝插入完之后新插入链的块头
+        # block 的 last必须不为none
         receive_tmp = lastblock
         if not receive_tmp:  # 接受的链为空，直接返回
             return None
