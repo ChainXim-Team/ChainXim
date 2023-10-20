@@ -9,22 +9,22 @@ import global_var
 import network
 from chain import Chain,Block
 from miner import Miner
-from Attack import default_attack_mode
+from attack.Adversary import Adversary
 from functions import for_name
 from external import common_prefix, chain_quality, chain_growth
 
 
+
 class Environment(object):
 
-    def __init__(self,  t:int = None, adversary_ids:tuple = None,
+    def __init__(self,  attack_param: dict = None,
                  consensus_param:dict = None, network_param:dict = None, 
                  genesis_blockheadextra:dict = None, genesis_blockextra:dict = None):
         '''initiate the running environment
 
         Param
         -----
-        t: maximum number of miners(int)
-        adversary_ids: The IDs of adverary members (tuple)
+        attack_param: attack parameters (dict)
         consensus_param: consensus parameters (dict)
         network_param: network parameters (dict)
         genesis_blockheadextra: initialize variables in the head of genesis block (dict)
@@ -47,26 +47,17 @@ class Environment(object):
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
-        
-        # select adversay
-        self.max_adversary = t  # maximum number of adversary
-        self.adversary_mem:List[Miner] = []
-        if adversary_ids is not None:
-            if len(adversary_ids) != self.max_adversary:
-                self.max_adversary = len(adversary_ids)
-            self.select_adversary(*adversary_ids)
-        elif self.max_adversary > 0:
-            self.select_adversary_random()
-            adversary_ids = [adversary.Miner_ID for adversary in self.adversary_mem]
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        self.network.set_net_param(**network_param)
-        ## 初始化攻击模组
-        if self.adversary_mem: # 如果有攻击者，则创建攻击实例
-            self.attack = default_attack_mode(self.miners,self.adversary_mem, self.global_chain, self.network)
-            self.adverflag = random.randint(1,len(self.adversary_mem))
-        self.attack_execute_type = global_var.get_attack_execute_type()
-        
+        self.network.set_net_param(**network_param)        
+        # generate adversary
+        self.Adversary = Adversary(adverNum = attack_param['adverNum'], attackType = attack_param['attackType'], \
+                                         adversaryIds = attack_param['adversaryIds'], networkType = self.network, \
+                                            consensusType = global_var.get_consensus_type(), minerList = self.miners, \
+                                                eclipse = attack_param['eclipse'], globalChain = self.global_chain, \
+                                                    adverConsensusParam = consensus_param)
+        # get adversary IDs
+        adversary_ids = self.Adversary.getAdverIds()
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         for miner in self.miners:
@@ -74,43 +65,21 @@ class Environment(object):
                 print(f"isAdversary: {miner.isAdversary}\n", file=f)
         parameter_str = 'Parameters:\n' + \
             f'Miner Number: {self.miner_num} \n' + \
-            f'Adversary Miners: {adversary_ids} \n' + \
             f'Consensus Protocol: {consensus_type.__name__} \n' + \
             f'Network Type: {type(self.network).__name__} \n' + \
             f'Network Param:  {network_param} \n' + \
             f'Consensus Param: {consensus_param} \n'
-        if self.adversary_mem:
-            parameter_str += f'Attack Execute Type: {self.attack_execute_type} \n'
+        if adversary_ids:
+            parameter_str += f'Adversary Miners: {adversary_ids} \n'
+            parameter_str += f'Attack Execute Type: {self.Adversary.getAttackType()}'
+            parameter_str += f'  (Eclipse: {self.Adversary.getEclipse()}) \n'
+            parameter_str += f"  Adversary's q: {self.Adversary.getAdverQ()}) \n"
         if isinstance(self.network, network.TopologyNetwork):
             parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
 
-    def select_adversary_random(self):
-        '''
-        随机选择对手
-        return:self.adversary_mem
-        '''
-        self.adversary_mem=random.sample(self.miners,self.max_adversary)
-        for adversary in self.adversary_mem:
-            adversary.set_adversary(True)
-        return self.adversary_mem
-
-    def select_adversary(self,*Miner_ID):
-
-        for miner in Miner_ID:
-            self.adversary_mem.append(self.miners[miner])
-            self.miners[miner].set_adversary(True)
-        return self.adversary_mem
-     
-    '''
-    def clear_adversary(self):
-
-        for adversary in self.adversary_mem:
-            adversary.set_adversary(False)
-        self.adversary_mem=[]
-    '''
 
     def envir_create_global_chain(self):
         '''create global chain and its genesis block by copying local chain from the first miner.'''
@@ -118,18 +87,6 @@ class Environment(object):
         self.global_chain.head = copy.deepcopy(self.miners[0].consensus.Blockchain.head)
         self.global_chain.lastblock = self.global_chain.head
 
-    def attack_execute(self,round):
-        if self.attack_execute_type == 'execute_sample0':
-            self.attack.execute_sample0(round)
-        elif self.attack_execute_type == 'execute_sample1':
-            self.attack.execute_sample1(round)
-        elif self.attack_execute_type == 'execute_sample2':
-            self.attack.execute_sample2(round)
-        elif self.attack_execute_type == 'execute_sample3':
-            self.attack.execute_sample3(round)
-        else:
-            print('Undefined attack mode, please check the system_config.ini')
-            exit()
 
         
     def exec(self, num_rounds, max_height, process_bar_type):
@@ -147,12 +104,13 @@ class Environment(object):
         for round in range(1, num_rounds+1):
             inputfromz = round # 生成输入
 
-            adver_tmpflag = 1    
+            adver_tmpflag = 1
+            adverflag = random.randint(1,self.Adversary.getAdverNum())  
             for temp_miner in self.miners:
                 if temp_miner.isAdversary:
                     temp_miner.input_tape.append(("INSERT", inputfromz))
-                    if adver_tmpflag == self.adverflag:
-                        self.attack_execute(round)
+                    if adver_tmpflag == adverflag:
+                        self.Adversary.excutePerRound(round = round)
                         adver_tmpflag = adver_tmpflag + 1
                     else:
                         adver_tmpflag = adver_tmpflag + 1
@@ -207,8 +165,8 @@ class Environment(object):
         cp_k = self.global_chain.lastblock
         cp_stat = np.zeros((1, self.miner_num))
         for k in range(self.max_suffix):
-            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.max_adversary:  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
-                self.cp_cdf_k[0, k] += self.miner_num-self.max_adversary
+            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.Adversary.getAdverNum():  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+                self.cp_cdf_k[0, k] += self.miner_num-self.Adversary.getAdverNum()
                 continue
             cp_stat = np.zeros((1, self.miner_num))  # 用来统计哪些矿工的链已经达标，
             cp_sum_k = 0
@@ -255,7 +213,7 @@ class Environment(object):
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
-            'upper_bound t/(n-t)': round(self.max_adversary / (self.miner_num - self.max_adversary), 5)
+            'upper_bound t/(n-t)': round(self.Adversary.getAdverNum() / (self.miner_num - self.Adversary.getAdverNum()), 5)
         })
         # Network Property
         stats.update({'block_propagation_times': {} })
@@ -296,7 +254,8 @@ class Environment(object):
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
         print('Ratio of blocks contributed by malicious players:', chain_quality_property)
-        print('Upper Bound t/(n-t):', self.max_adversary / (self.miner_num - self.max_adversary))
+        if self.Adversary.getInfo():
+            print('The simulation data of', self.Adversary.getAttackType() , 'is as follows', ':\n', self.Adversary.getInfo())
         # Network Property
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)
@@ -305,6 +264,7 @@ class Environment(object):
 
     def view_and_write(self):
         stats = self.view()
+        
         self.global_chain.printchain2txt()
 
         # save the results in the evaluation results.txt
@@ -337,7 +297,6 @@ class Environment(object):
         self.miners[0].consensus.Blockchain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
-
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
 
