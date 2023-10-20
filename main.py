@@ -94,17 +94,23 @@ def main(**args):
             })
 
     # 设置attack参数
-    attack_setting = dict(config['AttackModeSettings'])
-    adversary_ids = args.get('adversary_ids') if args.get('adversary_ids') is not None \
-                                              else eval(attack_setting.get('adversary_ids') or 'None')
-    global_var.set_attack_execute_type(args.get('attack_execute_type') or attack_setting['attack_execute_type'])
-    t = args.get('t') if args.get('t') is not None else int(attack_setting['t'])
+    attack_setting = dict(config['AttackSettings'])
+    global_var.set_attack_execute_type(args.get('attack_type') or attack_setting['attack_type'])
+    attack_param = {
+        'adverNum': args.get('adver_num') if args.get('adver_num') is not None else int(attack_setting['adver_num']),
+        'attackType': args.get('attack_type') if args.get('attack_type') is not None else attack_setting['attack_type'],
+        'adversaryIds': args.get('adver_lists') if args.get('adver_lists') is not None \
+                                              else eval(attack_setting.get('adver_lists') or 'None'),
+        'eclipse': True if attack_setting['eclipse'] is not None and attack_setting['eclipse'].upper() == 'TRUE'\
+                                              else False,
+    }
+
 
     # 生成环境
     genesis_blockheadextra = {}
     genesis_blockextra = {}
 
-    Z = Environment(t, adversary_ids, consensus_param, network_param,
+    Z = Environment(attack_param, consensus_param, network_param,
                     genesis_blockheadextra, genesis_blockextra)
     
     return run(Z, args.get('total_round') or int(environ_settings['total_round']),
