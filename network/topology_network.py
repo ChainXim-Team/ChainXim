@@ -45,6 +45,7 @@ class TopologyNetwork(Network):
     def __init__(self, miners: list[miner.Miner]):
         super().__init__()
         self.miners = miners
+        self.adv_minerids = [m.Miner_ID for m in miners if m.isAdversary]
         # parameters, set by set_net_param()
         self.show_label = None
         self.gen_net_approach = None
@@ -192,7 +193,10 @@ class TopologyNetwork(Network):
             packet.received_miners.append(current_miner)
             self.record_block_propagation_time(packet, round)
             # execute forward strategy
-            self.normal_forward(from_miner, current_miner, packet, round)
+            if current_miner not in self.adv_minerids:
+                self.normal_forward(from_miner, current_miner, packet, round)
+            else:
+                self.adversary_forward(from_miner, current_miner, packet, round)
         return receive_success
 
     def record_block_propagation_time(self, packet: PacketTpNet, r):
@@ -239,11 +243,25 @@ class TopologyNetwork(Network):
         # 选择接下来转发的目标--除了from_miner和已接收该数据包的所有neighbor矿工
         next_targets = [mi for mi in self.miners[cur_miner].neighbor_list 
                         if mi != from_miner and mi not in packet.received_miners]
-        next_delays = []
-        for nexttg in next_targets:
-            next_delays.append(self.cal_delay(packet.payload, cur_miner, nexttg))
+        # 计算时延，保存链路
+        next_delays = [self.cal_delay(packet.payload, cur_miner, nexttg) for nexttg in next_targets]
         packet.links.extend([cur_miner, nexttg, nextd] for nexttg, nextd in zip(next_targets, next_delays))
+        # 记录路由
+        packet.routing_histroy.update({(cur_miner, nexttg): [round, 0] for nexttg in next_targets})
+        packet.routing_histroy[(from_miner, cur_miner)][1] = round
 
+    def adversary_forward(self, from_miner:int, cur_miner:int, packet: PacketTpNet, round:int):
+        '''攻击者转发策略。谁都不发。
+        param:
+        from_miner:该数据包的来源     type:int  (MinerID)
+        current_miner:当前的矿工            type:int  (MinerID)
+        packet:当前处理的数据包    type:PacketTpNet
+        round:当前轮数                      type:int
+        '''
+        # 选择接下来转发的目标--谁都不发
+        next_targets = []
+        next_delays = []
+        packet.links.extend([cur_miner, nexttg, nextd] for nexttg, nextd in zip(next_targets, next_delays))
         # 记录路由
         packet.routing_histroy.update({(cur_miner, nexttg): [round, 0] for nexttg in next_targets})
         packet.routing_histroy[(from_miner, cur_miner)][1] = round
@@ -276,9 +294,9 @@ class TopologyNetwork(Network):
         # read from csv finished
         try:
             if gen_net_approach == 'adj':
-                self.gen_network_adj()
+                self.gen_network_by_adj()
             elif gen_net_approach == 'coo':
-                self.gen_network_coo()
+                self.gen_network_by_coo()
             elif gen_net_approach == 'rand' and ave_degree is not None:
                 self.gen_network_rand(ave_degree)
             else:
@@ -352,7 +370,7 @@ class TopologyNetwork(Network):
         self.tp_adjacency_matrix = nx.adjacency_matrix(self.network_graph).todense()
 
 
-    def gen_network_adj(self):
+    def gen_network_by_adj(self):
         """
         如果读取邻接矩阵,则固定节点间的带宽0.5MB/round
         bandwidth单位:bit/round
@@ -378,7 +396,7 @@ class TopologyNetwork(Network):
                     
 
 
-    def gen_network_coo(self):
+    def gen_network_by_coo(self):
         """如果读取'coo'稀疏矩阵,则带宽由用户规定"""
         # 第一行是行(from)
         # 第二行是列(to)(在无向图中无所谓from to)
@@ -520,60 +538,112 @@ class TopologyNetwork(Network):
         对单个区块生成路由图routing_gragh
         """
         # 生成有向图
-        trans_process_graph = nx.DiGraph()
+        route_graph = nx.DiGraph()
 
-        trans_process_graph.add_nodes_from(self.network_graph.nodes)
+        route_graph.add_nodes_from(self.network_graph.nodes)
 
         for (source_node, target_node), strounds in routing_histroy_single_block.items():
-            trans_process_graph.add_edge(source_node, target_node, trans_histroy=strounds)
+            route_graph.add_edge(source_node, target_node, trans_histroy=strounds)
 
         # 画图和保存结果
         # 处理节点颜色
         node_colors = []
-        for n, d in trans_process_graph.nodes(data=True):
+        for n, d in route_graph.nodes(data=True):
             if self.miners[n].isAdversary and n != origin_miner:
                 node_colors.append("red")
             elif n == origin_miner:
                 node_colors.append("green")
             else:
                 node_colors.append('#1f78b4')
-        node_size=100*3/self.MINER_NUM**0.5
-        nx.draw_networkx_nodes(trans_process_graph, pos=self.node_pos, node_size=node_size,node_color=node_colors)
-        nx.draw_networkx_labels(trans_process_graph, pos=self.node_pos, font_size=30/self.MINER_NUM**0.5,font_family='times new roman')
+        node_size = 100*3/self.MINER_NUM**0.5
+        nx.draw_networkx_nodes(
+            route_graph, 
+            pos = self.node_pos, 
+            node_size = node_size,
+            node_color = node_colors)
+        nx.draw_networkx_labels(
+            route_graph, 
+            pos = self.node_pos, 
+            font_size = 30/self.MINER_NUM**0.5,
+            font_family = 'times new roman')
         # 对边进行分类，分为单向未传播完成的、双向未传播完成的、已传播完成的
-        edges_not_complete_single = [(u, v) for u, v, d in trans_process_graph.edges(data=True) if d["trans_histroy"][1] == 0 
-                and (v, u) not in  trans_process_graph.edges()]
-        edges_not_complete_double = [(u, v) for u, v, d in trans_process_graph.edges(data=True) if d["trans_histroy"][1] == 0 
-                and (v, u) in  trans_process_graph.edges() and u>v]
-        edges_complete = [ed for ed in [(u, v) for u, v, d in trans_process_graph.edges(data=True) if
-                          (u, v)not in edges_not_complete_single and (u, v) not in edges_not_complete_double 
-                          and (v, u) not in edges_not_complete_double]]
+        edges_not_complete_single = [
+            (u, v) for u, v, d in route_graph.edges(data=True) 
+            if d["trans_histroy"][1] == 0 and (v, u) not in  route_graph.edges()]
+        edges_not_complete_double = [
+            (u, v) for u, v, d in route_graph.edges(data=True) 
+            if d["trans_histroy"][1] == 0 and (v, u) in  route_graph.edges() 
+            and u > v]
+        edges_complete = [
+            ed for ed in [(u, v) for u, v, d in route_graph.edges(data=True) 
+            if (u, v)not in edges_not_complete_single 
+            and (u, v) not in edges_not_complete_double 
+            and (v, u) not in edges_not_complete_double]]
         # 画边
-        width=3/self.MINER_NUM**0.5
-        nx.draw_networkx_edges(trans_process_graph, self.node_pos, edgelist=edges_complete, edge_color='black', 
-                               width=width,alpha=1,node_size=node_size,arrowsize=30/self.MINER_NUM**0.5)
-        nx.draw_networkx_edges(trans_process_graph, self.node_pos, edgelist=edges_not_complete_single, edge_color='black',
-                               width=width,style='--', alpha=0.3,node_size=node_size,arrowsize=30/self.MINER_NUM**0.5)
-        nx.draw_networkx_edges(trans_process_graph, self.node_pos, edgelist=edges_not_complete_double, edge_color='black',
-                               width=width,style='--', alpha=0.3,node_size=node_size,arrowstyle='<|-|>',arrowsize=30/self.MINER_NUM**0.5)                      
+        width = 3/self.MINER_NUM**0.5
+        nx.draw_networkx_edges(
+            route_graph, 
+            self.node_pos, 
+            edgelist = edges_complete, 
+            edge_color = 'black', 
+            width = width,
+            alpha = 1,
+            node_size = node_size,
+            arrowsize = 30/self.MINER_NUM**0.5)
+        nx.draw_networkx_edges(
+            route_graph, 
+            self.node_pos, 
+            edgelist = edges_not_complete_single, 
+            edge_color = 'black',
+            width = width,style='--', 
+            alpha = 0.3,
+            node_size = node_size,
+            arrowsize = 30/self.MINER_NUM**0.5)
+        nx.draw_networkx_edges(
+            route_graph, 
+            self.node_pos, 
+            edgelist = edges_not_complete_double, 
+            edge_color = 'black',
+            width = width,style='--', 
+            alpha = 0.3,
+            node_size = node_size,
+            arrowstyle = '<|-|>',
+            arrowsize = 30/self.MINER_NUM**0.5)                      
         # 没有传播到的边用虚线画
         edges_list_extra = []
         for (u, v) in self.network_graph.edges:
-            if ((u, v) not in trans_process_graph.edges) and ((v, u) not in trans_process_graph.edges):
-                trans_process_graph.add_edge(u, v, trans_histroy=None)
+            if (((u, v) not in route_graph.edges) and 
+                ((v, u) not in route_graph.edges)):
+                route_graph.add_edge(u, v, trans_histroy=None)
                 edges_list_extra.append((u, v))
-        nx.draw_networkx_edges(trans_process_graph, pos=self.node_pos, edgelist=edges_list_extra, edge_color='black',
-                                width=3/self.MINER_NUM**0.5,alpha=0.3, style='--', arrows=False)
+        nx.draw_networkx_edges(
+            route_graph, 
+            pos = self.node_pos, 
+            edgelist = edges_list_extra, 
+            edge_color = 'black',
+            width = 3/self.MINER_NUM**0.5,
+            alpha = 0.3, 
+            style = '--', 
+            arrows = False)
         # 处理边上的label，对单向的双向和分别处理
         if self.show_label:
-            edge_labels = {(u, v): f'{u}-{v}:{d["trans_histroy"]}' for u, v, d in trans_process_graph.edges(data=True) if
-                        (v, u) not in trans_process_graph.edges()}
+            # 单向
+            edge_labels = {
+                (u, v): f'{u}-{v}:{d["trans_histroy"]}' 
+                        for u, v, d in route_graph.edges(data=True)
+                        if (v, u) not in route_graph.edges()}
+            # 双向
             edge_labels.update(dict(
-                [((u, v), f'{u}-{v}:{d["trans_histroy"]}\n\n{v}-{u}:{trans_process_graph.edges[(v, u)]["trans_histroy"]}')
-                for u, v, d in trans_process_graph.edges(data=True) if v > u and (v, u) in trans_process_graph.edges()]))
-            nx.draw_networkx_edge_labels(trans_process_graph, self.node_pos, edge_labels=edge_labels, font_size=5*2/self.MINER_NUM**0.5,
-                                font_family='times new roman')
-            
+                [((u, v), f'{u}-{v}:{d["trans_histroy"]}\n\n'
+                          f'{v}-{u}:{route_graph.edges[(v, u)]["trans_histroy"]}')
+                          for u, v, d in route_graph.edges(data=True) 
+                          if v > u and (v, u) in route_graph.edges()]))
+            nx.draw_networkx_edge_labels(
+                route_graph, 
+                self.node_pos, 
+                edge_labels = edge_labels, 
+                font_size = 7*2/self.MINER_NUM**0.5,
+                font_family = 'times new roman')
         #保存svg图片
         NET_RESULT_PATH = global_var.get_net_result_path()
         plt.savefig(NET_RESULT_PATH / (f'routing_graph{blockname}.svg'))
