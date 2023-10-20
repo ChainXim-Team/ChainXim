@@ -13,6 +13,8 @@ def __init__(result_path:Path = None):
     NET_RESULT_PATH.mkdir()
     CHAIN_DATA_PATH=RESULT_PATH / 'Chain Data'
     CHAIN_DATA_PATH.mkdir()
+    ATTACK_RESULT_PATH=RESULT_PATH / 'Attack Result'
+    ATTACK_RESULT_PATH.mkdir()
     '''
     初始化
     '''
@@ -26,6 +28,7 @@ def __init__(result_path:Path = None):
     _var_dict['BLOCK_NUMBER'] = 0
     _var_dict['RESULT_PATH'] = RESULT_PATH
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
+    _var_dict['ATTACK_RESULT_PATH'] = ATTACK_RESULT_PATH
     _var_dict['CHAIN_DATA_PATH'] = CHAIN_DATA_PATH
     _var_dict['Blocksize'] = 2
     _var_dict['LOG_LEVEL'] = logging.INFO
@@ -82,6 +85,9 @@ def get_net_result_path():
 
 def get_chain_data_path():
     return _var_dict['CHAIN_DATA_PATH']
+
+def get_attack_result_path():
+    return _var_dict['ATTACK_RESULT_PATH']
 
 def set_network_type(network_type):
     '''定义网络类型 type:str'''
