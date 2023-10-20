@@ -120,10 +120,14 @@ class PoW(Consensus):
                 local_tmp = self.Blockchain.search(receive_tmp)
             else:
                 return (None, None)
-        if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):
-            return (copylist, local_tmp)
+        if receive_tmp:
+            if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):
+                return (copylist, local_tmp)
+            else:
+                return (None, None)
         else:
-            return (None, None)
+            return (copylist, local_tmp)
+
 
     def valid_chain(self, lastblock: Consensus.Block):
         '''验证区块链是否PoW合法\n
