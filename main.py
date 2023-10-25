@@ -16,7 +16,7 @@ def get_time(f):
     return inner
 
 @get_time
-def run(Z, total_round, max_height, process_bar_type):
+def run(Z:Environment, total_round: int, max_height: int, process_bar_type):
     Z.exec(total_round, max_height, process_bar_type)
     return Z.view_and_write()
 
@@ -97,9 +97,10 @@ def main(**args):
     attack_setting = dict(config['AttackSettings'])
     global_var.set_attack_execute_type(args.get('attack_type') or attack_setting['attack_type'])
     attack_param = {
-        'adverNum': args.get('adver_num') if args.get('adver_num') is not None else int(attack_setting['adver_num']),
-        'attackType': args.get('attack_type') if args.get('attack_type') is not None else attack_setting['attack_type'],
-        'adversaryIds': args.get('adver_lists') if args.get('adver_lists') is not None \
+        'adver_num': args.get('adver_num') if args.get('adver_num') is not None else int(attack_setting['adver_num']),
+        'attack_type': args.get('attack_type') if args.get('attack_type') is not None else attack_setting['attack_type'],
+        'attack_arg': attack_setting['attack_arg'],
+        'adversary_ids': args.get('adver_lists') if args.get('adver_lists') is not None \
                                               else eval(attack_setting.get('adver_lists') or 'None'),
         'eclipse': True if attack_setting['eclipse'] is not None and attack_setting['eclipse'].upper() == 'TRUE'\
                                               else False,
