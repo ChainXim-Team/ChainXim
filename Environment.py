@@ -6,10 +6,10 @@ from typing import List
 import numpy as np
 
 import global_var
-import network
+import network, consensus
 from chain import Chain,Block
 from miner import Miner
-from attack.Adversary import Adversary
+from attack.adversary import Adversary
 from functions import for_name
 from external import common_prefix, chain_quality, chain_growth
 
@@ -35,7 +35,7 @@ class Environment(object):
         self.miner_num = global_var.get_miner_num()  # number of miners
         self.total_round = 0
         # configure extra genesis block info
-        consensus_type = for_name(global_var.get_consensus_type())
+        consensus_type:consensus.Consensus = for_name(global_var.get_consensus_type())
         consensus_type.genesis_blockheadextra = genesis_blockheadextra
         consensus_type.genesis_blockextra = genesis_blockextra
         # generate miners
@@ -51,13 +51,13 @@ class Environment(object):
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         self.network.set_net_param(**network_param)        
         # generate adversary
-        self.Adversary = Adversary(adverNum = attack_param['adverNum'], attackType = attack_param['attackType'], \
-                                         adversaryIds = attack_param['adversaryIds'], networkType = self.network, \
-                                            consensusType = global_var.get_consensus_type(), minerList = self.miners, \
-                                                eclipse = attack_param['eclipse'], globalChain = self.global_chain, \
-                                                    adverConsensusParam = consensus_param)
+        self.adversary = Adversary(adver_num = attack_param['adver_num'], attack_type = attack_param['attack_type'], \
+                                         adversary_ids = attack_param['adversary_ids'], network_type = self.network, \
+                                            consensus_type = global_var.get_consensus_type(), miner_list = self.miners, \
+                                                eclipse = attack_param['eclipse'], global_chain = self.global_chain, \
+                                                    adver_consensus_param = consensus_param, attack_arg = attack_param['attack_arg'])
         # get adversary IDs
-        adversary_ids = self.Adversary.getAdverIds()
+        adversary_ids = self.adversary.get_adver_ids()
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         for miner in self.miners:
@@ -71,9 +71,9 @@ class Environment(object):
             f'Consensus Param: {consensus_param} \n'
         if adversary_ids:
             parameter_str += f'Adversary Miners: {adversary_ids} \n'
-            parameter_str += f'Attack Execute Type: {self.Adversary.getAttackType()}'
-            parameter_str += f'  (Eclipse: {self.Adversary.getEclipse()}) \n'
-            parameter_str += f"  Adversary's q: {self.Adversary.getAdverQ()}) \n"
+            parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
+            parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
+            parameter_str += f"  Adversary's q: {self.adversary.get_adver_q()}) \n"
         if isinstance(self.network, network.TopologyNetwork):
             parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
@@ -105,14 +105,12 @@ class Environment(object):
             inputfromz = round # 生成输入
 
             adver_tmpflag = 1
-            adverflag = random.randint(1,self.Adversary.getAdverNum())  
+            adverflag = random.randint(1,self.adversary.get_adver_num())  
             for temp_miner in self.miners:
                 if temp_miner.isAdversary:
                     temp_miner.input_tape.append(("INSERT", inputfromz))
                     if adver_tmpflag == adverflag:
-                        self.Adversary.excutePerRound(round = round)
-                        adver_tmpflag = adver_tmpflag + 1
-                    else:
+                        self.adversary.excute_per_round(round = round)
                         adver_tmpflag = adver_tmpflag + 1
 
                 else:
@@ -165,8 +163,8 @@ class Environment(object):
         cp_k = self.global_chain.lastblock
         cp_stat = np.zeros((1, self.miner_num))
         for k in range(self.max_suffix):
-            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.Adversary.getAdverNum():  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
-                self.cp_cdf_k[0, k] += self.miner_num-self.Adversary.getAdverNum()
+            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.adversary.get_adver_num():  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+                self.cp_cdf_k[0, k] += self.miner_num-self.adversary.get_adver_num()
                 continue
             cp_stat = np.zeros((1, self.miner_num))  # 用来统计哪些矿工的链已经达标，
             cp_sum_k = 0
@@ -213,11 +211,13 @@ class Environment(object):
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
-            'upper_bound t/(n-t)': round(self.Adversary.getAdverNum() / (self.miner_num - self.Adversary.getAdverNum()), 5)
+            'upper_bound t/(n-t)': round(self.adversary.get_adver_num() / (self.miner_num - self.adversary.get_adver_num()), 5)
         })
         # Network Property
         stats.update({'block_propagation_times': {} })
         if not isinstance(self.network,network.SynchronousNetwork):
+            self.network: network.BoundedDelayNetwork
+            # 固定变量类型 方便调用类方法
             ave_block_propagation_times = self.network.cal_block_propagation_times()
             stats.update({
                 'block_propagation_times': ave_block_propagation_times
@@ -254,8 +254,9 @@ class Environment(object):
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
         print('Ratio of blocks contributed by malicious players:', chain_quality_property)
-        if self.Adversary.getInfo():
-            print('The simulation data of', self.Adversary.getAttackType() , 'is as follows', ':\n', self.Adversary.getInfo())
+        # Attack Property
+        if self.adversary.get_info():
+            print('The simulation data of', self.adversary.get_attack_type_name() , 'is as follows', ':\n', self.adversary.get_info())
         # Network Property
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)
@@ -297,7 +298,8 @@ class Environment(object):
         self.miners[0].consensus.Blockchain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
-        if self.network.__class__.__name__=='TopologyNetwork':
+        if isinstance(self.network,network.TopologyNetwork):
+            # 利用 isinstance 指定类型 方便调用类方法gen_routing_gragh_from_json()
             self.network.gen_routing_gragh_from_json()
 
         return stats
