@@ -111,7 +111,7 @@ class Environment(object):
                     temp_miner.input_tape.append(("INSERT", inputfromz))
                     if adver_tmpflag == adverflag:
                         self.adversary.excute_per_round(round = round)
-                        adver_tmpflag = adver_tmpflag + 1
+                    adver_tmpflag = adver_tmpflag + 1
 
                 else:
                     ## 处理诚实矿工
