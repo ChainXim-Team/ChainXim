@@ -149,21 +149,20 @@ class Chain(object):
             q_o.pop(0)
         return copy_chain
 
-    def search(self, block: Block, searchdepth=500):
+    def search(self, block: Block, checkpoint=None):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
         if not self.head or not block:
             return None
-        searchroot = self.lastblock
-        if block.height < searchroot.height - searchdepth:
+        if checkpoint is not None and block.height < checkpoint.height:
             return None  # 如果搜索的块高度太低 直接不搜了
-        i = 0
-        while searchroot and searchroot.last and i <= searchdepth:
+        searchroot = self.lastblock
+        while searchroot and searchroot.last \
+                and (checkpoint is None or searchroot.height >= checkpoint.height):
             if block.blockhash == searchroot.blockhash:
                 return searchroot
             else:
                 searchroot = searchroot.last
-                i = i + 1
         q = [searchroot]
         while q:
             blocktmp = q.pop(0)
@@ -173,18 +172,16 @@ class Chain(object):
                 q.append(i)
         return None
 
-    def search_chain(self, block: Block, searchdepth=500):
+    def search_chain(self, block: Block, checkpoint=None):
         # 利用区块哈希，搜索某块是否在链上
         # 存在返回区块地址，不存在返回None
         if not self.head:
             return None
         blocktmp = self.lastblock
-        i = 0
-        while blocktmp and i <= searchdepth:
+        while blocktmp and (checkpoint is None or blocktmp.height >= checkpoint.height):
             if block.blockhash == blocktmp.blockhash:
                 return blocktmp
             blocktmp = blocktmp.last
-            i = i + 1
         return None
 
     def last_block(self):  # 返回最深的block，空链返回None
@@ -210,9 +207,9 @@ class Chain(object):
     def add_block_direct(self, block: Block):
         # 将block直接添加到主链末尾，并将lastblock指向block
         # 和add_block_copy的区别是这个是不拷贝直接连接的
-        if self.search(block):
-            print("Block {} is already included.".format(block.name))
-            return block
+
+        if block.blockhead.prehash != self.lastblock.blockhash:
+            print("An error has occurred when adding Block {} directly.".format(block.name))
 
         if not self.head:
             self.head = block
@@ -247,18 +244,18 @@ class Chain(object):
                 local_tmp = blocktmp
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
-    def add_block_copy(self, lastblock: Block):
+    def add_block_copy(self, lastblock: Block, checkpoint=None):
         # 返回值：深拷贝插入完之后新插入链的块头
         # block 的 last必须不为none
         receive_tmp = lastblock
         if not receive_tmp:  # 接受的链为空，直接返回
             return None
         copylist = []  # 需要拷贝过去的区块list
-        local_tmp = self.search(receive_tmp)
+        local_tmp = self.search(receive_tmp, checkpoint)
         while receive_tmp and not local_tmp:
             copylist.append(receive_tmp)
             receive_tmp = receive_tmp.last
-            local_tmp = self.search(receive_tmp)
+            local_tmp = self.search(receive_tmp, checkpoint)
         if local_tmp:
             while copylist:
                 receive_tmp = copylist.pop()

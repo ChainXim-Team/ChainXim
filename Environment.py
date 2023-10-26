@@ -43,6 +43,7 @@ class Environment(object):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, consensus_param))
         self.envir_create_global_chain()
+        self.checkpoint = None  # Note: activated with the common prefix function
         # evaluation
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
@@ -122,13 +123,13 @@ class Environment(object):
                         self.network.access_network(new_msgs,temp_miner.Miner_ID,round)
                         for msg in new_msgs:
                             if isinstance(msg, Block):
-                                self.global_chain.add_block_copy(msg)
+                                self.global_chain.add_block_copy(msg, self.checkpoint)
                     temp_miner.input_tape = []  # clear the input tape
                     temp_miner.consensus.receive_tape = []  # clear the communication tape
                     ##
 
             self.network.diffuse(round)  # diffuse(C)
-            #self.assess_common_prefix()
+            self.assess_common_prefix()
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
             # 分割一下
         
@@ -144,20 +145,26 @@ class Environment(object):
                 self.process_bar(current_height, max_height, t_0, 'block/s')
         self.total_round = self.total_round + round
 
-
-        
         
     def assess_common_prefix(self):
         # Common Prefix Property
-        cp = self.miners[0].consensus.Blockchain.lastblock
+        cp = self.global_chain.lastblock
+        # cp = self.miners[0].consensus.Blockchain.lastblock
         for i in range(1, self.miner_num):
             if not self.miners[i].isAdversary:
-                cp = common_prefix(cp, self.miners[i].consensus.Blockchain)
+                cp = common_prefix(cp, self.miners[i].consensus.Blockchain, self.checkpoint)
         len_cp = cp.height
         for i in range(0, self.miner_num):
             len_suffix = self.miners[0].consensus.Blockchain.lastblock.height - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
+        # update the checkpoint
+        checkpoint_tmp = cp
+        for i in range(1, self.miner_num):
+            if self.miners[i].isAdversary:
+                checkpoint = common_prefix(checkpoint_tmp, self.miners[i].consensus.Blockchain, self.checkpoint)
+        self.checkpoint = checkpoint_tmp
+
     def assess_common_prefix_k(self):
         # 一种新的计算common prefix的方法
         # 每轮结束后，砍掉主链后
@@ -167,7 +174,6 @@ class Environment(object):
             if cp_k is None or np.sum(cp_stat) == self.miner_num-self.adversary.get_adver_num():  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
                 self.cp_cdf_k[0, k] += self.miner_num-self.adversary.get_adver_num()
                 continue
-            cp_stat = np.zeros((1, self.miner_num))  # 用来统计哪些矿工的链已经达标，
             cp_sum_k = 0
             for i in range(self.miner_num):
                 if not self.miners[i].isAdversary:
@@ -202,11 +208,11 @@ class Environment(object):
             'average_chain_growth_in_honest_miners\'_chain': growth
         })
         # Common Prefix Property
-        #stats.update({
-        #    'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
-        #    'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
-        #    'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.max_adversary)*self.total_round)
-        #})
+        stats.update({
+            'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
+            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
+            'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.adversary.get_adver_num())*self.total_round)
+        })
         # Chain Quality Property
         cq_dict, chain_quality_property = chain_quality(self.global_chain)
         stats.update({
@@ -245,10 +251,10 @@ class Environment(object):
         print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
         print("")
         # Common Prefix Property
-        #print('Common Prefix Property:')
-        #print('The common prefix pdf:')
-        #print(self.cp_pdf/self.cp_pdf.sum())
-        #print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
+        print('Common Prefix Property:')
+        print('The common prefix pdf:')
+        print(self.cp_pdf/self.cp_pdf.sum())
+        print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
         #print('The common prefix cdf with respect to k:')
         #print(self.cp_cdf_k / ((self.miner_num - self.max_adversary) * self.total_round))
         print("")
