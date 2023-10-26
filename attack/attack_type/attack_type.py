@@ -27,7 +27,23 @@ class AttackType(metaclass=ABCMeta):
         self.adver_consensus: consensus.Consensus = adver_consensus
         self.adver_chain: chain.Chain = self.adver_consensus.Blockchain
         self.attack_arg:dict = attack_arg
-        
+
+    @abstractmethod
+    def renew_stage(self,round):
+        ## 1. renew stage
+        newest_block:chain.Block
+        mine_input:any
+        return newest_block, mine_input
+    
+    @abstractmethod
+    def attack_stage(self,round,mine_input):
+        ## 2. attack stage
+        pass
+
+    @abstractmethod
+    def clear_record_stage(self,round):
+        ## 3. clear and record stage
+        pass
 
     @abstractmethod
     def excute_this_attack_per_round(self,round):

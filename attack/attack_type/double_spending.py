@@ -19,13 +19,18 @@ class DoubleSpending(aa.AttackType):
         }
         self.__fork_block: chain.Block
         self.__fork_height:int = 0
+    
+    def renew_stage(self, round):
+        ## 1. renew stage
+        bh = self.behavior
+        newest_block, mine_input = bh.renew(miner_list = self.adver_list, \
+                                 honest_chain = self.honest_chain,round = round)
+        return newest_block, mine_input
 
-    def double_spending_main_bulk(self,round):
+    def attack_stage(self, round, mine_input):
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        newest_block, mine_input = bh.renew(miner_list = self.adver_list, \
-                                 honest_chain = self.honest_chain,round = round)
         honest_height = self.honest_chain.lastblock.BlockHeight()
         adver_height = self.adver_chain.lastblock.BlockHeight()
         current_miner = random.choice(self.adver_list)
@@ -66,23 +71,30 @@ class DoubleSpending(aa.AttackType):
                               adver_chain = self.adver_chain, \
                                 global_chain = self.global_chain, consensus = self.adver_consensus)
                 self.__log['behavior'] = 'matching'
-        
 
-    def excute_this_attack_per_round(self, round):
-        '''双花攻击'''
-        self.double_spending_main_bulk(round)
+    def clear_record_stage(self, round):
         bh = self.behavior
         self.__log['honest_chain']=self.honest_chain.lastblock.name,self.honest_chain.lastblock.height
         self.__log['adver_chain']=self.adver_chain.lastblock.name,self.adver_chain.lastblock.height
         #self.log['other']=self.log['other']+' fork block is '+self.fork_blockname
         bh.clear(miner_list = self.adver_list)# 清空
-        #self.resultlog2txt()
+        self.resultlog2txt()
+        
+    def excute_this_attack_per_round(self, round):
+        '''双花攻击'''
+        ## 1. renew stage
+        newest_block, mine_input = self.renew_stage(round)
+        ## 2. attack stage
+        self.attack_stage(round, mine_input)
+        ## 3. clear and record stage
+        self.clear_record_stage(round)
+
         
     def info_getter(self):
 
         rate, thr_rate = self.__success_rate()
-        return {'Success Rate': '%.4f'% rate,
-                'Theory rate in SynchronousNetwork': '%.4f'% thr_rate,
+        return {'Success Rate': '{:.4f}'.format(rate),
+                'Theory rate in SynchronousNetwork': '{:.4f}'.format(thr_rate),
                 'Attack times': self.__log['success']+self.__log['fail'],
                 'Success times': self.__log['success'],
                 'Ng': self.attack_arg['Ng'],

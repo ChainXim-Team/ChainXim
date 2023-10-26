@@ -7,7 +7,6 @@ class Adversary(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self,**args) -> None:
         self.__Miner_ID = -1 #矿工ID
-        self.__isAdversary = True
         self.__adver_setter(**args)
         self.__adver_gener()
         self.__consensus_q_init()
@@ -38,8 +37,7 @@ class Adversary(metaclass=ABCMeta):
         
         self.__eclipse_attack: at.AttackType = at.Eclipse(self.__attack_type) if self.__eclipse else None
 
-        print(self.__eclipse_attack)
-
+        self.__excute_attack: at.AttackType = self.__attack_type if self.__eclipse is not None else self.__eclipse_attack
         
         self.__adver_ids: list = list(args.get('adversary_ids')) if args.get('adversary_ids') is not None \
                 else []
@@ -113,9 +111,6 @@ class Adversary(metaclass=ABCMeta):
     def get_adver_q(self):
         return self.__consensus_type.q
     
-    def get_consensus_param(self):
-        pass
-    
     '''
     以下为非构造器
     用于Adversary的进阶功能
@@ -124,7 +119,7 @@ class Adversary(metaclass=ABCMeta):
         '''
         Adversary的核心功能 每轮执行一次attack
         '''
-        self.__attack_type.excute_this_attack_per_round(round)
+        self.__excute_attack.excute_this_attack_per_round(round)
 
     def get_info(self):
         '''

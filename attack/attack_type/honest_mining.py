@@ -15,14 +15,15 @@ class HonestMining(aa.AttackType):
             'adver_chain': None
         }
 
-    def excute_this_attack_per_round(self, round):
-        # bh = self.__behavior # 将行为方法类对象赋给一个变量 方便书写
-                # 
-        # 作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
-        # 每轮固定更新攻击状态
-        current_miner = random.choice(self.adver_list)       
+    def renew_stage(self,round):
+        ## 1. renew stage
         newest_block, mine_input = self.behavior.renew(miner_list = self.adver_list, \
                                  honest_chain = self.honest_chain,round = round)
+        return newest_block, mine_input
+    
+    def attack_stage(self,round,mine_input):
+        ## 2. attack stage
+        current_miner = random.choice(self.adver_list)       
         self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
         attack_mine = self.behavior.mine(miner_list = self.adver_list, current_miner = current_miner \
                               , miner_input = mine_input,\
@@ -33,11 +34,25 @@ class HonestMining(aa.AttackType):
                current_miner = current_miner, round = round)
         else:
             self.behavior.wait()
+
+    def clear_record_stage(self,round):
+        ## 3. clear and record stage
         self.behavior.clear(miner_list = self.adver_list)# 清空
         self.__log['round'] = round
         self.__log['honest_chain'] = self.honest_chain.lastblock.name + ' Height:' + str(self.honest_chain.lastblock.height)
         self.__log['adver_chain'] = self.adver_chain.lastblock.name + ' Height:' + str(self.adver_chain.lastblock.height)
         self.resultlog2txt()
+
+
+    def excute_this_attack_per_round(self, round):
+        
+        ## 1. renew stage
+        newest_block, mine_input = self.renew_stage(round)
+        ## 2. attack stage
+        self.attack_stage(round, mine_input)
+        ## 3. clear and record stage
+        self.clear_record_stage(round)
+        
         
     def info_getter(self):
         
@@ -48,8 +63,8 @@ class HonestMining(aa.AttackType):
             if loop_block.isAdversaryBlock:
                 adver_block_num += 1
             loop_block = loop_block.last
-        return {'Success Rate': '%.4f'% adver_block_num/main_chain_height,
-                'Theory rate in SynchronousNetwork': '%.4f'% len(self.adver_list)/len(self.miner_list)}
+        return {'Success Rate': '{:.4f}'.format(adver_block_num/main_chain_height),
+                'Theory rate in SynchronousNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
     
 
     def resultlog2txt(self):

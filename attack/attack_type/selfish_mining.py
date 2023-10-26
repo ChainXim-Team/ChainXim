@@ -17,19 +17,19 @@ class SelfishMining(aa.AttackType):
         }
         self.__fork_block: chain.Block
 
-    def excute_this_attack_per_round(self, round):
-        bh = self.behavior # 将行为方法类对象赋给一个变量 方便书写
-        '''
-        这是attack模块执行的攻击范例1: 自私挖矿的beta版本，不同的实现思路
-        作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
-        每轮固定更新攻击状态
-        '''
+    def renew_stage(self, round):
+        ## 1. renew stage
+        bh = self.behavior
         newest_block, mine_input = bh.renew(miner_list = self.adver_list, \
                                  honest_chain = self.honest_chain,round = round)
+        return newest_block, mine_input
+
+    def attack_stage(self, round, mine_input):
+        ## 2. attack stage
+        bh = self.behavior
         honest_height = self.honest_chain.lastblock.BlockHeight()
         adver_height = self.adver_chain.lastblock.BlockHeight()
         current_miner = random.choice(self.adver_list)
-        
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
             self.__fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
@@ -114,12 +114,30 @@ class SelfishMining(aa.AttackType):
                               adver_chain = self.adver_chain, \
                                 global_chain = self.global_chain, consensus = self.adver_consensus)
                     bh.wait()
-                    self.__log['state']=str(adver_height - honest_height+1) if attack_mine else str(adver_height - honest_height)
+                    self.__log['state']=str(adver_height - honest_height+1) if attack_mine else str(adver_height - honest_height)        
+
+    def clear_record_stage(self, round):
+        # 3. clear and record stage
+        bh = self.behavior
         bh.clear(miner_list = self.adver_list)# 清空
         self.__log['round']=round
         self.__log['honest_chain'] = self.honest_chain.lastblock.name + ' Height:' + str(self.honest_chain.lastblock.height)
         self.__log['adver_chain'] = self.adver_chain.lastblock.name + ' Height:' + str(self.adver_chain.lastblock.height)
         self.resultlog2txt()
+    
+    def excute_this_attack_per_round(self, round):
+        '''
+        这是attack模块执行的攻击范例1: 自私挖矿的beta版本，不同的实现思路
+        作为轮进行的chainxim, 每一轮执行时都要简介掌握当前局势, 输入round算是一个了解环境的维度
+        每轮固定更新攻击状态
+        '''
+        ## 1. renew stage
+        newest_block, mine_input = self.renew_stage(round)
+        
+        ## 2. attack stage
+        self.attack_stage(round,mine_input)
+        # 3. clear and record stage
+        self.clear_record_stage(round)
         
     def info_getter(self):
         loop_block = self.global_chain.lastblock
@@ -129,7 +147,7 @@ class SelfishMining(aa.AttackType):
             if loop_block.isAdversaryBlock:
                 adver_block_num += 1
             loop_block = loop_block.last
-        return {'The proportion of adversary block in the main chain': '%.4f'% adver_block_num/ main_chain_height,
+        return {'The proportion of adversary block in the main chain': '{:.4f}'.format(adver_block_num/ main_chain_height),
                 'Theory region in SynchronousNetwork': self.__theory_propotion()}
     
 
