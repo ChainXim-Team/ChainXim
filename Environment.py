@@ -105,7 +105,8 @@ class Environment(object):
             inputfromz = round # 生成输入
 
             adver_tmpflag = 1
-            adverflag = random.randint(1,self.adversary.get_adver_num())  
+            if self.adversary.get_adver_num() != 0:
+                adverflag = random.randint(1,self.adversary.get_adver_num())  
             for temp_miner in self.miners:
                 if temp_miner.isAdversary:
                     temp_miner.input_tape.append(("INSERT", inputfromz))

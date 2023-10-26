@@ -73,9 +73,6 @@ class Adversary(metaclass=ABCMeta):
                 for adversary in self.__adver_list:
                     adversary.set_adversary(True)
                     self.__adver_ids.append(adversary.Miner_ID)
-            else:
-                # 如果ID空 且 攻击者数为0 不设置恶意节点 返回None
-                self.__adver_list = None
         return self.__adver_list    
     
     def __consensus_q_init(self):
