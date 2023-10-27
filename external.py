@@ -47,7 +47,7 @@ def R(blockchain:Chain):
     return xc
 
 def common_prefix(prefix1:Block, chain2:Chain, checkpoint=None):
-    while prefix1 and prefix1.height >= checkpoint.height:
+    while prefix1 and (checkpoint is None or prefix1.height >= checkpoint.height):
         if chain2.search_chain(prefix1, checkpoint):
             break
         else:
