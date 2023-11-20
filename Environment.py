@@ -162,7 +162,7 @@ class Environment(object):
         checkpoint_tmp = cp
         for i in range(1, self.miner_num):
             if self.miners[i].isAdversary:
-                checkpoint = common_prefix(checkpoint_tmp, self.miners[i].consensus.Blockchain, self.checkpoint)
+                checkpoint_tmp = common_prefix(checkpoint_tmp, self.miners[i].consensus.Blockchain, self.checkpoint)
         self.checkpoint = checkpoint_tmp
 
     def assess_common_prefix_k(self):
