@@ -108,7 +108,7 @@ class PoW(Consensus):
         if not receive_tmp:  # 接受的链为空，直接返回
             return (None, None)
         copylist = []
-        local_tmp = self.Blockchain.search(receive_tmp)
+        local_tmp = self.Blockchain.search(receive_tmp,global_var.get_check_point())
         ss = receive_tmp.calculate_blockhash()
         while receive_tmp and not local_tmp:
             hash = receive_tmp.calculate_blockhash()

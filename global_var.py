@@ -35,6 +35,7 @@ def __init__(result_path:Path = None):
     _var_dict['Show_Fig'] = False
     _var_dict['COMPACT_OUTPUT'] = True
     _var_dict['ATTACK_EXECUTE_TYPE']='execute_sample0'
+    _var_dict['CHECK_POINT'] = None
 
 def set_log_level(log_level):
     '''设置日志级别'''
@@ -121,3 +122,11 @@ def set_attack_execute_type(attack_execute_type):
 def get_attack_execute_type():
     '''获得网络类型'''
     return _var_dict['ATTACK_EXECUTE_TYPE']
+
+def set_check_point(checkpoint):
+    '''更新checkpoint'''
+    _var_dict['CHECK_POINT'] = checkpoint
+
+def get_check_point():
+    '''获取checkpoint'''
+    return _var_dict['CHECK_POINT']

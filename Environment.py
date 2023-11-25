@@ -164,6 +164,7 @@ class Environment(object):
             if self.miners[i].isAdversary:
                 checkpoint_tmp = common_prefix(checkpoint_tmp, self.miners[i].consensus.Blockchain, self.checkpoint)
         self.checkpoint = checkpoint_tmp
+        global_var.set_check_point(checkpoint_tmp)
 
     def assess_common_prefix_k(self):
         # 一种新的计算common prefix的方法

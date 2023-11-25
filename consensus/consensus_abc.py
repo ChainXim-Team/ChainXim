@@ -46,7 +46,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
-        if self.Blockchain.search(block) is None:
+        if self.Blockchain.search(block, global_var.get_check_point()) is None:
             return False
         else:
             return True
