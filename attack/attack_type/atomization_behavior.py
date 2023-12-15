@@ -5,6 +5,7 @@ AtomizationBehaviorGroup.py
 import attack.attack_type._atomization_behavior as aa
 from external import I
 import miner, chain, network, consensus
+import global_var
 class AtomizationBehavior(aa.AtomizationBehavior):
 
     def renew(self, miner_list:list[miner.Miner], honest_chain: chain.Chain, round) -> (chain.Block, any):
@@ -14,7 +15,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             chain_update, update_index = temp_miner.consensus.maxvalid() 
             mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             chain_update : chain.Chain
-            honest_chain.add_block_copy(chain_update.lastblock) # 如果存在更新将更新的区块添加到基准链上 
+            check_point = global_var.get_check_point()
+            honest_chain.add_block_copy(chain_update.lastblock,checkpoint=check_point) # 如果存在更新将更新的区块添加到基准链上 
             #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
         newest_block = honest_chain.lastblock
         newest_block:chain.Block
