@@ -1,17 +1,18 @@
-# ChainXim 用户指南
-## 简介
+# ChainXim 用户指南 User Guide
+## 简介 Introduction
 
-ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。目前仿真器还处于内部测试阶段。
+ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。目前仿真器还处于内部测试阶段。  
+ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance indicators. The emulator is currently in the internal testing stage.
 
 ## Quick Start
-### 下载
+### 下载 Download
 可以下载ChainXim的压缩包后解压，或者克隆位于Gitee上的软件仓库
 
 可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://gitee.com/geekczx/chain-xim/repository/archive/master.zip)
 
 git克隆命令：`git clone https://gitee.com/geekczx/chain-xim.git`
 
-### 文件结构
+### 文件结构 File Structure
 压缩包解压后或软件仓库克隆后的文件结构如下：
 ```
 chain-xim
@@ -41,7 +42,7 @@ chain-xim
     └── system_config.ini
 ```
 
-| 文件或目录 | 功能描述 |
+| 文件或目录 | 功能描述 | 
 | -------- | -------- |
 | main\.py  | 仿真器主程序 |
 | system_config\.ini | 配置文件 |
@@ -57,25 +58,21 @@ chain-xim
 | errors\.py | 错误类，用于在仿真器中抛出错误 |
 | global_var\.py | 存放全局变量 |
 
-### 配置环境
+### 配置环境 Configuration
 1. 安装Anaconda。[Anaconda下载链接](https://www.anaconda.com/download)
-2. 安装Graphviz，安装过程中需注意在Install Options页面选中`Add Graphviz to the system PATH for current user`。[Graphviz下载链接](https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/7.1.0/windows_10_cmake_Release_graphviz-install-7.1.0-win64.exe)
-
-<img src="doc/graphviz-screenshot.png" alt="graphviz-screenshot" width="500" />
-
-3. 从开始菜单打开Anaconda Prompt。
-4. 生成一个conda环境并激活，Python版本选择3.9。
+2. 从开始菜单打开Anaconda Prompt。
+3. 生成一个conda环境并激活，Python版本选择3.9。
 ```
-conda create -n chainxim python=3.9
+conda create -n chainxim python=3.9 python-graphviz
 activate chainxim
 ```
-5. 在ChainXim的根目录下通过pip安装所需要的包。
+4. 在ChainXim的根目录下通过pip安装所需要的包。
 ```
 cd <project_directory>
 pip install -r requirements.txt
 ```
 
-### 简单运行
+### 简单运行 Simple Startup
 1. 从开始菜单打开Anaconda Prompt，运行前需要激活conda环境。
 ```
 activate chainxim
@@ -87,7 +84,7 @@ python main.py
 ```
 
 
-## 测试用例 
+## 测试用例 Test Examples
 将以下参数传递给主程序，将会使ChainXim随机生成一个包含10个节点的矿工网络，其中2个节点为攻击者，采用的网络模型为TopologyNetwork，仿真总共持续3000轮次。
 ```
 python main.py --total_round 3000 --miner_num 10 -t 2 --network_type network.TopologyNetwork --no_compact_outputfile --save_routing_graph --show_label
@@ -138,6 +135,11 @@ Attack Execute Type: execute_sample1
 图中每个点代表一个区块，蓝点代表诚实矿工产生的区块，红点代表攻击者产生的区块。每个点的横坐标表示区块产生的轮次，纵坐标表示区块所在高度。**注意，如果运行轮数过多，产生的区块数过多，会导致生成的图片挤成一团，难以分辨**
 
 -----
+区块产生时间分布直方图（[block interval distribution.svg](doc/block interval distribution.svg)）
+
+![block_interval_distribution](doc/block interval distribution.svg)
+
+-----
 网络拓扑图（[Network Results/network topology.svg](doc/network-topology.svg)）
 
 ![network-topology](doc/network-topology.svg)
@@ -151,7 +153,7 @@ Attack Execute Type: execute_sample1
 
 上图展示了区块B2从节点6传播到整个网络的全过程，图中每个实心箭头都带有含两对正数的标记，第一对标识某一传播过程源矿工与目标矿工的ID，第二对标识某一传播过程的起始轮次与结束轮次。
 
-## 仿真器输入参数
+## 仿真器输入参数 Input
 仿真器的输入参数可以通过两种方式指定：命令行以及配置文件。一般情况下可以修改ChainXim附带的配置文件system_config.ini以改变仿真参数，也可以通过命令行指定个别仿真参数。命令行支持的参数少于配置文件，但是一旦被指定，优先级高于配置文件，可以通过`python main.py --help`命令查看命令行帮助信息。
 
 ### EnvironmentSettings
@@ -224,7 +226,7 @@ Attack Execute Type: execute_sample1
 | block_prop_times_statistic          | 无       | list[float] | 需统计的区块传播时间对应的接收矿工比例|
 
 
-## 仿真器输出
+## 仿真器输出 Output
 仿真结束后会在终端打印仿真过程中全局链的统计数据。例：
 ```
 162 blocks are generated in 26682 rounds, in which 61 are stale blocks.
@@ -246,12 +248,12 @@ Upper Bound t/(n-t): 0.0
 Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 0.6: 113.23, 0.7: 116.522, 0.8: 120.658, 0.9: 126.447, 1.0: 148.327}
 ```
 终端显示的仿真结果含义如下：
-| 输出项目 | 解释 |
+| 输出项目 | 解释 | 
 | -------- | ------- |
 | Number of stale blocks  | 孤立区块数（不在主链中的区块数） |
 | Average chain growth in honest miners' chain | 诚实节点平均链长增长 |
 | Number of Forks | 分叉数目（只算主链） |
-| Fork rate | 分叉率=主链上的分叉数/主链长度 |
+| Fork rate | 分叉率=主链上有分叉的高度数/主链高度 |
 | Stale rate | 孤块率=孤块数/区块总数 |
 | Average block time (main chain) | 主链平均出块时间=总轮数/主链长度(轮/块) |
 | Block throughput (main chain) | 主链区块吞吐量=主链长度/总轮数 |
@@ -259,8 +261,8 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 | Average block time (total) | 总平均出块时间=总轮数/生成的区块总数 |
 | Block throughput (total) | 总区块吞吐量=生成的区块总数/总轮数 |
 | Throughput in MB (total) | =总区块吞吐量\*区块大小 |
-|common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）**（注：统计速度较慢，暂未开启）**|
-|Consistency rate|一致性指标=common_prefix_pdf[0]**（注：暂未开启）**|
+|common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）**（注：统计速度较慢，默认未开启）**|
+|Consistency rate|一致性指标=common_prefix_pdf[0]**（注：默认未开启）**|
 |The common prefix cdf with respect to k|统计共同前缀得到的cdf（统计每轮结束时，将诚实节点的最长链截取k个区块，观察是否包含在其他诚实节点链之中，由此统计得到的累积分布函数） **（注：暂时无法正常使用）**|
 |Chain_Quality Property|诚实矿工和恶意矿工的出块总数|
 |Ratio of blocks contributed by malicious players|恶意节点出块比例|
@@ -291,7 +293,7 @@ Results/20230819-232107/
 └── parameters.txt
 ```
 输出的仿真结果文件含义如下：
-| 文件或目录 | 功能描述 |
+| 文件或目录 | 功能描述 | 
 | -------- | -------- |
 | Attack_log.txt  | 攻击日志 |
 | Attack_result.txt | 攻击结果 |
@@ -304,38 +306,45 @@ Results/20230819-232107/
 | events.log | 仿真过程日志，记录重要事件如产生区块、接入网络等 |
 | parameters.txt | 仿真环境参数 |
 
-## 结果展示
-### 出块时间随矿工数量的变化
-轮数：200000
-共识类型：PoW
-难度：0000FF...
-网络类型：SynchronousNetwork
-网络参数：默认
+## 仿真实例 Simulation Examples
+### 同步网络中矿工数量与出块时间的关系
+同步网络 横坐标矿工数目 纵坐标出块时间
+
+**参数设置如下：**
+* 仿真次数：200000轮*1次
+* 矿工数：10-80
+* 共识类型：PoW
+* 难度：0000FF...
+* q_ave = 10
+* 网络参数：SynchronousNetwork
+
+![block_time](doc/block_time.png)
+
+
+### 双花攻击成功率
+**参数设置如下：**
+* 仿真次数：1200000轮*1次
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络参数：四种网络参数均为默认
+
+![double_spend_success_rate](doc/double_spend_success_rate.png)
 
 ---
-出块时间随矿工数目的变化示意图
 
 
-### 传播时延随区块大小的变化
-轮数：100000
-矿工数：100
-共识类型：PoW
-难度：00008F...
-网络类型：TopologyNetwork
-网络参数：默认
-
----
-传播时延与90%有效吞吐量随区块大小的变化示意图
-
-![latency_effective_throughput90](doc/latency_effective_throughput90.svg)
+**进阶性能展示**
 
 
 ### 不同网络最大时延下的分叉率、孤块率、吞吐量与一致性
 轮数：100000
 矿工数：100
 共识类型：PoW
+q_ave:10
 难度：0002FF...
-网络类型：TopologyNetwork
+网络类型：SynchronousNetwork和BoundedDelayNetwork
 网络参数：rcvprob_start=rcvprob_inc=1/最大轮数
 
 ---
@@ -347,6 +356,8 @@ Results/20230819-232107/
 一致性指标随最大传播时延的变化示意图
 
 ![cp_bounded_delay](doc/cp_bounded_delay.svg)
+
+图中，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量,其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节）。
 
 
 ### 不同区块大小下的分叉率、孤块率、吞吐量与一致性
@@ -361,37 +372,189 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 
 ---
 分叉率/孤块率与吞吐量随区块大小的变化示意图
+![blocksize_simulation](doc/blocksize_simulation.png)
 
-![Blocksize-simulation](doc/Blocksize-simulation.png)
 
 ---
 一致性指标随区块大小的变化示意图
+![blocksize_common_prefix](doc/blocksize_common_prefix.png)
 
-![Blocksize-CommonPrefix](doc/Blocksize-CommonPrefix.png)
 
-该图中，CommonPrefix [0][1][2]分别代表一致性指标中的前三个数据，其中序数代表共同前缀与主链长度的差值（具体见“仿真器输出”部分）
+图中，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量，其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节）。
 
+### 传播时延随区块大小的变化
+轮数：100000
+矿工数：100
+共识类型：PoW
+q_ave:10
+难度：00008F...
+网络类型：TopologyNetwork
+网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5；
+bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+---
+传播时延与90%有效吞吐量随区块大小的变化示意图
+
+![latency_effective_throughput90](doc/latency_effective_throughput90.svg)
+
+**注：X%有效吞吐量=区块大小/(X%区块传播时延)**
 
 ### 不同攻击向量下的攻击者出块占比示意图
-轮数：100000
-曲线上单点重复次数：20
-矿工数：40
-共识类型：PoW
-难度：000FFF...
-网络参数设置：四种网络参数均为默认
 
-1.算力攻击（honest mining）
+
+#### 1. 算力攻击（honest mining）
 
 ![honest_mining](doc/honest_mining.png)
 
-2.区块截留攻击（selfish mining）
+##### **四种不同网络对算力攻击的影响示意图**
+一次攻击成功的定义：攻击者产出区块，并被网络接受。
+
+**参数设置如下：**
+* 轮数：100000
+* 曲线上单点重复次数：20
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络参数：四种网络参数均为默认
+
+---
+#### 2. 区块截留攻击（selfish mining）
+##### **四种不同网络对区块截留攻击的影响示意图**
 
 ![selfish_mining](doc/selfish_mining.png)
 
-## 开发者文档
+纵坐标为链质量指标，即最终攻击者产出区块在主链中的占比。
+
+**参数设置如下：**
+* 仿真次数：100000轮*20次
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络参数：四种网络参数均为默认
+
+---
+
+##### **矿工不同择链策略对区块截留攻击的影响示意图**
+
+![selfish_mining_2](doc/selfish_mining_2.png)
+
+图中的理论区域由以下公式得到：
+
+$$ R=\frac{\alpha(1-\alpha)^{2}(4\alpha+\gamma(1-2\alpha))-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
+
+$\alpha$为攻击者算力占全网比例，$0\leqslant\alpha\leqslant\frac{1}{2}$。
+$\gamma$为当网络中存在诚实链（最新的区块由诚实节点产出）与攻击链（从某一个区块开始到最新的区块均为攻击者产生）分叉时，选择在攻击链上继续挖矿的诚实矿工占其自身的比例，$0\leqslant\gamma\leqslant1$。
+注：矿工择链策略为内部测试功能，暂未开放。但本仿真器遵循着$\gamma=0$的挖矿策略，即所有诚实节点默认在诚实链分支上继续挖矿。因此使用者可以利用以下理论曲线公式验证。
+
+$$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
+
+**参数设置如下：**
+* 仿真次数：100000轮*20次
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络类型：SynchronousNetwork
+
+---
+#### 3. 双花攻击（double spending）
+
+
+##### **不同网络对双花攻击的影响示意图**
+
+![doublespending](doc/doublespending.png)
+
+
+**参数设置如下：**
+* 仿真次数：1200000轮*1次
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络参数：四种网络参数均为默认
+---
+##### **不同策略对双花攻击的影响与理论对比示意图**
+
+![double_spending](doc/double_spending.png)
+
+图中的理论曲线由以下公式得到：
+
+$$P(N,N_g,\beta)=1-\sum_{n=0}^{N}\begin{pmatrix}n+N-1\\
+n
+\end{pmatrix}\left(\frac{1}{1+\beta}\right)^{N}\left(\frac{\beta}{1+\beta}\right)^{n}\left(\frac{1-\beta^{N-n+1}}{1-\beta^{Ng+1}}\right)$$
+
+$N$为攻击者等待确认区块的数量，即攻击者会等待诚实链高度增长$N$个区块后才会选择发布与否。
+$N_g$表示当攻击者落后诚实链$N_g$个区块时放弃当前攻击。
+$\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
+
+**参数设置如下：**
+* 仿真次数：3000000轮*1次
+* 矿工数：40
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络类型：SynchronousNetwork
+
+---
+
+#### 4. 日蚀攻击（eclipse attack）
+
+
+##### **受日蚀攻击影响下的双花攻击示意图**
+
+![eclipse1](doc/eclipse1.png)
+
+图中绿色曲线 Theory Shift 10% 为曲线 Theory向左平移一个单位得到。
+
+![eclipse2](doc/eclipse2.png)
+
+**参数设置如下：**
+* 仿真次数：3000000轮*1次
+* 矿工数：20
+* 共识类型：PoW
+* 难度：000FFF...
+* q_ave = 1
+* 网络类型：TopologyNetwork
+* 网络参数：图中的Full connect topolog、Random connect topolog、Eclipse 10% miners 以及 Eclipse 20% miners使用固定的邻接矩阵生成拓扑网络，其邻接矩阵分别为$TP_F$、$TP_R$、$TP_1$和$TP_2$，此外设置为默认。
+  - $TP_F$矩阵为除对角线元素为0外均为1。
+  - $TP_R$矩阵为随机生成的拓扑网络。
+  - $TP_1$矩阵如下图（孤立节点为18，19）：
+    ![matrix_tp1](doc/matrix_tp1.png)
+  - $TP_2$矩阵如下图（孤立节点为16，17，18，19）：
+    ![matrix_tp2](doc/matrix_tp2.png)
+    
+
+**注：在设置攻击者时请绕开孤立节点，手动设置。**
+
+
+
+## 开发者文档 Developer's Document
 详见[developer-guide](doc/developer-guide.md)
 
-## 贡献者
-曹苇杭，陈炳文，陈阳，崔自翔，陈喜年，凌昕彤
 
-![输入图片说明](doc/Figure_1.png)
+
+## 贡献者 Contributors
+曹苇杭 Weihang Cao
+* 主要负责整体框架，共识层、评估层的代码编写，统筹项目进度   
+Project leader, overall framework, coding for the consensus layer and the evaluation layer
+
+陈炳文 Bingwen Chen
+* 主要负责网络层部分的代码编写  
+Coding for the network layer
+
+陈阳 Yang Chen
+* 主要负责攻击者部分的代码编写  
+Coding for the attack layer
+
+崔自翔 Zixiang Cui
+* 主要负责对共识层和基础框架进行优化   
+Optimization of the consensus layer and the underlying frameworks
+
+陈喜年 Xinian Chen
+* 主要负责仿真器的测试与优化   
+Testing and optimization
+
+凌昕彤 Xintong Ling
+* 指导老师 Advisor
