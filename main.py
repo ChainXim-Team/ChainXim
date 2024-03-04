@@ -1,9 +1,11 @@
-from Environment import Environment
-import time
-import logging
-import global_var
 import configparser
+import logging
+import time
+
 import numpy as np
+
+import global_var
+from environment import Environment
 
 
 def get_time(f):

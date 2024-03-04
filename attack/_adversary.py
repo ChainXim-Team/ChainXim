@@ -1,8 +1,14 @@
-from abc import ABCMeta, abstractmethod
-from functions import for_name
-from attack import attack_type as at
-import chain, consensus, network, miner
 import random
+from abc import ABCMeta, abstractmethod
+
+import consensus
+import miner
+import network
+from attack import attack_type as at
+from data import Chain
+from functions import for_name
+
+
 class Adversary(metaclass=ABCMeta): 
     @abstractmethod
     def __init__(self,**args) -> None:
@@ -26,8 +32,8 @@ class Adversary(metaclass=ABCMeta):
                 'miner_list':[miner.Miner],
             }
             '''
-        self.__adver_num: int = args.get('adver_num') if args.get('adver_num') is not None \
-                else 0
+        self.__adver_num: int = (args.get('adver_num') if args.get('adver_num') is not None \
+                else 0)
 
         self.__eclipse: bool = args.get('eclipse') if args.get('eclipse') is not None \
                 else False
@@ -46,7 +52,7 @@ class Adversary(metaclass=ABCMeta):
 
         self.__miner_list: list[miner.Miner] = args.get('miner_list')
 
-        self.__global_chain:chain.Chain = args.get('global_chain')
+        self.__global_chain:Chain = args.get('global_chain')
 
         self.__adver_consensus_param: dict = args.get('adver_consensus_param')
 
@@ -72,7 +78,7 @@ class Adversary(metaclass=ABCMeta):
                 self.__adver_list = random.sample(self.__miner_list, self.__adver_num)
                 for adversary in self.__adver_list:
                     adversary.set_adversary(True)
-                    self.__adver_ids.append(adversary.Miner_ID)
+                    self.__adver_ids.append(adversary.miner_id)
         return self.__adver_list    
     
     def __consensus_q_init(self):
@@ -85,8 +91,12 @@ class Adversary(metaclass=ABCMeta):
 
 
     def __attack_type_init(self):
-        self.__attack_type.set_init(global_chain = self.__global_chain, miner_list = self.__miner_list, adver_list = self.__adver_list, \
-                                  network_type = self.__network_type, adver_consensus = self.__consensus_type, attack_arg = self.__attack_arg)
+        self.__attack_type.set_init(global_chain = self.__global_chain, 
+                                    miner_list = self.__miner_list, 
+                                    adver_list = self.__adver_list,
+                                    network_type = self.__network_type, 
+                                    adver_consensus = self.__consensus_type, 
+                                    attack_arg = self.__attack_arg)
     '''
     相关值返回 构造器
     '''

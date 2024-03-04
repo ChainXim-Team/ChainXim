@@ -5,6 +5,8 @@
 /.vscode/
 /bin/
 /Results/
+/RES_ALGO/
+/Result_Data/
 /block/
 /pyproject.toml
 

@@ -1,5 +1,5 @@
-from .network_abc import Network, Message
-from .synchronous_network import SynchronousNetwork
-from .bounded_delay_network import BoundedDelayNetwork
-from .propvec_network import PropVecNetwork
-from .topology_network import TopologyNetwork
+from .bounded_delay import BoundedDelayNetwork
+from .network_abc import Network, Packet
+from .propvec import PropVecNetwork
+from .synchronous import SynchronousNetwork
+from .topology import TopologyNetwork, TPPacket

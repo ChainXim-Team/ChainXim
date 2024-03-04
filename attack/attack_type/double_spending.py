@@ -1,8 +1,14 @@
 '''
 定义honestminging攻击
 '''
+import math
+import random
+
 import attack.attack_type as aa
-import random, global_var, chain, math
+import global_var
+from data import Block
+
+
 class DoubleSpending(aa.AttackType):
     '''
     算力攻击
@@ -17,13 +23,13 @@ class DoubleSpending(aa.AttackType):
             'fail':0,
             'behavior':None
         }
-        self.__fork_block: chain.Block
+        self.__fork_block: Block
         self.__fork_height:int = 0
     
     def renew_stage(self, round):
         ## 1. renew stage
         bh = self.behavior
-        newest_block, mine_input = bh.renew(miner_list = self.adver_list, \
+        newest_block, mine_input = bh.renew(miner_list = self.adver_list,
                                  honest_chain = self.honest_chain,round = round)
         return newest_block, mine_input
 
@@ -31,36 +37,44 @@ class DoubleSpending(aa.AttackType):
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        honest_height = self.honest_chain.lastblock.BlockHeight()
-        adver_height = self.adver_chain.lastblock.BlockHeight()
+        honest_height = self.honest_chain.lastblock.get_height()
+        adver_height = self.adver_chain.lastblock.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height - self.__fork_height < n:
-            attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus)
+            attack_mine = bh.mine(miner_list = self.adver_list, 
+                                  current_miner = current_miner,
+                                  miner_input = mine_input,
+                                  adver_chain = self.adver_chain, 
+                                  global_chain = self.global_chain,
+                                  consensus = self.adver_consensus)
             self.__log['behavior'] = 'conforming ' + str(honest_height - self.__fork_height) + '/' +str(n)
         elif honest_height - self.__fork_height >= n:
             if honest_height - adver_height >= ng:
             # 攻击链比诚实链落后Ng个区块
                 self.__fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-                self.__fork_height = self.__fork_block.BlockHeight()
-                attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus) 
+                self.__fork_height = self.__fork_block.get_height()
+                attack_mine = bh.mine(miner_list = self.adver_list, 
+                                      current_miner = current_miner,
+                                       miner_input = mine_input,
+                                       adver_chain = self.adver_chain, 
+                                       global_chain = self.global_chain, 
+                                       consensus = self.adver_consensus) 
                 if self.__log['behavior'] != 'adopt':
                     self.__log['fail'] = self.__log['fail'] + 1
                 self.__log['behavior'] = 'adopt'
             elif adver_height > honest_height:
-                block = bh.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
-                        current_miner = current_miner, round = round)
-                attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus)
+                block = bh.upload(network = self.network_type, 
+                                  adver_chain = self.adver_chain, 
+                                  current_miner = current_miner, 
+                                  round = round)
+                attack_mine = bh.mine(miner_list = self.adver_list, 
+                                      current_miner = current_miner , 
+                                      miner_input = mine_input, 
+                                      adver_chain = self.adver_chain, 
+                                      global_chain = self.global_chain, 
+                                      consensus = self.adver_consensus)
                 if attack_mine:
-                    block = bh.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
+                    block = bh.upload(network = self.network_type, adver_chain = self.adver_chain,
                current_miner = current_miner, round = round)
                 if self.__log['behavior'] != 'override':
                     self.__log['success'] = self.__log['success'] + 1

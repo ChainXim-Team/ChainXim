@@ -1,11 +1,13 @@
 from abc import ABCMeta, abstractmethod
-import global_var
 
-class Message(object):
-    '''定义网络中传输的消息'''
-    def __init__(self, size:float = 2):
-        '''size消息长度，单位MB'''
-        self.size = size
+import global_var
+from data import Message
+
+
+class Packet(object):
+    def __init__(self, payload:Message):
+        self.payload = payload
+        
 
 class Network(metaclass=ABCMeta):
     """网络抽象基类"""

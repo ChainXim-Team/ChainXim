@@ -1,18 +1,19 @@
-import time
-import math
 import copy
+import math
 import random
+import time
 from typing import List
+
 import numpy as np
 
+import consensus
 import global_var
-import network, consensus
-from chain import Chain,Block
-from miner import Miner
+import network
 from attack.adversary import Adversary
+from data import Block, Chain
+from external import chain_growth, chain_quality, common_prefix
 from functions import for_name
-from external import common_prefix, chain_quality, chain_growth
-
+from miner import Miner
 
 
 class Environment(object):
@@ -32,7 +33,7 @@ class Environment(object):
         
         '''
         #environment parameters
-        self.miner_num = global_var.get_miner_num()  # number of miners
+        self.miner_num = global_var.get_miner_num()
         self.total_round = 0
         # configure extra genesis block info
         consensus_type:consensus.Consensus = for_name(global_var.get_consensus_type())
@@ -46,30 +47,40 @@ class Environment(object):
         self.checkpoint = None  # Note: activated with the common prefix function
         # evaluation
         self.max_suffix = 10
-        self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
-        self.cp_cdf_k = np.zeros((1, self.max_suffix))  # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
+        # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
+        self.cp_pdf = np.zeros((1, self.max_suffix))
+        # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
+        self.cp_cdf_k = np.zeros((1, self.max_suffix))  
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        self.network.set_net_param(**network_param)        
+        self.network.set_net_param(**network_param)
+        for m in self.miners:
+            m.join_network(self.network)        
         # generate adversary
-        self.adversary = Adversary(adver_num = attack_param['adver_num'], attack_type = attack_param['attack_type'], \
-                                         adversary_ids = attack_param['adversary_ids'], network_type = self.network, \
-                                            consensus_type = global_var.get_consensus_type(), miner_list = self.miners, \
-                                                eclipse = attack_param['eclipse'], global_chain = self.global_chain, \
-                                                    adver_consensus_param = consensus_param, attack_arg = attack_param['attack_arg'])
+        self.adversary = Adversary(
+            adver_num = attack_param['adver_num'], 
+            attack_type = attack_param['attack_type'], 
+            adversary_ids = attack_param['adversary_ids'], 
+            network_type = self.network, 
+            consensus_type = global_var.get_consensus_type(), 
+            miner_list = self.miners, 
+            eclipse = attack_param['eclipse'], 
+            global_chain = self.global_chain, 
+            adver_consensus_param = consensus_param, 
+            attack_arg = attack_param['attack_arg'])
         # get adversary IDs
         adversary_ids = self.adversary.get_adver_ids()
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         for miner in self.miners:
-            with open(CHAIN_DATA_PATH / f'chain_data{str(miner.Miner_ID)}.txt','a') as f:
+            with open(CHAIN_DATA_PATH / f'chain_data{str(miner.miner_id)}.txt','a') as f:
                 print(f"isAdversary: {miner.isAdversary}\n", file=f)
-        parameter_str = 'Parameters:\n' + \
-            f'Miner Number: {self.miner_num} \n' + \
-            f'Consensus Protocol: {consensus_type.__name__} \n' + \
-            f'Network Type: {type(self.network).__name__} \n' + \
-            f'Network Param:  {network_param} \n' + \
-            f'Consensus Param: {consensus_param} \n'
+        parameter_str = ('Parameters:\n' + 
+            f'Miner Number: {self.miner_num} \n' + 
+            f'Consensus Protocol: {consensus_type.__name__} \n' + 
+            f'Network Type: {type(self.network).__name__} \n' + 
+            f'Network Param:  {network_param} \n' + 
+            f'Consensus Param: {consensus_param} \n')
         if adversary_ids:
             parameter_str += f'Adversary Miners: {adversary_ids} \n'
             parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
@@ -83,7 +94,8 @@ class Environment(object):
 
 
     def envir_create_global_chain(self):
-        '''create global chain and its genesis block by copying local chain from the first miner.'''
+        '''create global chain and its genesis block by copying
+          local chain from the first miner.'''
         self.global_chain = Chain()
         self.global_chain.head = copy.deepcopy(self.miners[0].consensus.Blockchain.head)
         self.global_chain.lastblock = self.global_chain.head
@@ -101,40 +113,42 @@ class Environment(object):
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
         ## 开始循环
         t_0 = time.time() # 记录起始时间
-        cached_height = self.global_chain.lastblock.BlockHeight()
+        cached_height = self.global_chain.lastblock.get_height()
         for round in range(1, num_rounds+1):
             inputfromz = round # 生成输入
 
             adver_tmpflag = 1
             if self.adversary.get_adver_num() != 0:
-                adverflag = random.randint(1,self.adversary.get_adver_num())  
-            for temp_miner in self.miners:
-                if temp_miner.isAdversary:
-                    temp_miner.input_tape.append(("INSERT", inputfromz))
+                adverflag = random.randint(1,self.adversary.get_adver_num())
+            
+            for miner in self.miners:
+                # 清除上一轮状态
+                
+                miner.input_tape.append(("INSERT", inputfromz))
+                
+                # 攻击者
+                if miner.isAdversary:
                     if adver_tmpflag == adverflag:
                         self.adversary.excute_per_round(round = round)
                     adver_tmpflag = adver_tmpflag + 1
-
-                else:
-                    ## 处理诚实矿工
-                    temp_miner.input_tape.append(("INSERT", inputfromz))
-                    # run backbone protocol
-                    if (new_msgs := temp_miner.BackboneProtocol(round)) is not None:
-                        self.network.access_network(new_msgs,temp_miner.Miner_ID,round)
-                        for msg in new_msgs:
-                            if isinstance(msg, Block):
-                                self.global_chain.add_block_copy(msg, self.checkpoint)
-                    temp_miner.input_tape = []  # clear the input tape
-                    temp_miner.consensus.receive_tape = []  # clear the communication tape
-                    ##
-
-            self.network.diffuse(round)  # diffuse(C)
+                    miner.clear_states()
+                    continue
+                
+                # 诚实矿工 run backbone protocol
+                if (new_msgs := miner.BackboneProtocol(round)) is not None:
+                    # self.network.access_network(new_msgs,temp_miner.miner_id,round)
+                    for msg in new_msgs:
+                        if isinstance(msg, Block):
+                            self.global_chain.add_block_copy(msg, self.checkpoint)
+                miner.clear_states()
+                
+            # diffuse(C)
+            self.network.diffuse(round)
             self.assess_common_prefix()
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
-            # 分割一下
         
             # 全局链高度超过max_height之后就提前停止
-            current_height = self.global_chain.lastblock.BlockHeight()
+            current_height = self.global_chain.lastblock.get_height()
             if current_height > max_height:
                 break
             # 根据process_bar_type决定进度条的显示方式
@@ -161,8 +175,10 @@ class Environment(object):
         # update the checkpoint
         checkpoint_tmp = cp
         for i in range(1, self.miner_num):
-            if self.miners[i].isAdversary:
-                checkpoint_tmp = common_prefix(checkpoint_tmp, self.miners[i].consensus.Blockchain, self.checkpoint)
+            if not self.miners[i].isAdversary:
+                continue
+            checkpoint_tmp = common_prefix(checkpoint_tmp, 
+                self.miners[i].consensus.Blockchain, self.checkpoint)
         self.checkpoint = checkpoint_tmp
         global_var.set_check_point(checkpoint_tmp)
 
@@ -172,18 +188,20 @@ class Environment(object):
         cp_k = self.global_chain.lastblock
         cp_stat = np.zeros((1, self.miner_num))
         for k in range(self.max_suffix):
-            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.adversary.get_adver_num():  # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+            # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.adversary.get_adver_num():  
                 self.cp_cdf_k[0, k] += self.miner_num-self.adversary.get_adver_num()
                 continue
             cp_sum_k = 0
             for i in range(self.miner_num):
-                if not self.miners[i].isAdversary:
-                    if cp_stat[0, i] == 1:
-                        cp_sum_k += 1
-                    else:
-                        if cp_k == common_prefix(cp_k, self.miners[i].consensus.Blockchain):
-                            cp_stat[0, i] = 1
-                            cp_sum_k += 1
+                if self.miners[i].isAdversary:
+                    continue
+                if cp_stat[0, i] == 1:
+                    cp_sum_k += 1
+                    continue
+                if cp_k == common_prefix(cp_k, self.miners[i].consensus.Blockchain):
+                    cp_stat[0, i] = 1
+                    cp_sum_k += 1
             self.cp_cdf_k[0, k] += cp_sum_k
             cp_k = cp_k.last
 
@@ -225,7 +243,6 @@ class Environment(object):
         stats.update({'block_propagation_times': {} })
         if not isinstance(self.network,network.SynchronousNetwork):
             self.network: network.BoundedDelayNetwork
-            # 固定变量类型 方便调用类方法
             ave_block_propagation_times = self.network.cal_block_propagation_times()
             stats.update({
                 'block_propagation_times': ave_block_propagation_times
@@ -298,7 +315,7 @@ class Environment(object):
 
         # save local chain for all miners
         for miner in self.miners:
-            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.Miner_ID)}.txt")
+            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
 
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)

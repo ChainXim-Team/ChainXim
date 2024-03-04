@@ -1,10 +1,9 @@
-import json
-import sys
-import math
-# sys.path.append("D:\Files\gitspace\chain-xim")
-import os
-import logging
 import itertools
+import json
+import logging
+import math
+import os
+import sys
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -12,17 +11,17 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
-import miner
 import errors
 import global_var
-from chain import Block
-from network.network_abc import Network,Message
+import miner
+from data import Block
+from network.network_abc import Network, P
 
 logger = logging.getLogger(__name__)
 
 class PacketTpNet(object):
     '''拓扑网络中的数据包，包含路由相关信息'''
-    def __init__(self, payload: Message, minerid, round, TTL, outnetobj:"TopologyNetwork"):
+    def __init__(self, payload: P, minerid, round, TTL, outnetobj:"TopologyNetwork"):
         self.payload = payload
         self.minerid = minerid
         self.round = round
@@ -45,7 +44,7 @@ class TopologyNetwork(Network):
     def __init__(self, miners: list[miner.Miner]):
         super().__init__()
         self.miners = miners
-        self.adv_minerids = [m.Miner_ID for m in miners if m.isAdversary]
+        self.adv_minerids = [m.miner_id for m in miners if m.isAdversary]
         # parameters, set by set_net_param()
         self.show_label = None
         self.gen_net_approach = None
@@ -111,7 +110,7 @@ class TopologyNetwork(Network):
             self.block_num_bpt = [0 for _ in range(len(block_prop_times_statistic))]
   
 
-    def access_network(self, new_msg:list[Message], minerid:int, round:int):
+    def access_network(self, new_msg:list[P], minerid:int, round:int):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -241,7 +240,7 @@ class TopologyNetwork(Network):
         round:当前轮数                      type:int
         '''
         # 选择接下来转发的目标--除了from_miner和已接收该数据包的所有neighbor矿工
-        next_targets = [mi for mi in self.miners[cur_miner].neighbor_list 
+        next_targets = [mi for mi in self.miners[cur_miner].neighbors 
                         if mi != from_miner and mi not in packet.received_miners]
         # 计算时延，保存链路
         next_delays = [self.cal_delay(packet.payload, cur_miner, nexttg) for nexttg in next_targets]
@@ -267,7 +266,7 @@ class TopologyNetwork(Network):
         packet.routing_histroy[(from_miner, cur_miner)][1] = round
 
 
-    def cal_delay(self, msg: Message, sourceid:int, targetid:int):
+    def cal_delay(self, msg: P, sourceid:int, targetid:int):
         '''计算sourceid和targetid之间的时延'''
         # 传输时延=消息大小除带宽 且传输时延至少1轮
         bw_mean = self.network_graph.edges[sourceid, targetid]['bandwidth']
@@ -278,10 +277,10 @@ class TopologyNetwork(Network):
         return delay
 
 
-    def cal_neighbor_delays(self, msg: Message, minerid:int):
+    def cal_neighbor_delays(self, msg: P, minerid:int):
         '''计算minerid的邻居的时延'''
         neighbor_delays = []
-        for neighborid in self.miners[minerid].neighbor_list:
+        for neighborid in self.miners[minerid].neighbors:
             delay = self.cal_delay(msg, minerid, neighborid)
             neighbor_delays.append(delay)
         return neighbor_delays
@@ -301,20 +300,23 @@ class TopologyNetwork(Network):
                 self.gen_network_rand(ave_degree)
             else:
                 raise errors.NetGenError('网络生成方式错误！')
+            
             #检查是否有孤立节点或不连通部分
-            if nx.number_of_isolates(self.network_graph) == 0:
-                if nx.number_connected_components(self.network_graph) == 1:
-                    # 邻居节点保存到各miner的neighbor_list中
-                    for minerid in list(self.network_graph.nodes):
-                        self.miners[minerid].neighbor_list = list(self.network_graph.neighbors(int(minerid)))
-                    # 结果展示和保存
-                    #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')
-                    self.draw_and_save_network()
-                    self.save_network_attribute()
-                else:
-                    raise errors.NetUnconnetedError('网络存在不连通部分!')
-            else:
-                raise errors.NetIsoError(f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
+            if nx.number_of_isolates(self.network_graph) != 0:
+                raise errors.NetUnconnetedError('网络存在不连通部分!')
+            if nx.number_connected_components(self.network_graph) != 1:
+                raise errors.NetIsoError(
+                    f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
+            
+            # 邻居节点保存到各miner的neighbor_list中
+            for minerid in list(self.network_graph.nodes):
+                self.miners[int(minerid)].neighbors = \
+                    list(self.network_graph.neighbors(int(minerid)))
+            # 结果展示和保存
+            #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')
+            self.draw_and_save_network()
+            self.save_network_attribute()
+                
         except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
                 errors.NetUnconnetedError, errors.NetGenError) as error:
             print(error)
@@ -441,8 +443,7 @@ class TopologyNetwork(Network):
     def set_node_pos(self):
         '''使用spring_layout设置节点位置'''
         self.node_pos = nx.spring_layout(self.network_graph, seed=50)
-        for node1,node2 in itertools.combinations(self.network_graph.nodes,2):
-            ...
+ 
 
 
     def node_moving(self):

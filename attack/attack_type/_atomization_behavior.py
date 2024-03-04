@@ -4,6 +4,8 @@ _atomization_behavior.py
 '''
 
 from abc import ABCMeta, abstractmethod
+
+
 class AtomizationBehavior(metaclass=ABCMeta): 
     @abstractmethod
     def renew(self):

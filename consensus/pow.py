@@ -1,9 +1,9 @@
 import time
 from typing import List, Tuple
-import global_var
 
-import chain
-from functions import hashsha256, hashH, hashG
+import global_var
+from functions import hashG, hashH, hashsha256
+
 from .consensus_abc import Consensus
 
 
@@ -41,7 +41,7 @@ class PoW(Consensus):
         self.target = consensus_params.get('target') or self.target
         self.q = consensus_params.get('q') or self.q
 
-    def mining_consensus(self,Miner_ID,isadversary,x):
+    def mining_consensus(self, miner_id, isadversary, x, round):
         '''计算PoW\n
         param:
             Miner_ID 该矿工的ID type:int
@@ -64,10 +64,11 @@ class PoW(Consensus):
             self.ctr = self.ctr+1
             # if self._ctr>=10000000:#计数器最大值
             #     self._ctr=0
-            currenthash=hashsha256([Miner_ID,self.ctr,currenthashtmp])#计算哈希
+            currenthash=hashsha256([miner_id,self.ctr,currenthashtmp])#计算哈希
             if int(currenthash,16)<int(self.target,16):
                 pow_success = True
-                blockhead = PoW.BlockHead(b_last,time.time_ns(),x,Miner_ID,self.target,self.ctr)
+                # blockhead = PoW.BlockHead(b_last,time.time_ns(),x,miner_id,self.target,self.ctr)
+                blockhead = PoW.BlockHead(b_last,round,x,miner_id,self.target,self.ctr)
                 blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
                 self.ctr = 0
                 return (blocknew, pow_success)
@@ -87,8 +88,8 @@ class PoW(Consensus):
             if copylist is not None:
                 # 把合法链的公共部分加入到本地区块链中
                 blocktmp = self.Blockchain.insert_block_copy(copylist, insert_point)  
-                depthself = self.Blockchain.lastblock.BlockHeight()
-                depthOtherblock = otherblock.BlockHeight()
+                depthself = self.Blockchain.lastblock.get_height()
+                depthOtherblock = otherblock.get_height()
                 if depthself < depthOtherblock:
                     self.Blockchain.lastblock = blocktmp
                     new_update = True

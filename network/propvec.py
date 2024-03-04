@@ -1,11 +1,16 @@
-import random
-import logging
 import copy
+import logging
 import math
+import random
+from typing import TYPE_CHECKING
+
 import global_var
-from miner import Miner
-from chain import Block
-from .network_abc import Network,Message
+from data import Block
+
+if TYPE_CHECKING:   
+    from miner import Miner
+
+from .network_abc import Message, Network
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +39,7 @@ class PacketPVNet(object):
 class PropVecNetwork(Network):
     """依照传播向量,在每一轮中将消息传播给固定比例的矿工"""
 
-    def __init__(self, miners: list[Miner]):
+    def __init__(self, miners):
         super().__init__()
         self.miners:list[Miner] = miners
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
@@ -87,11 +92,11 @@ class PropVecNetwork(Network):
             rcv_miner_num = round(rcv_rate * self.MINER_NUM)-len(packet.received_miners)
             if rcv_miner_num > 0:
                 remain_miners = [m for m in self.miners \
-                                if m.Miner_ID not in packet.received_miners]
+                                if m.miner_id not in packet.received_miners]
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners
 
-    def access_network(self, new_msg:list[Message], minerid:int, round:int):
+    def access_network(self, new_msg:list[Message], minerid:int, round:int, type:int=None):
         """
         Package the new message and related information to network_tape.
 
@@ -112,8 +117,8 @@ class PropVecNetwork(Network):
             if self.miners[minerid].isAdversary:
                 packet = PacketPVNet(msg, minerid, round, 
                                             self.prop_vector, self)
-                for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
-                    packet.update_trans_process(miner.Miner_ID, round)
+                for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+                    packet.update_trans_process(miner.miner_id, round)
                     miner.receive(msg)
                 self.network_tape.append(packet)
 
@@ -132,18 +137,18 @@ class PropVecNetwork(Network):
                 rcv_miners = self.select_recieve_miners(packet)
                 if len(rcv_miners) > 0:
                     for miner in rcv_miners:
-                        if miner.Miner_ID in packet.received_miners:
+                        if miner.miner_id in packet.received_miners:
                             continue
                         miner.receive(packet.payload)
-                        packet.update_trans_process(miner.Miner_ID, round)
+                        packet.update_trans_process(miner.miner_id, round)
                         self.record_block_propagation_time(packet, round)
                         # 如果一个adv收到，其他没收到的adv也立即收到
                         if miner.isAdversary:
                             not_rcv_adv_miners = [m for m in self.adv_miners \
-                                                if m.Miner_ID != miner.Miner_ID]
+                                                if m.miner_id != miner.miner_id]
                             for adv_miner in not_rcv_adv_miners:
                                     adv_miner.receive(packet.payload)
-                                    packet.update_trans_process(adv_miner.Miner_ID, round)
+                                    packet.update_trans_process(adv_miner.miner_id, round)
                                     self.record_block_propagation_time(packet, round)
                 if len(set(packet.received_miners)) == self.MINER_NUM:
                     died_packets.append(i)

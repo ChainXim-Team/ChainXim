@@ -2,6 +2,7 @@
 定义honestminging攻击
 '''
 import attack.attack_type as aa
+
 attack_type= aa.HonestMining
 
 # 默认继承HonestMining

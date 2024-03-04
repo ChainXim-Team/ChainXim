@@ -1,10 +1,15 @@
-import random
 import logging
 import math
+import random
+from typing import TYPE_CHECKING
+
 import global_var
-from miner import Miner
-from chain import Block
-from .network_abc import Network, Message
+from data import Block
+
+if TYPE_CHECKING:   
+    from miner import Miner
+
+from .network_abc import Message, Network
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +40,7 @@ class PacketBDNet(object):
 class BoundedDelayNetwork(Network):
     """矿工以概率接收到消息，在特定轮数前必定所有矿工都收到消息"""
 
-    def __init__(self, miners: list[Miner]):
+    def __init__(self, miners):
         super().__init__()
         self.miners:list[Miner] = miners
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
@@ -95,8 +100,8 @@ class BoundedDelayNetwork(Network):
             # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
                 packet = PacketBDNet(msg, minerid, round, 
                                             self.rcvprob_start, self)
-                for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
-                    packet.update_trans_process(miner.Miner_ID, round)
+                for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+                    packet.update_trans_process(miner.miner_id, round)
                     miner.receive(msg)
                 self.network_tape.append(packet)
 
@@ -111,20 +116,20 @@ class BoundedDelayNetwork(Network):
             died_packets = []
             for i, packet in enumerate(self.network_tape):
                 not_rcv_miners = [m for m in self.miners \
-                                if m.Miner_ID not in packet.received_miners]
+                                if m.miner_id not in packet.received_miners]
                 # 不会重复传给某个矿工
                 for miner in not_rcv_miners:
-                    if miner.Miner_ID not in packet.received_miners and \
+                    if miner.miner_id not in packet.received_miners and \
                         self.is_recieved(packet.recieve_prob):
-                        packet.update_trans_process(miner.Miner_ID, round)
+                        packet.update_trans_process(miner.miner_id, round)
                         miner.receive(packet.payload)
                         self.record_block_propagation_time(packet, round)
                         # 如果一个adv收到，其他adv也立即收到
                         if miner.isAdversary:
                             not_rcv_adv_miners = [m for m in self.adv_miners \
-                                                if m.Miner_ID != miner.Miner_ID]
+                                                if m.miner_id != miner.miner_id]
                             for adv_miner in not_rcv_adv_miners:
-                                packet.update_trans_process(adv_miner.Miner_ID, round)
+                                packet.update_trans_process(adv_miner.miner_id, round)
                                 adv_miner.receive(packet.payload)
                                 self.record_block_propagation_time(packet, round)
                 # 更新recieve_prob

@@ -1,6 +1,10 @@
-from chain import Block
-from miner import Miner
-from .network_abc import Network, Message
+from typing import TYPE_CHECKING
+
+from .network_abc import Message, Network
+
+if TYPE_CHECKING:   
+    from miner import Miner
+
 
 class PacketSyncNet(object):
     '''同步网络中的数据包，包含路由相关信息'''

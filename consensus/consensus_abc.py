@@ -1,33 +1,36 @@
+import logging
 import random
 from abc import ABCMeta, abstractmethod
-from typing import Union
-import chain
+
+import data
 import global_var
-from chain import Chain, Block
-from network import Message
+
+logger = logging.getLogger(__name__)
 
 class Consensus(metaclass=ABCMeta):        #抽象类
     genesis_blockheadextra = {}
     genesis_blockextra = {}
 
-    class BlockHead(chain.BlockHead):
+    class BlockHead(data.BlockHead):
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
-        def __init__(self, preblock:chain.Block=None, timestamp=0, content=0, miner_id=-1):
+        def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
             prehash = preblock.blockhash if preblock else 0
             super().__init__(prehash, timestamp, content, miner_id)
 
-    class Block(chain.Block):
+    class Block(data.Block):
         '''与chain.Block功能相同但是重写初始化方法'''
-        def __init__(self, blockhead: chain.BlockHead, preblock: chain.Block = None,
+        def __init__(self, blockhead: data.BlockHead, preblock: data.Block = None,
                      isadversary=False, blocksize_MB=2):
             '''当preblock没有指定时默认为创世区块，高度为0'''
             block_number = global_var.get_block_number() if preblock else 0
             height = preblock.height+1 if preblock else 0
             is_genesis = False if preblock else True
-            super().__init__(f"B{block_number}", blockhead, height, isadversary, is_genesis, blocksize_MB)
+            super().__init__(f"B{block_number}", blockhead, height, 
+                             isadversary, is_genesis, blocksize_MB)
 
-    def create_genesis_block(self, chain:Chain, blockheadextra:dict = None, blockextra:dict = None):
+    def create_genesis_block(self, chain:data.Chain, blockheadextra:dict = None, 
+                             blockextra:dict = None):
         '''为指定链生成创世区块'''
         genesis_blockhead = self.BlockHead()
         for k,v in blockheadextra or {}:
@@ -38,18 +41,19 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             setattr(chain.head,k,v)
 
     def __init__(self,miner_id):
-        self.Blockchain = Chain(miner_id)   # 维护的区块链
+        self.miner_id = miner_id
+        self.Blockchain = data.Chain(miner_id)   # 维护的区块链
         self.create_genesis_block(self.Blockchain,self.genesis_blockheadextra,self.genesis_blockextra)
-        self.receive_tape = [] #接收链相关
+        self.receive_tape:list[data.Message] = [] # 接收到的消息
+        self.forward_tape:list[data.Message] = [] # 需要转发的消息
 
-    def is_in_local_chain(self,block:chain.Block):
+    def is_in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
         if self.Blockchain.search(block, global_var.get_check_point()) is None:
             return False
-        else:
-            return True
+        return True
 
     def receive_block(self,rcvblock:Block):
         '''Interface between network and miner. 
@@ -58,31 +62,48 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if not self.is_in_local_chain(rcvblock) and rcvblock not in self.receive_tape:
-            self.receive_tape.append(rcvblock)
-            random.shuffle(self.receive_tape)
-            return True
-        else:
+        if rcvblock in self.receive_tape:
             return False
+        if self.is_in_local_chain(rcvblock):
+            return False
+        self.receive_tape.append(rcvblock)
+        random.shuffle(self.receive_tape)
+        self.forward_tape.append(rcvblock)
 
-    def receive(self, msg: Message):
+        # 将需要继续转发的消息添加到forward_tape中
+        # if rcvblock.type == GLOBAL:
+        
+        # if rcvblock.type == DIRECT and self.miner_id != rcvblock.target:
+        #     self.forward_tape.append(rcvblock)
+        
+        return True
+            
+    def receive_filter(self, msg: data.Message):
         '''接收事件处理，调用相应函数处理传入的对象'''
-        if isinstance(msg,Block):
+        if isinstance(msg, data.Block):
             return self.receive_block(msg)
+        
+    def get_forward_tape(self):
+        return self.forward_tape
 
-    def consensus_process(self, Miner_ID, isadversary, x):
+    def clear_forward_tape(self):
+        self.forward_tape.clear()
+
+    def consensus_process(self, isadversary, x, round):
         '''典型共识过程：挖出新区块并添加到本地链
         return:
             msg_list 包含挖出的新区块的列表，无新区块则为None type:list[Block]/None
             msg_available 如果有新的消息产生则为True type:Bool
         '''
-        newblock, mine_success = self.mining_consensus(Miner_ID, isadversary, x)
-        if mine_success is True:
-            self.Blockchain.add_block_direct(newblock)
-            self.Blockchain.lastblock = newblock
-            return [newblock], True # 返回挖出的区块
-        else:
+        newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
+        if success is False:
             return None, False
+        self.Blockchain.add_block_direct(newblock)
+        self.Blockchain.lastblock = newblock
+        self.forward_tape.append(newblock)
+        logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
+        return [newblock], True # 返回挖出的区块
+            
 
     @abstractmethod
     def setparam(self,**consensus_params):
@@ -90,7 +111,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def mining_consensus(self, Miner_ID, isadversary, x):
+    def mining_consensus(self, miner_id, isadversary, x):
         '''共识机制定义的挖矿算法
         return:
             新产生的区块  type:Block 

@@ -1,8 +1,13 @@
 '''
 定义honestminging攻击
 '''
+import random
+
 import attack.attack_type as aa
-import random, global_var, chain
+import global_var
+from data import Block, Chain
+
+
 class SelfishMining(aa.AttackType):
     '''
     算力攻击
@@ -15,7 +20,7 @@ class SelfishMining(aa.AttackType):
             'adver_chain': None,
             'state': '0'
         }
-        self.__fork_block: chain.Block
+        self.__fork_block: Block
 
     def renew_stage(self, round):
         ## 1. renew stage
@@ -27,8 +32,8 @@ class SelfishMining(aa.AttackType):
     def attack_stage(self, round, mine_input):
         ## 2. attack stage
         bh = self.behavior
-        honest_height = self.honest_chain.lastblock.BlockHeight()
-        adver_height = self.adver_chain.lastblock.BlockHeight()
+        honest_height = self.honest_chain.lastblock.get_height()
+        adver_height = self.adver_chain.lastblock.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
@@ -72,7 +77,7 @@ class SelfishMining(aa.AttackType):
                                 global_chain = self.global_chain, consensus = self.adver_consensus)
                     if attack_mine:
                         # 0'状态下攻击者若挖矿成功，以alpha概率进入0状态
-                        block = bh.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
+                        block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round)
                         self.__log['state']='0'
                     else:
@@ -80,7 +85,7 @@ class SelfishMining(aa.AttackType):
                         '''
                         此时局面应是一部分诚实矿工本地连为攻击链，一部分为诚实链。攻击者本地全部为攻击链。
                         '''
-                        block = bh.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
+                        block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round) 
                         # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
                         bh.wait()
@@ -100,7 +105,7 @@ class SelfishMining(aa.AttackType):
                     else:
                         # 否则，攻击链仅比诚实链高1，受到威胁，攻击者必须立马公布当前区块，再挖矿，挖矿结果不影响
                         if self.__log['state'] !='1':
-                            block = bh.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
+                            block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round)
                         attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
                               , miner_input = mine_input,\

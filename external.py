@@ -1,8 +1,5 @@
 ''' external functions (V,I,R, etc)'''
-from typing import List
-
-import global_var
-from chain import Block, Chain
+from data import Block, Chain
 
 
 def V(xc:list):
@@ -30,7 +27,7 @@ def I(round, input_tape:list):
 def R(blockchain:Chain):
     # chain reading functionality
     # 作用：把链的信息读取出来变成一个向量
-    # 如果这是个树，就按照前序遍历读取（这是不对的后面可能                                                                                                                                                                                                                                                                                                                                                                                                     要修改，但目前对程序无影响）
+    # 如果这是个树，就按照前序遍历读取（这是不对的后面可能要修改，但目前对程序无影响）
     if blockchain is None:
         xc = []
     else:
@@ -88,4 +85,4 @@ def chain_growth(blockchain:Chain):
     输出：
     '''
     last_block = blockchain.last_block()
-    return last_block.BlockHeight()
+    return last_block.get_height()

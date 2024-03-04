@@ -1,8 +1,12 @@
 '''
 定义honestminging攻击
 '''
+import random
+
 import attack.attack_type as aa
-import random, global_var
+import global_var
+
+
 class HonestMining(aa.AttackType):
     '''
     算力攻击
@@ -17,21 +21,25 @@ class HonestMining(aa.AttackType):
 
     def renew_stage(self,round):
         ## 1. renew stage
-        newest_block, mine_input = self.behavior.renew(miner_list = self.adver_list, \
-                                 honest_chain = self.honest_chain,round = round)
+        newest_block, mine_input = self.behavior.renew(miner_list = self.adver_list, 
+                                    honest_chain = self.honest_chain,round = round)
         return newest_block, mine_input
     
     def attack_stage(self,round,mine_input):
         ## 2. attack stage
         current_miner = random.choice(self.adver_list)       
         self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-        attack_mine = self.behavior.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus)
+        attack_mine = self.behavior.mine(miner_list = self.adver_list,
+                                         current_miner = current_miner,
+                                         miner_input = mine_input,
+                                         adver_chain = self.adver_chain,
+                                         global_chain = self.global_chain, 
+                                         consensus = self.adver_consensus)
         if attack_mine:
-            self.behavior.upload(network_type = self.network_type, adver_chain = self.adver_chain, \
-               current_miner = current_miner, round = round)
+            self.behavior.upload(network = self.network_type, 
+                                 adver_chain = self.adver_chain,
+                                 current_miner = current_miner, 
+                                 round = round)
         else:
             self.behavior.wait()
 

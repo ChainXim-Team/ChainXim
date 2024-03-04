@@ -1,100 +1,11 @@
 import copy
-from typing import List
-from abc import ABCMeta, abstractmethod
 
 import graphviz
 import matplotlib.pyplot as plt
 
 import global_var
-from functions import hashG, hashH
-from network import Message
 
-class BlockHead(metaclass=ABCMeta):
-    __omit_keys = {}
-    def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
-        self.prehash = prehash  # 前一个区块的hash
-        self.timestamp = timestamp  # 时间戳
-        self.content = content
-        self.miner = Miner  # 矿工
-    
-    @abstractmethod
-    def calculate_blockhash(self):
-        '''
-        计算区块的hash
-        return:
-            hash type:str
-        '''
-        return hashH([self.miner, hashG([self.prehash, self.content])])
-
-    def __repr__(self) -> str:
-        bhlist = []
-        for k, v in self.__dict__.items():
-            if k not in self.__omit_keys:
-                bhlist.append(k + ': ' + str(v))
-        return '\n'.join(bhlist)
-
-
-class Block(Message):
-
-    def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
-                 isadversary=False, isgenesis=False, blocksize_MB=2):
-        self.name = name
-        self._blockhead = blockhead
-        self.height = height
-        self.blockhash = blockhead.calculate_blockhash()
-        self.isAdversaryBlock = isadversary
-        self.next = []  # 子块列表
-        self.last = None  # 母块
-        self.isGenesis = isgenesis
-        super().__init__(blocksize_MB)
-        # super().__init__(int(random.uniform(0.5, 2)))
-        # 单位:MB 随机 0.5~1 MB
-        
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if cls.__name__ == 'Block' and k != 'next' and k != 'last':
-                setattr(result, k, copy.deepcopy(v, memo))
-            if cls.__name__ == 'Block' and k == 'next':
-                setattr(result, k, [])
-            if cls.__name__ == 'Block' and k == 'last':
-                setattr(result, k, None)
-            if cls.__name__ != 'Block':
-                setattr(result, k, copy.deepcopy(v, memo))
-        return result
-
-    __omit_keys = {}
-    def __repr__(self) -> str:
-
-        def _formatter(d, mplus=1):
-            m = max(map(len, list(d.keys()))) + mplus
-            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v), m+2)
-                            for k, v in d.items()])
-            return s
-        def _indenter(s, n=0):
-            split = s.split("\n")
-            indent = " "*n
-            return ("\n" + indent).join(split)
-        
-        bdict = copy.deepcopy(self.__dict__)
-        bdict.update({'next': [b.name for b in self.next if self.next], 
-                      'last': self.last.name if self.last is not None else None})
-        for omk in self.__omit_keys:
-            del bdict[omk]
-        return '\n'+ _formatter(bdict)
-
-    @property
-    def blockhead(self):
-        return self._blockhead
-
-    def calculate_blockhash(self):
-        self.blockhash = self.blockhead.calculate_blockhash()
-        return self.blockhash
-
-    def BlockHeight(self):
-        return self.height
+from .block import Block
 
 
 class Chain(object):
@@ -225,7 +136,7 @@ class Chain(object):
         return block
 
 
-    def insert_block_copy(self, copylist: List[Block], insert_point: Block):
+    def insert_block_copy(self, copylist: list[Block], insert_point: Block):
         '''在指定的插入点将指定的链合入区块树
         param:
             copylist 待插入的链 type:List[Block]
@@ -264,7 +175,7 @@ class Chain(object):
                 blocktmp.next = []
                 local_tmp.next.append(blocktmp)
                 local_tmp = blocktmp
-            if local_tmp.BlockHeight() > self.lastblock.BlockHeight():
+            if local_tmp.get_height() > self.lastblock.get_height():
                 self.lastblock = local_tmp  # 更新global chain的lastblock
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
