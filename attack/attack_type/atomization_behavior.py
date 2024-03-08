@@ -21,7 +21,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             chain_update : Chain
             check_point = global_var.get_check_point()
-            honest_chain.add_block_copy(chain_update.lastblock,checkpoint=check_point) # 如果存在更新将更新的区块添加到基准链上 
+            # 如果存在更新将更新的区块添加到基准链上   
+            honest_chain.add_block_copy(chain_update.lastblock,checkpoint=check_point)
             #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
         newest_block = honest_chain.lastblock
         newest_block:Block
@@ -33,7 +34,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 清除矿工的input tape和communication tape
         for temp_miner in miner_list:
             temp_miner.input_tape = []  # clear the input tape
-            temp_miner.consensus.receive_tape = []  # clear the communication tape
+            temp_miner.consensus._receive_tape = []  # clear the communication tape
 
     def adopt(self, honest_chain: Chain, adver_chain: Chain) -> Block:
         # Adversary adopts the newest chain based on tthe adver's chains
@@ -76,6 +77,6 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             global_chain.add_block_copy(adm_newblock)
             for temp_miner in miner_list:
                 # 将新挖出的区块放在攻击者的receive_tape
-                temp_miner.consensus.receive_tape.append(adm_newblock)
+                temp_miner.consensus._receive_tape.append(adm_newblock)
         adm_newblock: Block
         return attack_mine, adm_newblock

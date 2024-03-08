@@ -63,7 +63,7 @@ class DoubleSpending(aa.AttackType):
                     self.__log['fail'] = self.__log['fail'] + 1
                 self.__log['behavior'] = 'adopt'
             elif adver_height > honest_height:
-                block = bh.upload(network = self.network_type, 
+                block = bh.upload(network = self.network, 
                                   adver_chain = self.adver_chain, 
                                   current_miner = current_miner, 
                                   round = round)
@@ -74,8 +74,10 @@ class DoubleSpending(aa.AttackType):
                                       global_chain = self.global_chain, 
                                       consensus = self.adver_consensus)
                 if attack_mine:
-                    block = bh.upload(network = self.network_type, adver_chain = self.adver_chain,
-               current_miner = current_miner, round = round)
+                    block = bh.upload(network = self.network, 
+                                      adver_chain = self.adver_chain,
+                                      current_miner = current_miner, 
+                                      round = round)
                 if self.__log['behavior'] != 'override':
                     self.__log['success'] = self.__log['success'] + 1
                 self.__log['behavior'] = 'override'

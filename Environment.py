@@ -1,8 +1,8 @@
 import copy
+import logging
 import math
 import random
 import time
-from typing import List
 
 import numpy as np
 
@@ -15,6 +15,7 @@ from external import chain_growth, chain_quality, common_prefix
 from functions import for_name
 from miner import Miner
 
+logger = logging.getLogger(__name__)
 
 class Environment(object):
 
@@ -40,7 +41,7 @@ class Environment(object):
         consensus_type.genesis_blockheadextra = genesis_blockheadextra
         consensus_type.genesis_blockextra = genesis_blockextra
         # generate miners
-        self.miners:List[Miner] = []
+        self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, consensus_param))
         self.envir_create_global_chain()
@@ -55,7 +56,7 @@ class Environment(object):
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         self.network.set_net_param(**network_param)
         for m in self.miners:
-            m.join_network(self.network)        
+            m.join_network(self.network)
         # generate adversary
         self.adversary = Adversary(
             adver_num = attack_param['adver_num'], 
@@ -97,7 +98,7 @@ class Environment(object):
         '''create global chain and its genesis block by copying
           local chain from the first miner.'''
         self.global_chain = Chain()
-        self.global_chain.head = copy.deepcopy(self.miners[0].consensus.Blockchain.head)
+        self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         self.global_chain.lastblock = self.global_chain.head
 
 
@@ -122,8 +123,6 @@ class Environment(object):
                 adverflag = random.randint(1,self.adversary.get_adver_num())
             
             for miner in self.miners:
-                # 清除上一轮状态
-                
                 miner.input_tape.append(("INSERT", inputfromz))
                 
                 # 攻击者
@@ -131,7 +130,6 @@ class Environment(object):
                     if adver_tmpflag == adverflag:
                         self.adversary.excute_per_round(round = round)
                     adver_tmpflag = adver_tmpflag + 1
-                    miner.clear_states()
                     continue
                 
                 # 诚实矿工 run backbone protocol
@@ -140,11 +138,11 @@ class Environment(object):
                     for msg in new_msgs:
                         if isinstance(msg, Block):
                             self.global_chain.add_block_copy(msg, self.checkpoint)
-                miner.clear_states()
+                miner.clear_tapes()
                 
             # diffuse(C)
             self.network.diffuse(round)
-            self.assess_common_prefix()
+            self.assess_common_prefix(round)
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
         
             # 全局链高度超过max_height之后就提前停止
@@ -160,16 +158,16 @@ class Environment(object):
         self.total_round = self.total_round + round
 
         
-    def assess_common_prefix(self):
+    def assess_common_prefix(self, round):
         # Common Prefix Property
         cp = self.global_chain.lastblock
         # cp = self.miners[0].consensus.Blockchain.lastblock
         for i in range(1, self.miner_num):
             if not self.miners[i].isAdversary:
-                cp = common_prefix(cp, self.miners[i].consensus.Blockchain, self.checkpoint)
+                cp = common_prefix(cp, self.miners[i].get_local_chain(), self.checkpoint)
         len_cp = cp.height
         for i in range(0, self.miner_num):
-            len_suffix = self.miners[0].consensus.Blockchain.lastblock.height - len_cp
+            len_suffix = self.miners[0].get_local_chain().lastblock.height - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
         # update the checkpoint
@@ -178,8 +176,9 @@ class Environment(object):
             if not self.miners[i].isAdversary:
                 continue
             checkpoint_tmp = common_prefix(checkpoint_tmp, 
-                self.miners[i].consensus.Blockchain, self.checkpoint)
+                self.miners[i].get_local_chain(), self.checkpoint)
         self.checkpoint = checkpoint_tmp
+        # logger.info("round %d: checkpoint %s", round, self.checkpoint.name)
         global_var.set_check_point(checkpoint_tmp)
 
     def assess_common_prefix_k(self):
@@ -199,7 +198,7 @@ class Environment(object):
                 if cp_stat[0, i] == 1:
                     cp_sum_k += 1
                     continue
-                if cp_k == common_prefix(cp_k, self.miners[i].consensus.Blockchain):
+                if cp_k == common_prefix(cp_k, self.miners[i].consensus.local_chain):
                     cp_stat[0, i] = 1
                     cp_sum_k += 1
             self.cp_cdf_k[0, k] += cp_sum_k
@@ -220,7 +219,7 @@ class Environment(object):
         num_honest = 0
         for i in range(self.miner_num):
             if not self.miners[i].isAdversary:
-                growth = growth + chain_growth(self.miners[i].consensus.Blockchain)
+                growth = growth + chain_growth(self.miners[i].consensus.local_chain)
                 num_honest = num_honest + 1
         growth = growth / num_honest
         stats.update({
@@ -315,12 +314,12 @@ class Environment(object):
 
         # save local chain for all miners
         for miner in self.miners:
-            miner.consensus.Blockchain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
+            miner.consensus.local_chain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
 
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
-        self.miners[0].consensus.Blockchain.get_block_interval_distribution()
+        self.miners[0].consensus.local_chain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
         if isinstance(self.network,network.TopologyNetwork):
@@ -337,7 +336,7 @@ class Environment(object):
         time_len = time.time()-t_0+0.0000000001
         time_cost = time.gmtime(time_len)
         vel = process/(time_len)
-        time_eval = time.gmtime(total/(vel+0.001))
-        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} {}  {}:{}:{}>>{}:{}:{}  Events: see events.log "\
+        time_eval = time.gmtime(total/(vel+0.001))#Events: see events.log 
+        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} {}  {}:{}:{}>>{}:{}:{}  "\
         .format(cplt, uncplt, percent*100, process, total, vel, unit, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)

@@ -28,9 +28,9 @@ class AttackType(metaclass=ABCMeta):
         self.honest_chain: Chain = copy.deepcopy(global_chain)
         self.miner_list: list[miner.Miner] = miner_list
         self.adver_list: list[miner.Miner] = adver_list
-        self.network_type: network.Network = network_type
+        self.network: network.Network = network_type
         self.adver_consensus: consensus.Consensus = adver_consensus
-        self.adver_chain: Chain = self.adver_consensus.Blockchain
+        self.adver_chain: Chain = self.adver_consensus.local_chain
         self.attack_arg:dict = attack_arg
 
     @abstractmethod

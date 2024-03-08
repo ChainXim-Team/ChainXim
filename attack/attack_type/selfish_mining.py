@@ -25,7 +25,7 @@ class SelfishMining(aa.AttackType):
     def renew_stage(self, round):
         ## 1. renew stage
         bh = self.behavior
-        newest_block, mine_input = bh.renew(miner_list = self.adver_list, \
+        newest_block, mine_input = bh.renew(miner_list = self.adver_list,
                                  honest_chain = self.honest_chain,round = round)
         return newest_block, mine_input
 
@@ -37,12 +37,16 @@ class SelfishMining(aa.AttackType):
         current_miner = random.choice(self.adver_list)
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
-            self.__fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-            # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，收益块数为从adver_chain与base_chain产生分歧的块数开始。
-            attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus)
+            self.__fork_block = bh.adopt(adver_chain = self.adver_chain, 
+                                         honest_chain = self.honest_chain)
+            # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，
+            # 收益块数为从adver_chain与base_chain产生分歧的块数开始。
+            attack_mine = bh.mine(miner_list = self.adver_list, 
+                                  current_miner = current_miner,
+                                  miner_input = mine_input,
+                                  adver_chain = self.adver_chain,
+                                  global_chain = self.global_chain, 
+                                  consensus = self.adver_consensus)
             if attack_mine:
                 # 如果攻击者出块成功（在新主链上），从0状态进入1状态，攻击者处于领先1位置
                 bh.wait()
@@ -53,7 +57,8 @@ class SelfishMining(aa.AttackType):
                 bh.wait()
                 self.__log['state']='0'
         else:
-            # 当攻击链不低于基准链时，诚实矿工应该处于被攻击链主导状态或者与攻击链match状态。而攻击者能做的是尽可能挖矿，保持或占据主导地位，所以不存在接受链这一行为。
+            # 当攻击链不低于基准链时，诚实矿工应该处于被攻击链主导状态或者与攻击链match状态。
+            # 而攻击者能做的是尽可能挖矿，保持或占据主导地位，所以不存在接受链这一行为。
             # 故统计矿池收益的过程被设计在renew内完成。
             if honest_height == adver_height:
                 # 此时攻击链与诚实链等高
@@ -77,7 +82,7 @@ class SelfishMining(aa.AttackType):
                                 global_chain = self.global_chain, consensus = self.adver_consensus)
                     if attack_mine:
                         # 0'状态下攻击者若挖矿成功，以alpha概率进入0状态
-                        block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
+                        block = bh.upload(network = self.network, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round)
                         self.__log['state']='0'
                     else:
@@ -85,7 +90,7 @@ class SelfishMining(aa.AttackType):
                         '''
                         此时局面应是一部分诚实矿工本地连为攻击链，一部分为诚实链。攻击者本地全部为攻击链。
                         '''
-                        block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
+                        block = bh.upload(network = self.network, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round) 
                         # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
                         bh.wait()
@@ -105,7 +110,7 @@ class SelfishMining(aa.AttackType):
                     else:
                         # 否则，攻击链仅比诚实链高1，受到威胁，攻击者必须立马公布当前区块，再挖矿，挖矿结果不影响
                         if self.__log['state'] !='1':
-                            block = bh.upload(network = self.network_type, adver_chain = self.adver_chain, \
+                            block = bh.upload(network = self.network, adver_chain = self.adver_chain, \
                current_miner = current_miner, round = round)
                         attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
                               , miner_input = mine_input,\

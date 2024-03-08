@@ -42,16 +42,17 @@ class Consensus(metaclass=ABCMeta):        #抽象类
 
     def __init__(self,miner_id):
         self.miner_id = miner_id
-        self.Blockchain = data.Chain(miner_id)   # 维护的区块链
-        self.create_genesis_block(self.Blockchain,self.genesis_blockheadextra,self.genesis_blockextra)
-        self.receive_tape:list[data.Message] = [] # 接收到的消息
-        self.forward_tape:list[data.Message] = [] # 需要转发的消息
+        self.local_chain = data.Chain(miner_id)   # 维护的区块链
+        self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
+        self._receive_tape:list[data.Message] = [] # 接收到的消息
+        self._forward_tape:list[data.Message] = [] # 需要转发的消息
 
     def is_in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
-        if self.Blockchain.search(block, global_var.get_check_point()) is None:
+        if self.local_chain.search(block, global_var.get_check_point()) is None:
+            # logger.info("M%d %s not in local chain", self.miner_id, block.name)
             return False
         return True
 
@@ -62,20 +63,12 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if rcvblock in self.receive_tape:
+        if rcvblock in self._receive_tape:
             return False
         if self.is_in_local_chain(rcvblock):
             return False
-        self.receive_tape.append(rcvblock)
-        random.shuffle(self.receive_tape)
-        self.forward_tape.append(rcvblock)
-
-        # 将需要继续转发的消息添加到forward_tape中
-        # if rcvblock.type == GLOBAL:
-        
-        # if rcvblock.type == DIRECT and self.miner_id != rcvblock.target:
-        #     self.forward_tape.append(rcvblock)
-        
+        self._receive_tape.append(rcvblock)
+        random.shuffle(self._receive_tape)
         return True
             
     def receive_filter(self, msg: data.Message):
@@ -84,10 +77,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             return self.receive_block(msg)
         
     def get_forward_tape(self):
-        return self.forward_tape
+        return self._forward_tape
 
     def clear_forward_tape(self):
-        self.forward_tape.clear()
+        self._forward_tape.clear()
 
     def consensus_process(self, isadversary, x, round):
         '''典型共识过程：挖出新区块并添加到本地链
@@ -98,9 +91,9 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
         if success is False:
             return None, False
-        self.Blockchain.add_block_direct(newblock)
-        self.Blockchain.lastblock = newblock
-        self.forward_tape.append(newblock)
+        self.local_chain.add_block_direct(newblock)
+        self.local_chain.lastblock = newblock
+        self._forward_tape.append(newblock)
         logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
         return [newblock], True # 返回挖出的区块
             

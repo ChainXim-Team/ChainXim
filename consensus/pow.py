@@ -53,10 +53,10 @@ class PoW(Consensus):
         '''
         pow_success = False
         #print("mine",Blockchain)
-        if self.Blockchain.is_empty():#如果区块链为空
+        if self.local_chain.is_empty():#如果区块链为空
             prehash = 0
         else:
-            b_last = self.Blockchain.last_block()#链中最后一个块
+            b_last = self.local_chain.last_block()#链中最后一个块
             prehash = b_last.blockhash
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
@@ -81,21 +81,21 @@ class PoW(Consensus):
         # output:
         #   lastblock 最长链的最新一个区块
         new_update = False  # 有没有更新
-        if self.receive_tape==[]:
-            return self.Blockchain, new_update
-        for otherblock in self.receive_tape:
+        if self._receive_tape==[]:
+            return self.local_chain, new_update
+        for otherblock in self._receive_tape:
             copylist, insert_point = self.valid_partial(otherblock)
             if copylist is not None:
                 # 把合法链的公共部分加入到本地区块链中
-                blocktmp = self.Blockchain.insert_block_copy(copylist, insert_point)  
-                depthself = self.Blockchain.lastblock.get_height()
+                blocktmp = self.local_chain.insert_block_copy(copylist, insert_point)  
+                depthself = self.local_chain.lastblock.get_height()
                 depthOtherblock = otherblock.get_height()
                 if depthself < depthOtherblock:
-                    self.Blockchain.lastblock = blocktmp
+                    self.local_chain.lastblock = blocktmp
                     new_update = True
             else:
                 print('error')  # 验证失败没必要脱出错误
-        return self.Blockchain, new_update
+        return self.local_chain, new_update
 
     def valid_partial(self, lastblock: Consensus.Block) -> Tuple[List[Consensus.Block], Consensus.Block]:
         '''验证某条链上不在本地链中的区块
@@ -109,7 +109,7 @@ class PoW(Consensus):
         if not receive_tmp:  # 接受的链为空，直接返回
             return (None, None)
         copylist = []
-        local_tmp = self.Blockchain.search(receive_tmp,global_var.get_check_point())
+        local_tmp = self.local_chain.search(receive_tmp,global_var.get_check_point())
         ss = receive_tmp.calculate_blockhash()
         while receive_tmp and not local_tmp:
             hash = receive_tmp.calculate_blockhash()
@@ -118,7 +118,7 @@ class PoW(Consensus):
                 ss = receive_tmp.blockhead.prehash
                 copylist.append(receive_tmp)
                 receive_tmp = receive_tmp.last
-                local_tmp = self.Blockchain.search(receive_tmp)
+                local_tmp = self.local_chain.search(receive_tmp)
             else:
                 return (None, None)
         if receive_tmp:

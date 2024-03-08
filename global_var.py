@@ -1,20 +1,23 @@
 '''
     全局变量
 '''
-from pathlib import Path
-import time
 import logging
+import time
+from pathlib import Path
+
 
 def __init__(result_path:Path = None): 
-    current_time = time.strftime("%Y%m%d-%H%M%S")
-    RESULT_PATH=result_path or Path.cwd() / 'Results' / current_time
-    RESULT_PATH.mkdir(parents=True)   
+    # current_time = time.strftime("%Y%m%d-%H%M%S")
+    RESULT_FOLDER = Path.cwd() / 'Results' / time.strftime("%Y%m%d")
+    RESULT_FOLDER.mkdir(parents=True,exist_ok = True)   
+    RESULT_PATH=result_path or RESULT_FOLDER  / time.strftime("%H%M%S")
+    RESULT_PATH.mkdir(parents=True,exist_ok = True)   
     NET_RESULT_PATH=RESULT_PATH / 'Network Results'
-    NET_RESULT_PATH.mkdir()
+    NET_RESULT_PATH.mkdir(parents=True,exist_ok = True)
     CHAIN_DATA_PATH=RESULT_PATH / 'Chain Data'
-    CHAIN_DATA_PATH.mkdir()
+    CHAIN_DATA_PATH.mkdir(parents=True,exist_ok = True)
     ATTACK_RESULT_PATH=RESULT_PATH / 'Attack Result'
-    ATTACK_RESULT_PATH.mkdir()
+    ATTACK_RESULT_PATH.mkdir(parents=True,exist_ok = True)
     '''
     初始化
     '''

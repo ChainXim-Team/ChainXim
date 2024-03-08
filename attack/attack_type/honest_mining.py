@@ -36,7 +36,7 @@ class HonestMining(aa.AttackType):
                                          global_chain = self.global_chain, 
                                          consensus = self.adver_consensus)
         if attack_mine:
-            self.behavior.upload(network = self.network_type, 
+            self.behavior.upload(network = self.network, 
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round)

@@ -22,29 +22,51 @@ def run(Z:Environment, total_round: int, max_height: int, process_bar_type):
     Z.exec(total_round, max_height, process_bar_type)
     return Z.view_and_write()
 
+def config_log(env_config:dict):
+    """配置日志"""
+    level_str = env_config.get('log_level', 'info')
+    if level_str == 'error':
+        global_var.set_log_level(logging.ERROR)
+    elif level_str == 'warning':
+        global_var.set_log_level(logging.WARNING)
+    elif level_str == 'info':
+        global_var.set_log_level(logging.INFO)
+    elif level_str == 'debug':
+        global_var.set_log_level(logging.DEBUG)
+    else:
+        raise ValueError("config error log_level must be set as " +
+                         "error/warning/info/debug, cur setting:%s", level_str)
+    logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
+                        level=global_var.get_log_level(), filemode='w')
+
+
+
 def main(**args):
     '''主程序'''
     # 读取配置文件
     config = configparser.ConfigParser()
     config.optionxform = lambda option: option
     config.read('system_config.ini',encoding='utf-8')
-    environ_settings = dict(config['EnvironmentSettings'])
+    env_config = dict(config['EnvironmentSettings'])
     #设置全局变量
-    miner_num = args.get('miner_num') or int(environ_settings['miner_num'])
-    network_type = args.get('network_type') or environ_settings['network_type']
+    miner_num = args.get('miner_num') or int(env_config['miner_num'])
+    network_type = args.get('network_type') or env_config['network_type']
     global_var.__init__(args.get('result_path'))
-    global_var.set_consensus_type(args.get('consensus_type') or environ_settings['consensus_type'])
+    global_var.set_consensus_type(
+        args.get('consensus_type') or env_config['consensus_type'])
     global_var.set_network_type(network_type)
     global_var.set_miner_num(miner_num)
-    global_var.set_blocksize(args.get('blocksize') or int(environ_settings['blocksize']))
-    global_var.set_show_fig(args.get('show_fig') or config.getboolean('EnvironmentSettings','show_fig'))
-    global_var.set_compact_outputfile(config.getboolean('EnvironmentSettings','compact_outputfile') \
-                                      if not args.get('no_compact_outputfile') else False)
-
-    # 配置日志文件
-    logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
-                        level=global_var.get_log_level(), filemode='w')
-
+    global_var.set_blocksize(
+        args.get('blocksize') or int(env_config['blocksize']))
+    global_var.set_show_fig(
+        args.get('show_fig') or config.getboolean('EnvironmentSettings','show_fig'))
+    global_var.set_compact_outputfile(
+        config.getboolean('EnvironmentSettings','compact_outputfile')
+        if not args.get('no_compact_outputfile') else False)
+    
+    # 配置日志
+    config_log(env_config)
+    
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
     if global_var.get_consensus_type() == 'consensus.PoW':
@@ -54,7 +76,7 @@ def main(**args):
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
         if q_distr == 'rand':
-            q_distr = get_random_q_distr(miner_num,q_ave)
+            q_distr = get_random_q_gaussian(miner_num,q_ave)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
     else:
         consensus_param = {}
@@ -67,45 +89,54 @@ def main(**args):
     if network_type == 'network.BoundedDelayNetwork':
         bdnet_settings = dict(config["BoundedDelayNetworkSettings"])
         network_param = {
-            'rcvprob_start': args.get('rcvprob_start') if args.get('rcvprob_start') is not None \
-                                            else float(bdnet_settings['rcvprob_start']),
-            'rcvprob_inc': args.get('rcvprob_inc') if args.get('rcvprob_inc') is not None \
-                                            else float(bdnet_settings['rcvprob_inc']),
-            'block_prop_times_statistic':args.get('block_prop_times_statistic') or \
-                                        eval(bdnet_settings['block_prop_times_statistic'])
-            }
+            'rcvprob_start': (args.get('rcvprob_start') 
+                              if args.get('rcvprob_start') is not None  
+                              else float(bdnet_settings['rcvprob_start'])),
+            'rcvprob_inc': (args.get('rcvprob_inc') 
+                            if args.get('rcvprob_inc') is not None
+                            else float(bdnet_settings['rcvprob_inc'])),
+            'stat_prop_times': (args.get('stat_prop_times') or 
+                                eval(bdnet_settings['stat_prop_times']))
+        }
     # PropVecNetwork
     elif network_type == 'network.PropVecNetwork':
         pvnet_settings = dict(config["PropVecNetworkSettings"])
-        network_param = {'prop_vector':args.get('prop_vector') or eval(pvnet_settings['prop_vector'])}
+        network_param = {'prop_vector':(args.get('prop_vector') or 
+                                        eval(pvnet_settings['prop_vector']))}
     # TopologyNetwork
     elif network_type == 'network.TopologyNetwork':
         net_setting = 'TopologyNetworkSettings'
-        bool_params = ['show_label', 'save_routing_graph']
-        float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv']
+        bool_params  = ['show_label', 'save_routing_graph', 'dynamic']
+        float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv',
+                        'outage_prob','avg_tp_change_interval','edge_add_prob',
+                        'edge_remove_prob','max_allowed_partitions']
         for bparam in bool_params:
-            network_param.update({bparam: args.get(bparam) or config.getboolean(net_setting, bparam)})
+            network_param.update({bparam: args.get(bparam) or 
+                                 config.getboolean(net_setting, bparam)})
         for fparam in float_params:
-            network_param.update({fparam: args.get(fparam) or config.getfloat(net_setting, fparam)})
+            network_param.update({fparam: args.get(fparam) or 
+                                  config.getfloat(net_setting, fparam)})
         network_param.update({
-            'TTL':args.get('ttl') or config.getint(net_setting, 'TTL'),
-            'gen_net_approach': args.get('gen_net_approach') or \
-                                config.get(net_setting, 'gen_net_approach'),
-            'block_prop_times_statistic':args.get('block_prop_times_statistic') or \
-                                        eval(config.get(net_setting, 'block_prop_times_statistic'))
-            })
+            'init_mode': (args.get('init_mode') or 
+                          config.get(net_setting, 'init_mode')),
+            'stat_prop_times': (args.get('stat_prop_times') or 
+                                eval(config.get(net_setting, 'stat_prop_times')))
+        })
 
     # 设置attack参数
     attack_setting = dict(config['AttackSettings'])
-    global_var.set_attack_execute_type(args.get('attack_type') or attack_setting['attack_type'])
+    global_var.set_attack_execute_type(args.get('attack_type') or 
+                                       attack_setting['attack_type'])
     attack_param = {
-        'adver_num': args.get('adver_num') if args.get('adver_num') is not None else int(attack_setting['adver_num']),
-        'attack_type': args.get('attack_type') if args.get('attack_type') is not None else attack_setting['attack_type'],
-        'attack_arg': attack_setting['attack_arg'],
-        'adversary_ids': args.get('adver_lists') if args.get('adver_lists') is not None \
-                                              else eval(attack_setting.get('adver_lists') or 'None'),
-        'eclipse': True if attack_setting['eclipse'] is not None and attack_setting['eclipse'].upper() == 'TRUE'\
-                                              else False,
+        'adver_num'    : (args.get('adver_num') if args.get('adver_num') is not None 
+                          else int(attack_setting['adver_num'])),
+        'attack_type'  : (args.get('attack_type') if args.get('attack_type') is not None
+                          else attack_setting['attack_type']),
+        'attack_arg'   : attack_setting['attack_arg'],
+        'adversary_ids': (args.get('adver_lists') if args.get('adver_lists') is not None
+                          else eval(attack_setting.get('adver_lists') or 'None')),
+        'eclipse'      : (True if attack_setting['eclipse'] is not None 
+                          and attack_setting['eclipse'].upper() == 'TRUE'else False),
     }
 
 
@@ -115,12 +146,15 @@ def main(**args):
 
     Z = Environment(attack_param, consensus_param, network_param,
                     genesis_blockheadextra, genesis_blockextra)
-    
-    return run(Z, args.get('total_round') or int(environ_settings['total_round']),
-               args.get('total_height') or int(environ_settings.get('total_height') or 2**31 - 2),
-               args.get('process_bar_type') or environ_settings.get('process_bar_type'))
+    total_round = args.get('total_round') or int(env_config['total_round'])
+    max_height = (args.get('total_height') or 
+                  int(env_config.get('total_height') or 2**31 - 2))
+    process_bar_type = (args.get('process_bar_type') 
+                        or env_config.get('process_bar_type'))
 
-def get_random_q_distr(miner_num,q_ave):
+    return run(Z,  total_round, max_height,process_bar_type)
+
+def get_random_q_gaussian(miner_num,q_ave):
     '''
     随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
     且满足全网总算力为q_ave*miner_num
@@ -179,7 +213,6 @@ could be performed with attackers designed in the simulator'
     bound_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
     # TopologyNetworkSettings
     topology_setting = parser.add_argument_group('TopologyNetworkSettings','Settings for TopologyNetwork')
-    topology_setting.add_argument('--ttl',help='Max round can a message live in network',type=int)
     topology_setting.add_argument('--gen_net_approach',
                         help='One of the three methods to generate network topology:coo/adj/rand',
                         type=str)

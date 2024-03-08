@@ -42,7 +42,7 @@ class PropVecNetwork(Network):
     def __init__(self, miners):
         super().__init__()
         self.miners:list[Miner] = miners
-        self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
+        self.adv_miners:list[Miner] = [m for m in self.miners if m.isAdversary]
         self.network_tape:list[PacketPVNet] = []
         self.prop_vector:list = [0.2, 0.4, 0.6, 0.8, 1.0] # 默认值
 
@@ -109,8 +109,7 @@ class PropVecNetwork(Network):
         """
         for msg in new_msg:
             if not self.miners[minerid].isAdversary:
-                packet = PacketPVNet(msg, minerid, round, 
-                                            self.prop_vector, self)
+                packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
                 self.network_tape.append(packet)
         
             # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
@@ -119,7 +118,7 @@ class PropVecNetwork(Network):
                                             self.prop_vector, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.receive(msg)
+                    miner.receive(packet)
                 self.network_tape.append(packet)
 
 
@@ -131,33 +130,36 @@ class PropVecNetwork(Network):
         -----
         round (int): The current round in the Envrionment.
         """
-        if len(self.network_tape) > 0:
-            died_packets = []
-            for i, packet in enumerate(self.network_tape):
-                rcv_miners = self.select_recieve_miners(packet)
-                if len(rcv_miners) > 0:
-                    for miner in rcv_miners:
-                        if miner.miner_id in packet.received_miners:
-                            continue
-                        miner.receive(packet.payload)
-                        packet.update_trans_process(miner.miner_id, round)
+        if len(self.network_tape) == 0:
+            return
+        died_packets = []
+        for i, packet in enumerate(self.network_tape):
+            rcv_miners = self.select_recieve_miners(packet)
+            if len(rcv_miners) <= 0:
+                continue
+            for miner in rcv_miners:
+                if miner.miner_id in packet.received_miners:
+                    continue
+                miner.receive(packet)
+                packet.update_trans_process(miner.miner_id, round)
+                self.record_block_propagation_time(packet, round)
+                # 如果一个adv收到，其他没收到的adv也立即收到
+                if not miner.isAdversary:
+                    continue
+                not_rcv_advs = [m for m in self.adv_miners 
+                                if m.miner_id != miner.miner_id]
+                for adv_miner in not_rcv_advs:
+                        adv_miner.receive(packet)
+                        packet.update_trans_process(adv_miner.miner_id, round)
                         self.record_block_propagation_time(packet, round)
-                        # 如果一个adv收到，其他没收到的adv也立即收到
-                        if miner.isAdversary:
-                            not_rcv_adv_miners = [m for m in self.adv_miners \
-                                                if m.miner_id != miner.miner_id]
-                            for adv_miner in not_rcv_adv_miners:
-                                    adv_miner.receive(packet.payload)
-                                    packet.update_trans_process(adv_miner.miner_id, round)
-                                    self.record_block_propagation_time(packet, round)
-                if len(set(packet.received_miners)) == self.MINER_NUM:
-                    died_packets.append(i)
-                    if not global_var.get_compact_outputfile():
-                        self.save_trans_process(packet)
-            # 丢弃传播完成的包，更新network_tape
-            self.network_tape = [n for i, n in enumerate(self.network_tape) \
-                                    if i not in died_packets]
-            died_packets = []
+            if len(set(packet.received_miners)) == self.MINER_NUM:
+                died_packets.append(i)
+                if not global_var.get_compact_outputfile():
+                    self.save_trans_process(packet)
+        # 丢弃传播完成的包，更新network_tape
+        self.network_tape = [n for i, n in enumerate(self.network_tape)
+                            if i not in died_packets]
+        died_packets = []
 
 
     
