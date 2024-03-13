@@ -130,10 +130,10 @@ class Miner(object):
             if len(que) == 0:
                 continue
             
-            if len(que)!=len(set(que)):
-                logger.warning("ERROR! round%d, M%d -> M%d, channel BUSY, sending %s, waiting %s,",
-                            round, self.miner_id, neighbor, self._channel_states[neighbor].name ,
-                            str([b.name for b in que if isinstance(b, Block)]))
+            # if len(que)!=len(set(que)):
+            #     logger.warning("ERROR! round%d, M%d -> M%d, channel BUSY, sending %s, waiting %s,",
+            #                 round, self.miner_id, neighbor, self._channel_states[neighbor].name ,
+            #                 str([b.name for b in que if isinstance(b, Block)]))
             if self._channel_states[neighbor] != _IDLE:
                 logger.info("round%d, M%d -> M%d, channel BUSY, sending %s, waiting %s",
                             round, self.miner_id, neighbor, self._channel_states[neighbor].name ,

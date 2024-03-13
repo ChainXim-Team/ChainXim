@@ -69,6 +69,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
+        self._forward_tape.append(rcvblock)
         return True
             
     def receive_filter(self, msg: data.Message):
