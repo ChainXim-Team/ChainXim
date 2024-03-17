@@ -162,7 +162,7 @@ class Environment(object):
         # Common Prefix Property
         cp = self.global_chain.lastblock
         # cp = self.miners[0].consensus.Blockchain.lastblock
-        for i in range(1, self.miner_num):
+        for i in range(0, self.miner_num):
             if not self.miners[i].isAdversary:
                 cp = common_prefix(cp, self.miners[i].get_local_chain(), self.checkpoint)
         len_cp = cp.height
@@ -172,7 +172,7 @@ class Environment(object):
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
         # update the checkpoint
         checkpoint_tmp = cp
-        for i in range(1, self.miner_num):
+        for i in range(0, self.miner_num):
             if not self.miners[i].isAdversary:
                 continue
             checkpoint_tmp = common_prefix(checkpoint_tmp, 

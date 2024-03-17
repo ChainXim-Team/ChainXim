@@ -46,6 +46,8 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
         self._forward_tape:list[data.Message] = [] # 需要转发的消息
+        self._block_buffer:list[Consensus.Block] = [] # 区块缓存
+        self._block_buffer_death_height:dict[str, int] = {} # Buffer中区块被丢弃的高度
 
     def is_in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
@@ -63,7 +65,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if rcvblock in self._receive_tape:
+        if rcvblock in self._receive_tape or rcvblock in self._block_buffer:
             return False
         if self.is_in_local_chain(rcvblock):
             return False
@@ -114,7 +116,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def maxvalid(self):
+    def local_state_update(self):
         '''检验接收到的区块并将其合并到本地链'''
         pass
 

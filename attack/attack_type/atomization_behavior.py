@@ -17,7 +17,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         mine_input = 0
         for temp_miner in miner_list:
-            chain_update, update_index = temp_miner.consensus.maxvalid() 
+            chain_update, update_index = temp_miner.consensus.local_state_update() 
             mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             chain_update : Chain
             check_point = global_var.get_check_point()

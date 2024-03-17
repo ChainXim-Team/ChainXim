@@ -61,6 +61,28 @@ class Chain(object):
         return copy_chain
     
 
+    def search_by_hash(self, blockhash: str=None, checkpoint:Block=None):
+        # 利用区块哈希，搜索某块是否存在(搜索树)
+        # 存在返回区块地址，不存在返回None
+        if self.head is None or blockhash is None:
+            return None
+            
+            # return None  # 如果搜索的块高度太低 直接不搜了
+        else:
+            searchroot = self.lastblock
+            while (searchroot and searchroot.last 
+                and (checkpoint is None or searchroot.height >= checkpoint.height)):
+                if blockhash == searchroot.blockhash:
+                    return searchroot
+                searchroot = searchroot.last
+        q = [searchroot]
+        while q:
+            cur_block = q.pop(0)
+            if blockhash == cur_block.blockhash:
+                return cur_block
+            q.extend(cur_block.next)
+        return None
+
     def search(self, block: Block, checkpoint:Block=None):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None

@@ -240,7 +240,7 @@ class Miner(object):
         return new_msgs, msg_available  # 返回挖出的区块，
 
     def BackboneProtocol(self, round):
-        chain_update, update_index = self.consensus.maxvalid()
+        chain_update, update_index = self.consensus.local_state_update()
         input = I(round, self.input_tape)  # I function
         new_msgs, msg_available = self.launch_consensus(input, round)
         if new_msgs is not None and not isinstance(self.network, TopologyNetwork):
