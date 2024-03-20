@@ -2,7 +2,7 @@ import time
 from typing import List, Tuple
 
 import global_var
-from functions import hashG, hashH, hashsha256
+from functions import hash_bytes, INT_LEN, BYTE_ORDER
 
 from .consensus_abc import Consensus
 
@@ -14,17 +14,22 @@ class PoW(Consensus):
         def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,
                      target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
                      nonce = 0):
+            # currently content is an integer equal to the round the block is generated
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # 难度目标
             self.nonce = nonce  # 随机数
 
-        def calculate_blockhash(self):
-            return hashH([self.miner, self.nonce, hashG([self.prehash, self.content])])
+        def calculate_blockhash(self) -> bytes:
+            data = self.miner.to_bytes(INT_LEN, BYTE_ORDER, signed=True)+ \
+                    self.content.to_bytes(INT_LEN, BYTE_ORDER)+ \
+                    self.prehash + \
+                    self.nonce.to_bytes(INT_LEN, BYTE_ORDER)
+            return hash_bytes(data).digest()
 
     def __init__(self,miner_id,consensus_params:dict):
         super().__init__(miner_id=miner_id)
         self.ctr=0 #计数器
-        self.target = consensus_params['target']
+        self.target = bytes.fromhex(consensus_params['target'])
         if consensus_params['q_distr'] == 'equal':
             self.q = consensus_params['q_ave']
         else:
@@ -38,7 +43,7 @@ class PoW(Consensus):
         '''
         设置pow参数,主要是target
         '''
-        self.target = consensus_params.get('target') or self.target
+        self.target = bytes.fromhex(consensus_params.get('target') or self.target)
         self.q = consensus_params.get('q') or self.q
 
     def mining_consensus(self, miner_id, isadversary, x, round):
@@ -58,16 +63,21 @@ class PoW(Consensus):
         else:
             b_last = self.local_chain.last_block()#链中最后一个块
             prehash = b_last.blockhash
-        currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
+
+        intermediate_hasher = hash_bytes(miner_id.to_bytes(INT_LEN, BYTE_ORDER, signed=True) + \
+                                         x.to_bytes(INT_LEN, BYTE_ORDER) + \
+                                         prehash)
+        
         i = 0
         while i < self.q:
             self.ctr = self.ctr+1
-            # if self._ctr>=10000000:#计数器最大值
-            #     self._ctr=0
-            currenthash=hashsha256([miner_id,self.ctr,currenthashtmp])#计算哈希
-            if int(currenthash,16)<int(self.target,16):
+            hasher = intermediate_hasher.copy()
+            hasher.update(self.ctr.to_bytes(INT_LEN, BYTE_ORDER))
+            currenthash=hasher.digest()#计算哈希
+            if currenthash<self.target:
                 pow_success = True
                 # blockhead = PoW.BlockHead(b_last,time.time_ns(),x,miner_id,self.target,self.ctr)
+                # Use round instead as real world timestamp is meaningless in chainxim
                 blockhead = PoW.BlockHead(b_last,round,x,miner_id,self.target,self.ctr)
                 blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
                 self.ctr = 0
@@ -114,7 +124,7 @@ class PoW(Consensus):
         while receive_tmp and not local_tmp:
             hash = receive_tmp.calculate_blockhash()
             block_vali = self.valid_block(receive_tmp)
-            if block_vali and int(hash, 16) == int(ss, 16):
+            if block_vali and hash == ss:
                 ss = receive_tmp.blockhead.prehash
                 copylist.append(receive_tmp)
                 receive_tmp = receive_tmp.last
@@ -122,7 +132,7 @@ class PoW(Consensus):
             else:
                 return (None, None)
         if receive_tmp:
-            if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):
+            if receive_tmp.calculate_blockhash() == ss:
                 return (copylist, local_tmp)
             else:
                 return (None, None)
@@ -146,7 +156,7 @@ class PoW(Consensus):
             while chain_vali and blocktmp is not None:
                 hash=blocktmp.calculate_blockhash()
                 block_vali = self.valid_block(blocktmp)
-                if block_vali and int(hash, 16) == int(ss, 16):
+                if block_vali and hash == ss:
                     ss = blocktmp.blockhead.prehash
                     blocktmp = blocktmp.last
                 else:
@@ -164,7 +174,7 @@ class PoW(Consensus):
         btemp = block
         target = btemp.blockhead.target
         hash = btemp.blockhash
-        if int(hash, 16) >= int(target, 16):
+        if hash >= target:
             return False
         else:
             return True
