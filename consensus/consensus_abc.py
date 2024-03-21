@@ -1,6 +1,7 @@
 import logging
 import random
 from abc import ABCMeta, abstractmethod
+from functions import HASH_LEN, BYTE_ORDER
 
 import data
 import global_var
@@ -15,7 +16,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
-            prehash = preblock.blockhash if preblock else 0
+            prehash = preblock.blockhash if preblock else (0).to_bytes(HASH_LEN, BYTE_ORDER)
             super().__init__(prehash, timestamp, content, miner_id)
 
     class Block(data.Block):
