@@ -40,8 +40,8 @@ class Block(Message):
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
-        self.next = []  # 子块列表
-        self.last = None  # 母块
+        self.next:list[Block] = []  # 子块列表
+        self.parentblock:Block = None  # 母块
         self.isGenesis = isgenesis
         super().__init__(blocksize_MB)
         # super().__init__(int(random.uniform(0.5, 2)))
@@ -52,11 +52,11 @@ class Block(Message):
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if cls.__name__ == 'Block' and k != 'next' and k != 'last':
+            if cls.__name__ == 'Block' and k != 'next' and k != 'parentblock':
                 setattr(result, k, copy.deepcopy(v, memo))
             if cls.__name__ == 'Block' and k == 'next':
                 setattr(result, k, [])
-            if cls.__name__ == 'Block' and k == 'last':
+            if cls.__name__ == 'Block' and k == 'parentblock':
                 setattr(result, k, None)
             if cls.__name__ != 'Block':
                 setattr(result, k, copy.deepcopy(v, memo))
@@ -77,7 +77,7 @@ class Block(Message):
         
         bdict = copy.deepcopy(self.__dict__)
         bdict.update({'next': [b.name for b in self.next if self.next], 
-                      'last': self.last.name if self.last is not None else None})
+                      'parentblock': self.parentblock.name if self.parentblock is not None else None})
         for omk in self.__omit_keys:
             del bdict[omk]
         return '\n'+ _formatter(bdict)
