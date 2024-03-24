@@ -43,11 +43,11 @@ def R(blockchain:Chain):
                 q.append(i)
     return xc
 
-def common_prefix(prefix1:Block, chain2:Chain, checkpoint:Block = None):
-    while prefix1 and (checkpoint is None or prefix1.height >= checkpoint.height):
-        if chain2.search_chain(prefix1, checkpoint) is not None:
+def common_prefix(prefix1:Block, chain2:Chain):
+    while prefix1:
+        if chain2.search_block(prefix1) is not None:
             break
-        prefix1 = prefix1.last
+        prefix1 = prefix1.parentblock
     return prefix1
 
 def chain_quality(blockchain:Chain):
@@ -60,11 +60,11 @@ def chain_quality(blockchain:Chain):
     if not blockchain.head:
         xc = []
     else:
-        blocktmp = blockchain.last_block()
+        blocktmp = blockchain.get_last_block()
         xc = []
         while blocktmp:
             xc.append(blocktmp.isAdversaryBlock)
-            blocktmp = blocktmp.last
+            blocktmp = blocktmp.parentblock
     cq_dict = {'Honest Block':0,'Adversary Block':0}
     for item in xc:
         if item is True:
@@ -83,5 +83,5 @@ def chain_growth(blockchain:Chain):
     输入: blockchain
     输出：
     '''
-    last_block = blockchain.last_block()
+    last_block = blockchain.get_last_block()
     return last_block.get_height()
