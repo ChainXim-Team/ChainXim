@@ -53,11 +53,8 @@ class PoW(Consensus):
         '''
         pow_success = False
         #print("mine",Blockchain)
-        if self.local_chain.is_empty():#如果区块链为空
-            prehash = 0
-        else:
-            b_last = self.local_chain.last_block()#链中最后一个块
-            prehash = b_last.blockhash
+        b_last = self.local_chain.get_last_block()#链中最后一个块
+        prehash = b_last.blockhash
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
         while i < self.q:
@@ -87,11 +84,11 @@ class PoW(Consensus):
             copylist, insert_point = self.valid_partial(otherblock)
             if copylist is not None:
                 # 把合法链的公共部分加入到本地区块链中
-                blocktmp = self.local_chain.insert_block_copy(copylist, insert_point)  
-                depthself = self.local_chain.lastblock.get_height()
+                blocktmp = self.local_chain.add_blocks(blocks=copylist, insert_point=insert_point)  
+                depthself = self.local_chain.get_height()
                 depthOtherblock = otherblock.get_height()
                 if depthself < depthOtherblock:
-                    self.local_chain.lastblock = blocktmp
+                    self.local_chain.set_last_block(blocktmp)
                     new_update = True
             else:
                 print('error')  # 验证失败没必要脱出错误
@@ -109,7 +106,7 @@ class PoW(Consensus):
         if not receive_tmp:  # 接受的链为空，直接返回
             return (None, None)
         copylist = []
-        local_tmp = self.local_chain.search(receive_tmp,global_var.get_check_point())
+        local_tmp = self.local_chain.search_block(receive_tmp)
         ss = receive_tmp.calculate_blockhash()
         while receive_tmp and not local_tmp:
             hash = receive_tmp.calculate_blockhash()
@@ -117,8 +114,8 @@ class PoW(Consensus):
             if block_vali and int(hash, 16) == int(ss, 16):
                 ss = receive_tmp.blockhead.prehash
                 copylist.append(receive_tmp)
-                receive_tmp = receive_tmp.last
-                local_tmp = self.local_chain.search(receive_tmp)
+                receive_tmp = receive_tmp.parentblock
+                local_tmp = self.local_chain.search_block(receive_tmp)
             else:
                 return (None, None)
         if receive_tmp:
@@ -148,7 +145,7 @@ class PoW(Consensus):
                 block_vali = self.valid_block(blocktmp)
                 if block_vali and int(hash, 16) == int(ss, 16):
                     ss = blocktmp.blockhead.prehash
-                    blocktmp = blocktmp.last
+                    blocktmp = blocktmp.parentblock
                 else:
                     chain_vali = False
         return chain_vali

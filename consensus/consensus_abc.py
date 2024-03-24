@@ -35,8 +35,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         genesis_blockhead = self.BlockHead()
         for k,v in blockheadextra or {}:
             setattr(genesis_blockhead,k,v)
-        chain.head = self.Block(genesis_blockhead)
-        chain.lastblock = chain.head
+        chain.add_blocks(blocks=self.Block(genesis_blockhead))
         for k,v in blockextra or {}:
             setattr(chain.head,k,v)
 
@@ -51,7 +50,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
-        if self.local_chain.search(block, global_var.get_check_point()) is None:
+        if self.local_chain.search_block(block) is None:
             # logger.info("M%d %s not in local chain", self.miner_id, block.name)
             return False
         return True
@@ -92,8 +91,9 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
         if success is False:
             return None, False
-        self.local_chain.add_block_direct(newblock)
-        self.local_chain.lastblock = newblock
+        newblock = self.local_chain.add_blocks(blocks=newblock)
+        # add_blocks默认执行深拷贝 因此要获取当前加到链上的newblock地址
+        # self.local_chain.lastblock = newblock
         self._forward_tape.append(newblock)
         logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
         return [newblock], True # 返回挖出的区块
