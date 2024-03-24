@@ -13,18 +13,17 @@ from external import I
 
 class AtomizationBehavior(aa.AtomizationBehavior):
 
-    def renew(self, miner_list:list[miner.Miner], honest_chain: Chain, round) -> (Block, any):
+    def renew(self, miner_list:list[miner.Miner], honest_chain: Chain, round):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         mine_input = 0
         for temp_miner in miner_list:
             chain_update, update_index = temp_miner.consensus.maxvalid() 
             mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             chain_update : Chain
-            check_point = global_var.get_check_point()
             # 如果存在更新将更新的区块添加到基准链上   
-            honest_chain.add_block_copy(chain_update.lastblock,checkpoint=check_point)
+            honest_chain.add_blocks(chain_update.get_last_block())
             #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
-        newest_block = honest_chain.lastblock
+        newest_block = honest_chain.last_block
         newest_block:Block
         mine_input:any
         return newest_block, mine_input
@@ -38,10 +37,9 @@ class AtomizationBehavior(aa.AtomizationBehavior):
 
     def adopt(self, honest_chain: Chain, adver_chain: Chain) -> Block:
         # Adversary adopts the newest chain based on tthe adver's chains
-        adver_chain.add_block_copy(honest_chain.lastblock)
+        adver_chain.add_blocks(blocks=honest_chain.get_last_block())
         # 首先将attack内的adver_chain更新为attacker可以接收到的最新的链
-        fork_block = adver_chain.lastblock
-        fork_block:Block
+        fork_block = adver_chain.get_last_block()
         return fork_block
 
     def wait(self) -> None:
@@ -51,9 +49,9 @@ class AtomizationBehavior(aa.AtomizationBehavior):
     def upload(self, network: network.Network, adver_chain: Chain,
                current_miner: miner.Miner, round) -> Block:
         # acceess to network
-        network.access_network([adver_chain.lastblock], current_miner.miner_id, round)
-        upload_block = adver_chain.lastblock
-        upload_block: Block
+        network.access_network([adver_chain.last_block], current_miner.miner_id, round)
+        upload_block = adver_chain.get_last_block()
+        # upload_block: Block
         return upload_block
 
     def mine(self, miner_list:list[miner.Miner],current_miner: miner.Miner, 
@@ -71,10 +69,11 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             #self.atlog['block_content'] = adm_newblock.blockhead.content
             attack_mine = True
             # 自己挖出来的块直接用AddBlock即可
-            adver_chain.add_block_direct(adm_newblock)
-            adver_chain.lastblock = adm_newblock
+            adver_chain.add_blocks(blocks=adm_newblock)
+            adver_chain.set_last_block(adm_newblock)
+            # adver_chain.last_block = adm_newblock
             # 作为历史可能分叉的一部添加到全局链中
-            global_chain.add_block_copy(adm_newblock)
+            global_chain._add_block_forcibly(adm_newblock)
             for temp_miner in miner_list:
                 # 将新挖出的区块放在攻击者的receive_tape
                 temp_miner.consensus._receive_tape.append(adm_newblock)
