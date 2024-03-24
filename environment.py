@@ -45,7 +45,7 @@ class Environment(object):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, consensus_param))
         self.envir_create_global_chain()
-        self.checkpoint = None  # Note: activated with the common prefix function
+        # self.checkpoint = None  # Note: activated with the common prefix function
         # evaluation
         self.max_suffix = 10
         # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
@@ -98,8 +98,9 @@ class Environment(object):
         '''create global chain and its genesis block by copying
           local chain from the first miner.'''
         self.global_chain = Chain()
-        self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
-        self.global_chain.lastblock = self.global_chain.head
+        self.global_chain.add_blocks(blocks=copy.deepcopy(self.miners[0].consensus.local_chain.head))
+        # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
+        # self.global_chain.lastblock = self.global_chain.head
 
 
         
@@ -114,7 +115,7 @@ class Environment(object):
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
         ## 开始循环
         t_0 = time.time() # 记录起始时间
-        cached_height = self.global_chain.lastblock.get_height()
+        cached_height = self.global_chain.get_height()
         for round in range(1, num_rounds+1):
             inputfromz = round # 生成输入
 
@@ -137,7 +138,7 @@ class Environment(object):
                     # self.network.access_network(new_msgs,temp_miner.miner_id,round)
                     for msg in new_msgs:
                         if isinstance(msg, Block):
-                            self.global_chain.add_block_copy(msg, self.checkpoint)
+                            self.global_chain._add_block_forcibly(msg)
                 miner.clear_tapes()
                 
             # diffuse(C)
@@ -146,7 +147,7 @@ class Environment(object):
             #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
         
             # 全局链高度超过max_height之后就提前停止
-            current_height = self.global_chain.lastblock.get_height()
+            current_height = self.global_chain.get_height()
             if current_height > max_height:
                 break
             # 根据process_bar_type决定进度条的显示方式
@@ -155,36 +156,28 @@ class Environment(object):
             elif current_height > cached_height and process_bar_type == 'height':
                 cached_height = current_height
                 self.process_bar(current_height, max_height, t_0, 'block/s')
-        self.total_round = self.total_round + round
 
+        self.total_round = self.total_round + round
         
     def assess_common_prefix(self, round):
         # Common Prefix Property
-        cp = self.global_chain.lastblock
+        cp = self.global_chain.get_last_block()
+        # 以全局链为标准视角 与其他矿工的链视角对比
         # cp = self.miners[0].consensus.Blockchain.lastblock
-        for i in range(1, self.miner_num):
+        for i in range(0, self.miner_num):
             if not self.miners[i].isAdversary:
-                cp = common_prefix(cp, self.miners[i].get_local_chain(), self.checkpoint)
+                cp = common_prefix(cp, self.miners[i].get_local_chain())
         len_cp = cp.height
         for i in range(0, self.miner_num):
-            len_suffix = self.miners[0].get_local_chain().lastblock.height - len_cp
+            len_suffix = self.miners[0].get_local_chain().get_height() - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
-        # update the checkpoint
-        checkpoint_tmp = cp
-        for i in range(1, self.miner_num):
-            if not self.miners[i].isAdversary:
-                continue
-            checkpoint_tmp = common_prefix(checkpoint_tmp, 
-                self.miners[i].get_local_chain(), self.checkpoint)
-        self.checkpoint = checkpoint_tmp
         # logger.info("round %d: checkpoint %s", round, self.checkpoint.name)
-        global_var.set_check_point(checkpoint_tmp)
 
     def assess_common_prefix_k(self):
         # 一种新的计算common prefix的方法
         # 每轮结束后，砍掉主链后
-        cp_k = self.global_chain.lastblock
+        cp_k = self.global_chain.get_last_block()
         cp_stat = np.zeros((1, self.miner_num))
         for k in range(self.max_suffix):
             # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
@@ -202,7 +195,7 @@ class Environment(object):
                     cp_stat[0, i] = 1
                     cp_sum_k += 1
             self.cp_cdf_k[0, k] += cp_sum_k
-            cp_k = cp_k.last
+            cp_k = cp_k.parentblock
 
     def view(self) -> dict:
         # 展示一些仿真结果
@@ -319,7 +312,7 @@ class Environment(object):
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
-        self.miners[0].consensus.local_chain.get_block_interval_distribution()
+        self.miners[0].consensus.local_chain.GetBlockIntervalDistribution()
 
         self.global_chain.ShowStructureWithGraphviz()
         if isinstance(self.network,network.TopologyNetwork):
@@ -327,7 +320,7 @@ class Environment(object):
             self.network.gen_routing_gragh_from_json()
 
         return stats
-
+    
     def process_bar(self,process,total,t_0,unit='round/s'):
         bar_len = 50
         percent = (process)/total
@@ -340,3 +333,6 @@ class Environment(object):
         print("\r{}{}  {:.5f}%  {}/{}  {:.2f} {}  {}:{}:{}>>{}:{}:{}  "\
         .format(cplt, uncplt, percent*100, process, total, vel, unit, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)
+        return vel
+
+        
