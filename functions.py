@@ -4,7 +4,7 @@ from typing import Union
 
 BYTE_ORDER = 'little'
 HASH_LEN = 64
-INT_LEN = 4    
+INT_LEN = 4
 
 def hash_bytes(s: Union[bytes, bytearray]) -> hashlib._hashlib.HASH:
     hasher = hashlib.sha256()

@@ -1,5 +1,6 @@
 import logging
 import random
+import copy
 from abc import ABCMeta, abstractmethod
 from functions import HASH_LEN, BYTE_ORDER
 
@@ -47,8 +48,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
         self._forward_tape:list[data.Message] = [] # 需要转发的消息
-        self._block_buffer:list[Consensus.Block] = [] # 区块缓存
-        self._block_buffer_death_height:dict[str, int] = {} # Buffer中区块被丢弃的高度
+        self._block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
 
     def is_in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
@@ -66,15 +66,38 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if rcvblock in self._receive_tape or rcvblock in self._block_buffer:
+        if rcvblock in self._receive_tape:
             return False
+        for block_list in self._block_buffer.values():
+            for block in block_list:
+                if block.blockhash == rcvblock.blockhash:
+                    return False
         if self.is_in_local_chain(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
         self._forward_tape.append(rcvblock)
         return True
-            
+
+    def synthesize_fork(self, conjunction_block:data.Block):
+        '''根据新到的有效块与缓冲区中的空悬块合成完整分支'''
+        touched_blocks:list[data.Block] = [conjunction_block]
+        fork_tip = conjunction_block
+        for block in touched_blocks:
+            # 提取block之后一高度的块
+            if (trailing_blocks := self._block_buffer.get(conjunction_block.blockhash, None)) is None:
+                continue
+            trailing_blocks:list[data.Block] = [copy.deepcopy(block) for block in trailing_blocks]
+            for fork_tip in trailing_blocks:
+                fork_tip.last = block
+                block.next.append(fork_tip) # 将分叉的tip与block链接
+                touched_blocks.append(fork_tip) # 以fork_tip的哈希为键查找下一高度块
+        for block in touched_blocks:
+            if block.blockhash in self._block_buffer:
+                del self._block_buffer[block.blockhash]
+
+        return fork_tip, touched_blocks
+
     def receive_filter(self, msg: data.Message):
         '''接收事件处理，调用相应函数处理传入的对象'''
         if isinstance(msg, data.Block):
