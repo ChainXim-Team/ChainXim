@@ -169,7 +169,7 @@ class Environment(object):
                 cp = common_prefix(cp, self.miners[i].get_local_chain())
         len_cp = cp.height
         for i in range(0, self.miner_num):
-            len_suffix = self.miners[0].get_local_chain().get_height() - len_cp
+            len_suffix = self.miners[i].get_local_chain().get_height() - len_cp
             if len_suffix >= 0 and len_suffix < self.max_suffix:
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
         # logger.info("round %d: checkpoint %s", round, self.checkpoint.name)

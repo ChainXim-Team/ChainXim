@@ -58,7 +58,7 @@ class PropVecNetwork(Network):
         ----- 
         prop_vector: Propagation vector. 
                 The elements represent 
-                the rate of received miners when (0,1,2,3...) rounds  passed.
+                the rate of received miners when (1,2,3...) rounds  passed.
                 The last element must be 1.0.
 
         """

@@ -1,7 +1,7 @@
 import copy
 from abc import ABCMeta, abstractmethod
 
-from functions import hashG, hashH
+from functions import hash_bytes, INT_LEN, BYTE_ORDER
 
 from .message import Message
 
@@ -15,19 +15,22 @@ class BlockHead(metaclass=ABCMeta):
         self.miner = Miner  # 矿工
     
     @abstractmethod
-    def calculate_blockhash(self):
+    def calculate_blockhash(self) -> bytes:
         '''
         计算区块的hash
         return:
-            hash type:str
+            hash type:bytes
         '''
-        return hashH([self.miner, hashG([self.prehash, self.content])])
+        data = self.miner.to_bytes(INT_LEN, BYTE_ORDER,signed=True) + \
+                self.content.to_bytes(INT_LEN, BYTE_ORDER) + \
+                self.prehash
+        return hash_bytes(data).digest()
 
     def __repr__(self) -> str:
         bhlist = []
         for k, v in self.__dict__.items():
             if k not in self.__omit_keys:
-                bhlist.append(k + ': ' + str(v))
+                bhlist.append(k + ': ' + (str(v) if not isinstance(v, bytes) else v.hex()))
         return '\n'.join(bhlist)
 
 
@@ -67,7 +70,8 @@ class Block(Message):
 
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
-            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v), m+2)
+            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v) if not isinstance(v, bytes) else v.hex()
+                                                         , m+2)
                             for k, v in d.items()])
             return s
         def _indenter(s, n=0):

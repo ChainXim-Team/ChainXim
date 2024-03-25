@@ -1,6 +1,8 @@
 import logging
 import random
+import copy
 from abc import ABCMeta, abstractmethod
+from functions import HASH_LEN, BYTE_ORDER
 
 import data
 import global_var
@@ -15,7 +17,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
-            prehash = preblock.blockhash if preblock else 0
+            prehash = preblock.blockhash if preblock else (0).to_bytes(HASH_LEN, BYTE_ORDER)
             super().__init__(prehash, timestamp, content, miner_id)
 
     class Block(data.Block):
@@ -45,6 +47,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
         self._forward_tape:list[data.Message] = [] # 需要转发的消息
+        self._block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
 
     def is_in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
@@ -64,13 +67,34 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''
         if rcvblock in self._receive_tape:
             return False
+        if block_list := self._block_buffer.get(rcvblock.blockhead.prehash, None):
+            for block in block_list:
+                if block.blockhash == rcvblock.blockhash:
+                    return False
         if self.is_in_local_chain(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
         self._forward_tape.append(rcvblock)
         return True
-            
+
+    def synthesize_fork(self, conjunction_block:data.Block):
+        '''根据新到的有效块与缓冲区中的空悬块合成完整分支'''
+        touched_blocks:list[data.Block] = [conjunction_block]
+        tip = conjunction_block
+        for block in touched_blocks:
+            # 提取block之后一高度的块
+            if (trailing_blocks := self._block_buffer.get(block.blockhash, None)) is None:
+                continue
+            for fork_tip in trailing_blocks:
+                tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block) # 放入本地链
+                touched_blocks.append(tip) # 以fork_tip的哈希为键查找下一高度块
+        for block in touched_blocks:
+            if block.blockhash in self._block_buffer:
+                del self._block_buffer[block.blockhash]
+
+        return tip, touched_blocks
+
     def receive_filter(self, msg: data.Message):
         '''接收事件处理，调用相应函数处理传入的对象'''
         if isinstance(msg, data.Block):
@@ -114,7 +138,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def maxvalid(self):
+    def local_state_update(self):
         '''检验接收到的区块并将其合并到本地链'''
         pass
 

@@ -52,6 +52,12 @@ class Chain(object):
             return False
 
     ## chain数据层主要功能区↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+
+    def search_block_by_hash(self, blockhash: bytes=None):
+        # 利用区块哈希，搜索某块是否存在(搜索树)
+        # 存在返回区块地址，不存在返回None
+        return self.block_set.get(blockhash, None)
+
     def search_block(self, block: Block):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
