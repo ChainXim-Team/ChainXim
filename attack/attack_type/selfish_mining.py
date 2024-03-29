@@ -32,8 +32,8 @@ class SelfishMining(aa.AttackType):
     def attack_stage(self, round, mine_input):
         ## 2. attack stage
         bh = self.behavior
-        honest_height = self.honest_chain.lastblock.get_height()
-        adver_height = self.adver_chain.lastblock.get_height()
+        honest_height = self.honest_chain.last_block.get_height()
+        adver_height = self.adver_chain.last_block.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
@@ -62,7 +62,7 @@ class SelfishMining(aa.AttackType):
             # 故统计矿池收益的过程被设计在renew内完成。
             if honest_height == adver_height:
                 # 此时攻击链与诚实链等高
-                if self.honest_chain.lastblock.blockhash == self.adver_chain.lastblock.blockhash:
+                if self.honest_chain.last_block.blockhash == self.adver_chain.last_block.blockhash:
                     # 同高位置的区块相同，因此为0状态，攻击者尝试挖矿，挖出与否都不公布
                     attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
                               , miner_input = mine_input,\
@@ -98,7 +98,7 @@ class SelfishMining(aa.AttackType):
                         self.__log['state']='0#'
             else:
                 # 这时，攻击链比诚实链高，高多少不知道。什么状态也不确定。
-                if self.honest_chain.lastblock.blockhash != self.__fork_block.blockhash:
+                if self.honest_chain.last_block.blockhash != self.__fork_block.blockhash:
                     # 此时，攻击链和诚实链处于分叉了很久的状态。
                     if adver_height - honest_height >=2:
                         # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
@@ -131,8 +131,8 @@ class SelfishMining(aa.AttackType):
         bh = self.behavior
         bh.clear(miner_list = self.adver_list)# 清空
         self.__log['round']=round
-        self.__log['honest_chain'] = self.honest_chain.lastblock.name + ' Height:' + str(self.honest_chain.lastblock.height)
-        self.__log['adver_chain'] = self.adver_chain.lastblock.name + ' Height:' + str(self.adver_chain.lastblock.height)
+        self.__log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
+        self.__log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
         self.resultlog2txt()
     
     def excute_this_attack_per_round(self, round):
@@ -150,13 +150,13 @@ class SelfishMining(aa.AttackType):
         self.clear_record_stage(round)
         
     def info_getter(self):
-        loop_block = self.global_chain.lastblock
+        loop_block = self.global_chain.last_block
         main_chain_height = loop_block.height
         adver_block_num = 0
         while(loop_block):
             if loop_block.isAdversaryBlock:
                 adver_block_num += 1
-            loop_block = loop_block.last
+            loop_block = loop_block.parentblock
         return {'The proportion of adversary block in the main chain': '{:.4f}'.format(adver_block_num/ main_chain_height),
                 'Theory region in SynchronousNetwork': self.__theory_propotion()}
     

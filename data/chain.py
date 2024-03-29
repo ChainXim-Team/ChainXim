@@ -1,4 +1,5 @@
 import copy
+from collections import defaultdict
 
 import graphviz
 import matplotlib.pyplot as plt
@@ -13,29 +14,12 @@ class Chain(object):
     def __init__(self, miner_id = None):
         self.miner_id = miner_id
         self.head = None
-        self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
-
-    def __contains__(self, block: Block):
-        if self.head is None:
-            return False
-        q = [self.head]
-        while q:
-            blocktmp = q.pop(0)
-            if block.blockhash == blocktmp.blockhash:
-                return True
-            for i in blocktmp.next:
-                q.append(i)
-        return False
-
-    def __iter__(self):
-        if self.head is None:
-            return
-        q = [self.head]
-        while q:
-            blocktmp = q.pop(0)
-            yield blocktmp
-            for i in blocktmp.next:
-                q.append(i)
+        self.last_block = self.head  # 指向最新区块，代表矿工认定的主链
+        self.block_set = defaultdict(Block)
+        '''
+        默认的共识机制中会对chain添加一个创世区块
+        默认情况下chain不可能为空
+        '''
 
     def __deepcopy__(self, memo):
         if self.head is None:
@@ -45,142 +29,136 @@ class Chain(object):
         memo[id(copy_chain.head)] = copy_chain.head
         q = [copy_chain.head]
         q_o = [self.head]
-        copy_chain.lastblock = copy_chain.head
+        copy_chain.last_block = copy_chain.head
         while q_o:
             for block in q_o[0].next:
                 copy_block = copy.deepcopy(block, memo)
-                copy_block.last = q[0]
+                copy_block.parentblock = q[0]
                 q[0].next.append(copy_block)
                 q.append(copy_block)
                 q_o.append(block)
                 memo[id(copy_block)] = copy_block
-                if block.name == self.lastblock.name:
-                    copy_chain.lastblock = copy_block
+                if block.name == self.last_block.name:
+                    copy_chain.last_block = copy_block
             q.pop(0)
             q_o.pop(0)
         return copy_chain
     
-
-    def search(self, block: Block, checkpoint:Block=None):
-        # 利用区块哈希，搜索某块是否存在(搜索树)
-        # 存在返回区块地址，不存在返回None
-        if self.head is None or block is None:
-            return None
-        if checkpoint is not None and block.height < checkpoint.height:
-            searchroot = self.head
-            
-            # return None  # 如果搜索的块高度太低 直接不搜了
-        else:
-            searchroot = self.lastblock
-            while (searchroot and searchroot.last 
-                and (checkpoint is None or searchroot.height >= checkpoint.height)):
-                if block.blockhash == searchroot.blockhash:
-                    return searchroot
-                searchroot = searchroot.last
-        q = [searchroot]
-        while q:
-            cur_block = q.pop(0)
-            if block.blockhash == cur_block.blockhash:
-                return cur_block
-            q.extend(cur_block.next)
-        return None
-
-    def search_chain(self, block: Block, checkpoint:Block=None):
-        # 利用区块哈希，搜索某块是否在链上
-        # 存在返回区块地址，不存在返回None
-        if not self.head:
-            return None
-        blocktmp = self.lastblock
-        while blocktmp and (checkpoint is None or blocktmp.height >= checkpoint.height):
-            if block.blockhash == blocktmp.blockhash:
-                return blocktmp
-            blocktmp = blocktmp.last
-        return None
-
-    def get_lastblock(self):  # 返回最深的block，空链返回None
-        return self.lastblock
-
-    def is_empty(self):
-        if not self.head:
-            print("Chain Is empty")
+    def __is_empty(self):
+        if self.head is None:
+            # print("Chain Is empty")
             return True
         else:
             return False
 
-    def Popblock(self):
-        popb = self.get_lastblock()
-        last = popb.last
-        if not last:
+    ## chain数据层主要功能区↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+
+    def search_block_by_hash(self, blockhash: bytes=None):
+        # 利用区块哈希，搜索某块是否存在(搜索树)
+        # 存在返回区块地址，不存在返回None
+        return self.block_set.get(blockhash, None)
+
+    def search_block(self, block: Block):
+        # 利用区块哈希，搜索某块是否存在(搜索树)
+        # 存在返回区块地址，不存在返回None
+        if self.head is None or block is None:
             return None
         else:
-            last.next.remove(popb)
-            popb.last = None
-            return popb
+            return self.block_set.get(block.blockhash)
 
-    def add_block_direct(self, block: Block):
-        # 将block直接添加到主链末尾，并将lastblock指向block
-        # 和add_block_copy的区别是这个是不拷贝直接连接的
+    def get_last_block(self):  # 返回最深的block，空链返回None
+        return self.last_block
 
-        if block.blockhead.prehash != self.lastblock.blockhash:
-            print("An error has occurred when adding Block {} directly.".format(block.name))
+    def set_last_block(self,block:Block):
+        # 设置本链最深的块
+        # 本块必须是在链中的
+        if self.search_block(block):
+            self.last_block = block
+        else:
+            return
 
-        if not self.head:
-            self.head = block
-            self.lastblock = block
-            # print("Add Block {} Successfully.".format(block.name))
-            return block
+    def get_height(self,block:Block=None):
+        # 默认返回最深区块的高度
+        # 或者返回指定区块的高度
+        if block is not None:
+            return block.get_height()
+        else:
+            return self.get_last_block().get_height()
 
-        last_Block = self.get_lastblock()
-        last_Block.next.append(block)
-        block.last = last_Block
-        self.lastblock = block
-        # print("Add Block {} Successfully.".format(block.name))
-        return block
-
-
-    def insert_block_copy(self, copylist: list[Block], insert_point: Block):
-        '''在指定的插入点将指定的链合入区块树
-        param:
-            copylist 待插入的链 type:List[Block]
-            insert_point 区块树中的节点，copylist中的链从这里插入 type:Block
-        return:
-            local_tmp 返回值：深拷贝插入完之后新插入链的块头 type:Block
+    def add_blocks(self, blocks, insert_point:Block=None):
+        # 添加区块的功能 (深拷贝*)
+        # item是待添加的内容 可以是list[Block]类型 也可以是Block类型
+        # 即可以批量添加也可以只添加一个区块
+        # inset_point 是插入区块的位置 从其后开始添加 默认为最深链
         '''
-        local_tmp = insert_point
-        if local_tmp:
-            while copylist:
-                receive_tmp = copylist.pop()
-                blocktmp = copy.deepcopy(receive_tmp)
-                blocktmp.last = local_tmp
-                blocktmp.next = []
-                local_tmp.next.append(blocktmp)
-                local_tmp = blocktmp
-        return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
+        添加区块的功能不会考虑区块前后的hash是否一致
+        这个任务不属于数据层 是共识层的任务
+        数据层只负责添加
+        '''
+        add_block_list:list[Block]=[]
+        if isinstance(blocks,Block):
+            add_block_list.append(copy.deepcopy(blocks))
+        else:
+            add_block_list.extend(copy.deepcopy(blocks))
+        if insert_point is None:
+            insert_point = self.get_last_block()
 
-    def add_block_copy(self, lastblock: Block, checkpoint=None):
+        # 处理特殊情况
+            # 如果当前区块为空 添加blocklist的第一个区块
+            # 默认这个特殊情况是不会被触发的
+            # 只有consens里的创世区块会触发 其他情况无视
+        if self.__is_empty():
+            self.head = add_block_list.pop()
+            self.block_set[self.head.blockhash] = self.head
+            self.set_last_block(self.head)
+        cur2add = self.head
+
+        while add_block_list:
+            cur2add = add_block_list.pop() # 提取当前待添加区块list中的一个
+            cur2add.parentblock = insert_point # 设置它的父节点
+            insert_point.next.append(cur2add)  # 设置父节点的子节点
+            cur2add.next = []            # 初始化它的子节点
+            insert_point = cur2add             # 父节点设置为它
+            self.block_set[cur2add.blockhash] = cur2add # 将它加入blockset中
+
+        # 如果新加的区块的高度比现在的链的高度高 重新将lastblock指向新加区块
+        if cur2add.get_height() > self.get_height():
+            self.set_last_block(cur2add)
+        return cur2add
+
+    def _add_block_forcibly(self, block: Block):
+        # 该功能是强制将该区块加入某条链 一般不被使用与共识中
+        # 只会被globalchain调用 
         # 返回值：深拷贝插入完之后新插入链的块头
         # block 的 last必须不为none
-        receive_tmp = lastblock
-        if not receive_tmp:  # 接受的链为空，直接返回
-            return None
-        copylist = []  # 需要拷贝过去的区块list
-        local_tmp = self.search(receive_tmp, checkpoint)
-        while receive_tmp and not local_tmp:
-            copylist.append(receive_tmp)
-            receive_tmp = receive_tmp.last
-            local_tmp = self.search(receive_tmp, checkpoint)
+        # 不会为block默认赋值 要求使用该方法必须给出添加的区块 否则提示报错
+
+        copylist:list[Block] = []  # 需要拷贝过去的区块list
+        local_tmp = self.search_block(block)
+        while block and not local_tmp:
+            copylist.append(block)
+            block = block.parentblock
+            local_tmp = self.search_block(block)
+
         if local_tmp:
-            while copylist:
-                receive_tmp = copylist.pop()
-                blocktmp = copy.deepcopy(receive_tmp)
-                blocktmp.last = local_tmp
-                blocktmp.next = []
-                local_tmp.next.append(blocktmp)
-                local_tmp = blocktmp
-            if local_tmp.get_height() > self.lastblock.get_height():
-                self.lastblock = local_tmp  # 更新global chain的lastblock
+            self.add_blocks(blocks=copylist,insert_point=local_tmp)
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
+    def delete_block(self,block:Block=None):
+        '''
+        没有地方被使用
+        就先不管了
+        可能的使用场景：
+        矿工不需要记录自身的区块链视野 可以只记录主链
+        需要删除分叉
+        '''
+        pass
+    ## chain数据层主要功能区↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+        
+
+
+    ## chain数据层外部方法区↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+        # 主要用于计算 展示链的相关数据
     def ShowBlock(self):  # 按从上到下从左到右展示block,打印块名
         if not self.head:
             print()
@@ -197,12 +175,12 @@ class Chain(object):
 
     def InversShowBlock(self):
         # 返回逆序的主链
-        cur = self.get_lastblock()
+        cur = self.get_last_block()
         blocklist = []
         while cur:
             # print(cur.name)
             blocklist.append(cur)
-            cur = cur.last
+            cur = cur.parentblock
         return blocklist
 
     def ShowLChain(self):
@@ -242,7 +220,7 @@ class Chain(object):
         while blocktmp:
             if blocktmp.isGenesis is False:
                 rd2 = blocktmp.blockhead.content + blocktmp.blockhead.miner / miner_num
-                rd1 = blocktmp.last.blockhead.content + blocktmp.last.blockhead.miner / miner_num
+                rd1 = blocktmp.parentblock.blockhead.content + blocktmp.parentblock.blockhead.miner / miner_num
                 ht2 = blocktmp.height
                 ht1 = ht2 - 1
                 if blocktmp.isAdversaryBlock:
@@ -285,7 +263,7 @@ class Chain(object):
                 else:
                     dot.node(blocktmp.name,shape='rect',color='blue')
                 # 建立区块连接
-                dot.edge(blocktmp.last.name, blocktmp.name)
+                dot.edge(blocktmp.parentblock.name, blocktmp.name)
             else:
                 dot.node('B0',shape='rect',color='black',fontsize='20')
             list_tmp = copy.copy(blocktmp.next)
@@ -301,12 +279,12 @@ class Chain(object):
         dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
 
-    def get_block_interval_distribution(self):
+    def GetBlockIntervalDistribution(self):
         stat = []
-        blocktmp2 = self.lastblock
+        blocktmp2 = self.last_block
         height = blocktmp2.height
         while not blocktmp2.isGenesis:
-            blocktmp1 = blocktmp2.last
+            blocktmp1 = blocktmp2.parentblock
             stat.append(blocktmp2.blockhead.content - blocktmp1.blockhead.content)
             blocktmp2 = blocktmp1
         if height <= 1000:
@@ -394,11 +372,11 @@ class Chain(object):
             nextlist = blocktmp.next
             q.extend(nextlist)
 
-        last_block = self.lastblock.last
+        last_block = self.last_block.parentblock
         while last_block:
             stats["num_of_forks"] += len(last_block.next) - 1
             stats["num_of_heights_with_fork"] += (len(last_block.next) > 1)
-            last_block = last_block.last
+            last_block = last_block.parentblock
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]

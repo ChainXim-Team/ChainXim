@@ -550,11 +550,13 @@ class TopologyNetwork(Network):
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
         bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
-        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), shape=(self.MINER_NUM, self.MINER_NUM))
+        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), 
+                                  shape=(self.MINER_NUM, self.MINER_NUM))
         adj_values = np.array([1 for _ in range(len(bw_arrary) * 2)])
-        self.tp_adjacency_matrix = sp.coo_matrix((adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
-                                                    shape=(self.MINER_NUM, self.MINER_NUM)).todense()
-        print('edges: \n', tp_bw_coo)
+        self.tp_adjacency_matrix = sp.coo_matrix(
+            (adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
+            shape=(self.MINER_NUM, self.MINER_NUM)).todense()
+        print('coo edges: \n', tp_bw_coo)
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         for edge_idx, (src, tgt) in enumerate(zip(row, col)):
             self._graph.add_edge(src, tgt, bandwidth=bw_arrary[edge_idx])

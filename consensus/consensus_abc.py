@@ -1,9 +1,11 @@
+import copy
 import logging
 import random
 from abc import ABCMeta, abstractmethod
 
 import data
 import global_var
+from functions import BYTE_ORDER, HASH_LEN
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
-            prehash = preblock.blockhash if preblock else 0
+            prehash = preblock.blockhash if preblock else (0).to_bytes(HASH_LEN, BYTE_ORDER)
             super().__init__(prehash, timestamp, content, miner_id)
 
     class Block(data.Block):
@@ -35,8 +37,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         genesis_blockhead = self.BlockHead()
         for k,v in blockheadextra or {}:
             setattr(genesis_blockhead,k,v)
-        chain.head = self.Block(genesis_blockhead)
-        chain.lastblock = chain.head
+        chain.add_blocks(blocks=self.Block(genesis_blockhead))
         for k,v in blockextra or {}:
             setattr(chain.head,k,v)
 
@@ -46,12 +47,13 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
         self._forward_tape:list[data.Message] = [] # 需要转发的消息
+        self._block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
 
     def in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
-        if self.local_chain.search(block, global_var.get_check_point()) is None:
+        if self.local_chain.search_block(block) is None:
             # logger.info("M%d %s not in local chain", self.miner_id, block.name)
             return False
         return True
@@ -65,17 +67,34 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''
         if rcvblock in self._receive_tape:
             return False
-        if self.in_local_chain(rcvblock):
+        if block_list := self._block_buffer.get(rcvblock.blockhead.prehash, None):
+            for block in block_list:
+                if block.blockhash == rcvblock.blockhash:
+                    return False
+        if self.is_in_local_chain(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
-        if global_var.get_network_type() == "network.AdHocNetwork":
-            self._forward_tape.append("inv")
-            logger.info("M%d:received %s send inv", self.miner_id, rcvblock.name)
-            return True
         self._forward_tape.append(rcvblock)
         return True
-            
+
+    def synthesize_fork(self, conjunction_block:data.Block):
+        '''根据新到的有效块与缓冲区中的空悬块合成完整分支'''
+        touched_blocks:list[data.Block] = [conjunction_block]
+        tip = conjunction_block
+        for block in touched_blocks:
+            # 提取block之后一高度的块
+            if (trailing_blocks := self._block_buffer.get(block.blockhash, None)) is None:
+                continue
+            for fork_tip in trailing_blocks:
+                tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block) # 放入本地链
+                touched_blocks.append(tip) # 以fork_tip的哈希为键查找下一高度块
+        for block in touched_blocks:
+            if block.blockhash in self._block_buffer:
+                del self._block_buffer[block.blockhash]
+
+        return tip, touched_blocks
+
     def receive_filter(self, msg: data.Message):
         '''接收事件处理，调用相应函数处理传入的对象'''
         if isinstance(msg, data.Block):
@@ -96,16 +115,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
         if success is False:
             return None, False
-        self.local_chain.add_block_direct(newblock)
-        self.local_chain.lastblock = newblock
-        
-
-        if global_var.get_network_type() == "network.AdHocNetwork":
-            self._forward_tape.append("inv")
-            logger.info("round %d, M%d:mined %s send inv", 
-                        round, self.miner_id, newblock.name)
-            return [newblock], True
-        
+        newblock = self.local_chain.add_blocks(blocks=newblock)
+        # add_blocks默认执行深拷贝 因此要获取当前加到链上的newblock地址
+        # self.local_chain.lastblock = newblock
+        self._forward_tape.append(newblock)
         logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
         self._forward_tape.append(newblock)
         return [newblock], True # 返回挖出的区块
@@ -126,7 +139,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def maxvalid(self):
+    def local_state_update(self):
         '''检验接收到的区块并将其合并到本地链'''
         pass
 

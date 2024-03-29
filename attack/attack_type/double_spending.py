@@ -37,8 +37,8 @@ class DoubleSpending(aa.AttackType):
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        honest_height = self.honest_chain.lastblock.get_height()
-        adver_height = self.adver_chain.lastblock.get_height()
+        honest_height = self.honest_chain.last_block.get_height()
+        adver_height = self.adver_chain.last_block.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height - self.__fork_height < n:
             attack_mine = bh.mine(miner_list = self.adver_list, 
@@ -90,8 +90,8 @@ class DoubleSpending(aa.AttackType):
 
     def clear_record_stage(self, round):
         bh = self.behavior
-        self.__log['honest_chain']=self.honest_chain.lastblock.name,self.honest_chain.lastblock.height
-        self.__log['adver_chain']=self.adver_chain.lastblock.name,self.adver_chain.lastblock.height
+        self.__log['honest_chain']=self.honest_chain.last_block.name,self.honest_chain.last_block.height
+        self.__log['adver_chain']=self.adver_chain.last_block.name,self.adver_chain.last_block.height
         #self.log['other']=self.log['other']+' fork block is '+self.fork_blockname
         bh.clear(miner_list = self.adver_list)# 清空
         self.resultlog2txt()

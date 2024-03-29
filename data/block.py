@@ -1,7 +1,7 @@
 import copy
 from abc import ABCMeta, abstractmethod
 
-from functions import hashG, hashH
+from functions import hash_bytes, INT_LEN, BYTE_ORDER
 
 from .message import Message
 
@@ -15,19 +15,22 @@ class BlockHead(metaclass=ABCMeta):
         self.miner = Miner  # 矿工
     
     @abstractmethod
-    def calculate_blockhash(self):
+    def calculate_blockhash(self) -> bytes:
         '''
         计算区块的hash
         return:
-            hash type:str
+            hash type:bytes
         '''
-        return hashH([self.miner, hashG([self.prehash, self.content])])
+        data = self.miner.to_bytes(INT_LEN, BYTE_ORDER,signed=True) + \
+                self.content.to_bytes(INT_LEN, BYTE_ORDER) + \
+                self.prehash
+        return hash_bytes(data).digest()
 
     def __repr__(self) -> str:
         bhlist = []
         for k, v in self.__dict__.items():
             if k not in self.__omit_keys:
-                bhlist.append(k + ': ' + str(v))
+                bhlist.append(k + ': ' + (str(v) if not isinstance(v, bytes) else v.hex()))
         return '\n'.join(bhlist)
 
 
@@ -40,8 +43,8 @@ class Block(Message):
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
-        self.next = []  # 子块列表
-        self.last = None  # 母块
+        self.next:list[Block] = []  # 子块列表
+        self.parentblock:Block = None  # 母块
         self.isGenesis = isgenesis
         super().__init__(blocksize_MB)
         # super().__init__(int(random.uniform(0.5, 2)))
@@ -52,11 +55,11 @@ class Block(Message):
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if cls.__name__ == 'Block' and k != 'next' and k != 'last':
+            if cls.__name__ == 'Block' and k != 'next' and k != 'parentblock':
                 setattr(result, k, copy.deepcopy(v, memo))
             if cls.__name__ == 'Block' and k == 'next':
                 setattr(result, k, [])
-            if cls.__name__ == 'Block' and k == 'last':
+            if cls.__name__ == 'Block' and k == 'parentblock':
                 setattr(result, k, None)
             if cls.__name__ != 'Block':
                 setattr(result, k, copy.deepcopy(v, memo))
@@ -67,7 +70,8 @@ class Block(Message):
 
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
-            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v), m+2)
+            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v) if not isinstance(v, bytes) else v.hex()
+                                                         , m+2)
                             for k, v in d.items()])
             return s
         def _indenter(s, n=0):
@@ -77,7 +81,7 @@ class Block(Message):
         
         bdict = copy.deepcopy(self.__dict__)
         bdict.update({'next': [b.name for b in self.next if self.next], 
-                      'last': self.last.name if self.last is not None else None})
+                      'parentblock': self.parentblock.name if self.parentblock is not None else None})
         for omk in self.__omit_keys:
             del bdict[omk]
         return '\n'+ _formatter(bdict)

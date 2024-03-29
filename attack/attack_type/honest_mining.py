@@ -47,8 +47,8 @@ class HonestMining(aa.AttackType):
         ## 3. clear and record stage
         self.behavior.clear(miner_list = self.adver_list)# 清空
         self.__log['round'] = round
-        self.__log['honest_chain'] = self.honest_chain.lastblock.name + ' Height:' + str(self.honest_chain.lastblock.height)
-        self.__log['adver_chain'] = self.adver_chain.lastblock.name + ' Height:' + str(self.adver_chain.lastblock.height)
+        self.__log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
+        self.__log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
         self.resultlog2txt()
 
 
@@ -64,13 +64,13 @@ class HonestMining(aa.AttackType):
         
     def info_getter(self):
         
-        loop_block = self.global_chain.lastblock
+        loop_block = self.global_chain.last_block
         main_chain_height = loop_block.height
         adver_block_num = 0
         while(loop_block):
             if loop_block.isAdversaryBlock:
                 adver_block_num += 1
-            loop_block = loop_block.last
+            loop_block = loop_block.parentblock
         return {'Success Rate': '{:.4f}'.format(adver_block_num/main_chain_height),
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
     

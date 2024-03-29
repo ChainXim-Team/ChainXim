@@ -1,10 +1,19 @@
 import hashlib
 import importlib
+from typing import Union
 
+BYTE_ORDER = 'little'
+HASH_LEN = 64
+INT_LEN = 4
+
+def hash_bytes(s: Union[bytes, bytearray]) -> hashlib._hashlib.HASH:
+    hasher = hashlib.sha256()
+    hasher.update(s)
+    return hasher
 
 def hashsha256(contentlist:list)->str:
     '''
-    计算哈希值
+    计算哈希值 (Deprecated)
     输入:需要转化为hash的内容           type:list
     输出:该list中所有内容的十六进制hash  type:str
     '''
@@ -15,10 +24,11 @@ def hashsha256(contentlist:list)->str:
     return b
 
 def hashH(contentlist:list)->str:
-    # 文章中hash function定义了两个，虽然对于bitcoin是一样的，但还是假模假样搞一下
+    '''Deprecated'''
     return hashsha256(contentlist)
 
 def hashG(contentlist:list)->str:
+    '''Deprecated'''
     return hashsha256(contentlist)
 
 

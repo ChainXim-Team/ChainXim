@@ -133,11 +133,3 @@ def set_attack_execute_type(attack_execute_type):
 def get_attack_execute_type():
     '''获得网络类型'''
     return _var_dict['ATTACK_EXECUTE_TYPE']
-
-def set_check_point(checkpoint):
-    '''更新checkpoint'''
-    _var_dict['CHECK_POINT'] = checkpoint
-
-def get_check_point():
-    '''获取checkpoint'''
-    return _var_dict['CHECK_POINT']
