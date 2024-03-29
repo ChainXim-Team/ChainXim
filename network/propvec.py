@@ -8,7 +8,7 @@ import global_var
 from data import Block
 
 if TYPE_CHECKING:   
-    from miner import Miner
+    from miner.miner import Miner
 
 from .network_abc import Message, Network
 
@@ -91,7 +91,7 @@ class PropVecNetwork(Network):
             rcv_rate = packet.remain_prop_vector.pop(0)
             rcv_miner_num = round(rcv_rate * self.MINER_NUM)-len(packet.received_miners)
             if rcv_miner_num > 0:
-                remain_miners = [m for m in self.miners \
+                remain_miners = [m for m in self.miners
                                 if m.miner_id not in packet.received_miners]
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners

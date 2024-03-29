@@ -40,7 +40,6 @@ def config_log(env_config:dict):
                         level=global_var.get_log_level(), filemode='w')
 
 
-
 def main(**args):
     '''主程序'''
     # 读取配置文件
@@ -122,6 +121,25 @@ def main(**args):
             'stat_prop_times': (args.get('stat_prop_times') or 
                                 eval(config.get(net_setting, 'stat_prop_times')))
         })
+    # AdHocNetwork
+    elif network_type == 'network.AdHocNetwork':
+        net_setting = 'AdHocNetworkSettings'
+        bool_params  = []
+        float_params = ['ave_degree', 'region_width', 'comm_range',
+                        'ave_move','outage_prob']
+        for bparam in bool_params:
+            network_param.update({bparam: args.get(bparam) or 
+                                 config.getboolean(net_setting, bparam)})
+        for fparam in float_params:
+            network_param.update({fparam: args.get(fparam) or 
+                                  config.getfloat(net_setting, fparam)})
+        network_param.update({
+            'init_mode': (args.get('init_mode') or 
+                          config.get(net_setting, 'init_mode')),
+            'stat_prop_times': (args.get('stat_prop_times') or 
+                                eval(config.get(net_setting, 'stat_prop_times')))
+        })
+        global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
 
     # 设置attack参数
     attack_setting = dict(config['AttackSettings'])

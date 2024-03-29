@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 import attack.attack_type.atomization_behavior as ab
 import consensus
-import miner
+import miner.miner as miner
 import network
 from data import Block, Chain
 

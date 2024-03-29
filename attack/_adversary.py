@@ -2,7 +2,7 @@ import random
 from abc import ABCMeta, abstractmethod
 
 import consensus
-import miner
+import miner.miner as miner
 import network
 from attack import attack_type as at
 from data import Chain
@@ -87,7 +87,7 @@ class Adversary(metaclass=ABCMeta):
         adver_consensus_param = {'q_ave': self.q_adver, 'q_distr':'equal', 
                                  'target': temp_miner.consensus.target}
         '''
-        self.__consensus_type.q = sum([attacker.consensus.q for attacker in self.__adver_list])
+        self.__consensus_type.q = sum([attacker._consensus.q for attacker in self.__adver_list])
 
 
     def __attack_type_init(self):

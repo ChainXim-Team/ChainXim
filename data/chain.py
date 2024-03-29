@@ -97,7 +97,7 @@ class Chain(object):
             blocktmp = blocktmp.last
         return None
 
-    def last_block(self):  # 返回最深的block，空链返回None
+    def get_lastblock(self):  # 返回最深的block，空链返回None
         return self.lastblock
 
     def is_empty(self):
@@ -108,7 +108,7 @@ class Chain(object):
             return False
 
     def Popblock(self):
-        popb = self.last_block()
+        popb = self.get_lastblock()
         last = popb.last
         if not last:
             return None
@@ -130,7 +130,7 @@ class Chain(object):
             # print("Add Block {} Successfully.".format(block.name))
             return block
 
-        last_Block = self.last_block()
+        last_Block = self.get_lastblock()
         last_Block.next.append(block)
         block.last = last_Block
         self.lastblock = block
@@ -197,7 +197,7 @@ class Chain(object):
 
     def InversShowBlock(self):
         # 返回逆序的主链
-        cur = self.last_block()
+        cur = self.get_lastblock()
         blocklist = []
         while cur:
             # print(cur.name)

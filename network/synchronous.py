@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from .network_abc import Message, Network
 
 if TYPE_CHECKING:   
-    from miner import Miner
+    from miner.miner import Miner
 
 
 class PacketSyncNet(object):

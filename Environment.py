@@ -13,7 +13,7 @@ from attack.adversary import Adversary
 from data import Block, Chain
 from external import chain_growth, chain_quality, common_prefix
 from functions import for_name
-from miner import Miner
+from miner.miner import Miner
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class Environment(object):
         '''create global chain and its genesis block by copying
           local chain from the first miner.'''
         self.global_chain = Chain()
-        self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
+        self.global_chain.head = copy.deepcopy(self.miners[0]._consensus.local_chain.head)
         self.global_chain.lastblock = self.global_chain.head
 
 
@@ -198,7 +198,7 @@ class Environment(object):
                 if cp_stat[0, i] == 1:
                     cp_sum_k += 1
                     continue
-                if cp_k == common_prefix(cp_k, self.miners[i].consensus.local_chain):
+                if cp_k == common_prefix(cp_k, self.miners[i]._consensus.local_chain):
                     cp_stat[0, i] = 1
                     cp_sum_k += 1
             self.cp_cdf_k[0, k] += cp_sum_k
@@ -219,7 +219,7 @@ class Environment(object):
         num_honest = 0
         for i in range(self.miner_num):
             if not self.miners[i].isAdversary:
-                growth = growth + chain_growth(self.miners[i].consensus.local_chain)
+                growth = growth + chain_growth(self.miners[i]._consensus.local_chain)
                 num_honest = num_honest + 1
         growth = growth / num_honest
         stats.update({
@@ -314,12 +314,12 @@ class Environment(object):
 
         # save local chain for all miners
         for miner in self.miners:
-            miner.consensus.local_chain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
+            miner._consensus.local_chain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
 
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
-        self.miners[0].consensus.local_chain.get_block_interval_distribution()
+        self.miners[0]._consensus.local_chain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
         if isinstance(self.network,network.TopologyNetwork):

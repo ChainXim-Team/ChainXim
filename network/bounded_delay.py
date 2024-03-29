@@ -7,7 +7,7 @@ import global_var
 from data import Block
 
 if TYPE_CHECKING:   
-    from miner import Miner
+    from miner.miner import Miner
 
 from .network_abc import Message, Network
 

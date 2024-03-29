@@ -47,7 +47,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self._receive_tape:list[data.Message] = [] # 接收到的消息
         self._forward_tape:list[data.Message] = [] # 需要转发的消息
 
-    def is_in_local_chain(self,block:data.Block):
+    def in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: Whether the block is in local chain.'''
@@ -65,10 +65,15 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''
         if rcvblock in self._receive_tape:
             return False
-        if self.is_in_local_chain(rcvblock):
+        if self.in_local_chain(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
+        if global_var.get_network_type() == "network.AdHocNetwork":
+            self._forward_tape.append("inv")
+            logger.info("M%d:received %s send inv", self.miner_id, rcvblock.name)
+            return True
+        self._forward_tape.append(rcvblock)
         return True
             
     def receive_filter(self, msg: data.Message):
@@ -93,8 +98,16 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             return None, False
         self.local_chain.add_block_direct(newblock)
         self.local_chain.lastblock = newblock
-        self._forward_tape.append(newblock)
+        
+
+        if global_var.get_network_type() == "network.AdHocNetwork":
+            self._forward_tape.append("inv")
+            logger.info("round %d, M%d:mined %s send inv", 
+                        round, self.miner_id, newblock.name)
+            return [newblock], True
+        
         logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
+        self._forward_tape.append(newblock)
         return [newblock], True # 返回挖出的区块
             
 

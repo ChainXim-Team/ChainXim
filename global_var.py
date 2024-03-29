@@ -33,12 +33,14 @@ def __init__(result_path:Path = None):
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
     _var_dict['ATTACK_RESULT_PATH'] = ATTACK_RESULT_PATH
     _var_dict['CHAIN_DATA_PATH'] = CHAIN_DATA_PATH
-    _var_dict['Blocksize'] = 2
+    _var_dict['BLOCKSIZE'] = 2
+    _var_dict['SEGMENTSIZE'] = 0
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
     _var_dict['COMPACT_OUTPUT'] = True
     _var_dict['ATTACK_EXECUTE_TYPE']='execute_sample0'
     _var_dict['CHECK_POINT'] = None
+    
 
 def set_log_level(log_level):
     '''设置日志级别'''
@@ -101,10 +103,16 @@ def get_network_type():
     return _var_dict['NETWORK_TYPE']
 
 def set_blocksize(blocksize):
-    _var_dict['Blocksize'] = blocksize
+    _var_dict['BLOCKSIZE'] = blocksize
 
 def get_blocksize():
-    return _var_dict['Blocksize']
+    return _var_dict['BLOCKSIZE']
+
+def set_segmentsize(segmentsize):
+    _var_dict['SEGMENTSIZE'] = segmentsize
+
+def get_segmentsize():
+    return _var_dict['SEGMENTSIZE']
 
 def set_show_fig(show_fig):
     _var_dict['Show_Fig'] = show_fig

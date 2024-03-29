@@ -56,7 +56,7 @@ class PoW(Consensus):
         if self.local_chain.is_empty():#如果区块链为空
             prehash = 0
         else:
-            b_last = self.local_chain.last_block()#链中最后一个块
+            b_last = self.local_chain.get_lastblock()#链中最后一个块
             prehash = b_last.blockhash
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
@@ -97,7 +97,7 @@ class PoW(Consensus):
                 print('error')  # 验证失败没必要脱出错误
         return self.local_chain, new_update
 
-    def valid_partial(self, lastblock: Consensus.Block) -> Tuple[List[Consensus.Block], Consensus.Block]:
+    def valid_partial(self, lastblock: Consensus.Block) -> Tuple[list[Consensus.Block], Consensus.Block]:
         '''验证某条链上不在本地链中的区块
         param:
             lastblock 要验证的链的最后一个区块 type:Block

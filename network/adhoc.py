@@ -21,7 +21,16 @@ import errors
 import global_var
 from data import Block, Message
 
-from .network_abc import DIRECT, ERR_OUTAGE, GLOBAL, GetDataMsg, INVMsg, Network, Packet
+from .network_abc import (
+    DIRECT,
+    ERR_OUTAGE,
+    GLOBAL,
+    GetDataMsg,
+    INVMsg,
+    Network,
+    Packet,
+    Segment,
+)
 
 if TYPE_CHECKING:
     from miner.miner import Miner
@@ -30,7 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class TPPacket(Packet):
+class AdHocPacket(Packet):
     def __init__(self, payload: Message, round, source: int = None, target: int = None, 
                  type: str = GLOBAL, destination:int=None):
         """
@@ -52,7 +61,7 @@ class TPPacket(Packet):
 
 class Link(object):
     '''拓扑网络中的数据包，包含路由相关信息'''
-    def __init__(self, packet: TPPacket,  delay:int, outnetobj:"TopologyNetwork"):
+    def __init__(self, packet: AdHocPacket,  delay:int, outnetobj:"AdHocNetwork"):
         self.packet = packet
         self.delay = delay
         self.rcv_round = 0
@@ -62,9 +71,16 @@ class Link(object):
     def get_msg(self):
         return self.packet.payload
     
-    def get_msg_name(self):
-        if isinstance(self.packet.payload, Block):
-            return self.packet.payload.name
+    def get_seg_name(self):
+        if (isinstance(self.packet.payload, Segment) and 
+            isinstance(self.packet.payload.msg, Block)):
+            return str((self.packet.payload.msg.name, self.packet.payload.seg_id))
+        print(0)
+        
+    def get_block_name(self):
+        if (isinstance(self.packet.payload, Segment) and 
+            isinstance(self.packet.payload.msg, Block)):
+            return self.packet.payload.msg.name
         
     def target_id(self):
         return self.packet.target
@@ -79,17 +95,18 @@ class Link(object):
         return self.outnetobj._miners[self.packet.source]
 
     
-class TopologyNetwork(Network):
+class AdHocNetwork(Network):
     '''拓扑P2P网络'''                        
     def __init__(self, miners):
         super().__init__()
         self._miners:list[Miner] = miners
+        for miner in self._miners:
+            miner.join_network(self)
 
         # parameters, set by set_net_param()
         self._init_mode = None
         self._ave_degree = None
-        self._bandwidth_honest = 0.5 # default 0.5 MB
-        self._bandwidth_adv = 5 # default 5 MB
+        
         self._outage_prob = 0
         self._show_label = False
         self._save_routing_graph = False
@@ -98,17 +115,18 @@ class TopologyNetwork(Network):
         self._tp_adjacency = np.zeros((self.MINER_NUM, self.MINER_NUM))
         self._graph = nx.Graph(self._tp_adjacency)
         self._network_histroy = []
+        
+        self._region_width = None
+        self._comm_range = None
+        self._ave_move = None
         self._node_pos = None #后面由set_node_pos生成
+        self._aveMoveNorm = None
+        self._commRangeNorm = None
+        self._tp_changes = []
 
         # 维护所有的活跃链路
         self._active_links:list[Link] = []
 
-        self._dynamic = False
-        self._tp_changes = []
-        self._nextTpChangeRound=0
-        self._avgTpChangeInterval=0
-        self._edgeRemoveProb=0
-        self._edgeAddProb=0
         self._maxPartitionsAllowed=False
 
         # status
@@ -126,17 +144,11 @@ class TopologyNetwork(Network):
 
     def set_net_param(self, init_mode = None, 
                       ave_degree = None, 
-                      bandwidth_honest = None, 
-                      bandwidth_adv = None,
+                      region_width = None,
+                      comm_range = None,
+                      ave_move = None,
                       outage_prob = None, 
-                      dynamic = None, 
-                      max_allowed_partitions = None,
-                      avg_tp_change_interval = None, 
-                      edge_remove_prob = None,
-                      edge_add_prob = None,
-                      stat_prop_times = None, 
-                      show_label = None,
-                      save_routing_graph = None):
+                      stat_prop_times = None, ):
         ''' 
         set the network parameters
 
@@ -150,12 +162,18 @@ class TopologyNetwork(Network):
         save_routing_graph (bool): Genarate routing graph at the end of simulation or not.
         show_label (bool): Show edge labels on network and routing graph or not. 
         '''
-        if show_label is not None:
-            self._show_label = show_label
-        if bandwidth_honest is not None: # default 0.5 MB/round
-            self._bandwidth_honest = bandwidth_honest 
-        if bandwidth_adv is not None: # default 5 MB/round
-            self._bandwidth_adv = bandwidth_adv 
+
+        
+        if outage_prob is not None:
+            self._outage_prob = outage_prob
+        if region_width is not None:
+            self._region_width = region_width
+        if comm_range is not None:
+            self._comm_range = comm_range
+            self._commRangeNorm = comm_range/region_width
+        if ave_move is not None:
+            self._ave_move = ave_move
+            self._aveMoveNorm = ave_move/region_width
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -165,22 +183,6 @@ class TopologyNetwork(Network):
                 self._init_mode = init_mode
                 self.edge_prob = None
                 self.network_generator(init_mode)
-        if outage_prob is not None:
-            self._outage_prob = outage_prob
-        if dynamic is not None:
-            self._dynamic = dynamic
-        if max_allowed_partitions is not None:
-            self._maxPartitionsAllowed= max_allowed_partitions
-        if avg_tp_change_interval is not None:
-            self._avgTpChangeInterval = avg_tp_change_interval
-            self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
-                                       0.2*self._avgTpChangeInterval))
-        if edge_remove_prob is not None:
-            self._edgeRemoveProb = edge_remove_prob
-        if edge_add_prob is not None:
-            self._edgeAddProb = edge_add_prob
-        if save_routing_graph is not None:
-            self._save_routing_graph = save_routing_graph
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -198,11 +200,11 @@ class TopologyNetwork(Network):
         if self.inv_handler(new_msgs):
             return
         for msg in new_msgs:
-            packet = TPPacket(msg, round, minerid, target)
-            delay = self.cal_delay(msg, minerid, target)
+            packet = AdHocPacket(msg, round, minerid, target)
+            delay = 1
             link = Link(packet, delay, self)
             self._active_links.append(link)
-            self._rcv_miners[link.get_msg_name()].append(minerid)
+            self._rcv_miners[link.get_block_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
             if isinstance(msg, Block):
@@ -220,24 +222,15 @@ class TopologyNetwork(Network):
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
-
-
-    def cal_delay(self, msg: Message, source:int, target:int):
-        '''计算sourceid和targetid之间的时延'''
-        # 传输时延=消息大小除带宽 且传输时延至少1轮
-        bw_mean = self._graph.edges[source, target]['bandwidth']
-        bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
-        transmision_delay = math.ceil(msg.size / bandwidth)
-        # 时延=处理时延+传输时延
-        delay = self._miners[source].processing_delay + transmision_delay
-        return delay
     
     def diffuse(self, round):
         '''传播过程分为接收和转发两个过程'''
+        
         self.receive_process(round)
         self.forward_process(round)
-        if self._dynamic:
-            self.topology_changing(round)
+        self.gaussian_random_walk(round)
+        # if self._dynamic:
+        #     self.topology_changing(round)
             
     def receive_process(self,round):
         """接收过程"""
@@ -248,16 +241,15 @@ class TopologyNetwork(Network):
         for i, link in enumerate(self._active_links):
             if link.delay > 0:
                 link.delay -= 1
-            if self.link_outage(round, link):
-                dead_links.append(i)
+                if self.link_outage(round, link):
+                    dead_links.append(i)
                 continue
-            if link.delay > 0:
-                continue
-            link.target_miner().receive(link.packet)
+            rcv_state = link.target_miner().receive(link.packet)
             link.source_miner().get_reply(
-                link.get_msg_name(),link.target_id(), None, round)
-            if self._rcv_miners[link.get_msg_name()][-1]!=-1:
-                self._rcv_miners[link.get_msg_name()].append(link.target_id())
+                link.get_seg_name(),link.target_id(), None, round)
+            if rcv_state:
+                if self._rcv_miners[link.get_block_name()][-1]!=-1:
+                    self._rcv_miners[link.get_block_name()].append(link.target_id())
             self.stat_block_propagation_times(link.packet, round)
             dead_links.append(i)
         # 清理传播结束的link
@@ -270,7 +262,7 @@ class TopologyNetwork(Network):
     def forward_process(self, round):
         """转发过程"""
         for m in self._miners:
-            m.forward(round)
+            m.forward_adhoc(round)
 
     def link_outage(self, round:int, link:Link):
         """每条链路都有概率中断"""
@@ -283,39 +275,75 @@ class TopologyNetwork(Network):
             return outage
         # 链路中断返回ERR_OUTAGE错误
         link.source_miner().get_reply(
-            link.get_msg_name(), link.target_id(), ERR_OUTAGE, round)
+            link.get_seg_name(), link.target_id(), ERR_OUTAGE, round)
         outage = True
         return outage
+    
+    # 高斯随机游走
+    def gaussian_random_walk(self, round:int):
+        for current_node in self._graph:
+            # 高斯随机移动当前节点
+            distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm)
+            angle = np.random.uniform(0, 2 * np.pi)
+
+            movement = np.array([distance * np.cos(angle), distance * np.sin(angle)])
+            self._node_pos[current_node] = np.clip(
+                self._node_pos[current_node] + movement, 0, 1)
+
+            self.update_edges(round)
 
     
-    def topology_changing(self, round):
-        if round != self._nextTpChangeRound:
-            return
-        changed = False
+    def update_edges(self, round:int = 0):
         change_op = {"round": round}
-        for (node1, node2) in list(self._graph.edges):
-            changed = changed or self.try_remove_edge(int(node1), int(node2), change_op)
+        node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
+                      for j in self._graph.nodes if i < j]
+        for node1, node2 in node_pairs:
+            # 计算两节点间的欧几里得距离
+            dist = np.linalg.norm(np.array(self._node_pos[node1])
+                                - np.array(self._node_pos[node2]))
+            if dist < self._commRangeNorm and not self._graph.has_edge(node1, node2):
+                self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
+                self._miners[node1].add_neighbor(node2, round)
+                self._miners[node2].add_neighbor(node1, round)
+                if "adds" not in list(change_op.keys()):
+                    change_op["adds"]=[[node1, node2]]
+                else:
+                    change_op["adds"].append([node1, node2])
+            elif dist >= self._commRangeNorm and self._graph.has_edge(node1, node2):
+                self._graph.remove_edge(node1, node2)  # 超出范围且已连接则移除边
+                self._miners[node1].remove_neighbor(node2)
+                self._miners[node2].remove_neighbor(node1)
+                # 记录下拓扑变更操作
+                if "removes" not in list(change_op.keys()):
+                    change_op["removes"]=[[node1, node2]]
+                else:
+                    change_op["removes"].append([node1, node2])
+                remove_links = []
+                for node1, link in enumerate(self._active_links):
+                    if (((link.source_id(), link.target_id())==(node1,node2)) or 
+                        ((link.source_id(), link.target_id())==(node2,node1))):
+                        remove_links.append(node1)
+                self._active_links = [link for i, link in enumerate(self._active_links) 
+                            if i not in remove_links]
+        
+        sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
+        isolates = [[int(i)] for i in nx.isolates(self._graph)]
+        if len(sub_nets) + len(isolates) > 1:
+            change_op.update({"partitions": sub_nets + isolates})
+        self._tp_changes.append(change_op)
+        self.write_tp_changes()
+        self.draw_and_save_network(f"round{round}")
+    
+    def get_node_pos(self):
+        '''使用spring_layout设置节点位置'''
+        if self._node_pos is None:
+            self.init_node_pos()
+        return self._node_pos
 
-        
-        for node1 in list(self._graph.nodes):
-            neighbors = set(self._graph[node1])
-            non_neighbors = list(set(self._graph.nodes) - neighbors - {node1})
-            if len(non_neighbors) == 0:
-                continue
-            node2 = random.choice(list(non_neighbors))
-            changed = changed or self.try_add_edge(int(node1), int(node2), change_op)
-        
-        self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
-                                       0.2*self._avgTpChangeInterval))
-        if changed:
-            sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
-            isolates = [[int(i)] for i in nx.isolates(self._graph)]
-            if len(sub_nets) + len(isolates) > 1:
-                change_op.update({"partitions": sub_nets + isolates})
-            logger.info("partitions: %s", str(sub_nets + isolates))
-            self._tp_changes.append(change_op)
-            self.write_tp_changes()
-            # self.draw_and_save_network(f"round{round}")
+    def init_node_pos(self):
+        self._node_pos = nx.random_layout(self._graph, seed=50)
+        self.update_edges()
+
 
     def write_tp_changes(self):
         if len(self._tp_changes)<=50:
@@ -404,7 +432,7 @@ class TopologyNetwork(Network):
         return added
 
 
-    def stat_block_propagation_times(self, packet: Packet, r):
+    def stat_block_propagation_times(self, packet: AdHocPacket, r):
         '''calculate the block propagation time'''
         if not isinstance(packet.payload, Block):
             return
@@ -439,6 +467,7 @@ class TopologyNetwork(Network):
             self._stat_prop_times[rcv_rate] = round(total_bpt/total_num, 3)
         
         return self._stat_prop_times
+
     
 
     def network_generator(self, gen_net_approach, ave_degree=None):
@@ -454,37 +483,22 @@ class TopologyNetwork(Network):
             elif gen_net_approach == 'rand' and ave_degree is not None:
                 self.gen_network_rand(ave_degree)
             else:
-                raise errors.NetGenError('网络生成方式错误！')
-            
-            #检查是否有孤立节点或不连通部分
-            if nx.number_of_isolates(self._graph) != 0:
-                raise errors.NetUnconnetedError(f'Isolated nodes in the network! '
-                    f'{list(nx.isolates(self._graph))}')
-            if nx.number_connected_components(self._graph) != 1:
-                if gen_net_approach != 'rand':
-                    raise errors.NetIsoError('Brain-split in the newtork! ')
-                retry_num = 10
-                for _ in range(retry_num):
-                    self.gen_network_rand(ave_degree)
-                    if nx.number_connected_components(self._graph) == 1:
-                        break
-                if nx.number_connected_components(self._graph) == 1:
-                    raise errors.NetIsoError(f'Brain-split in the newtork! '
-                        f'Choose an appropriate degree, current: {ave_degree}')
-                
+                raise errors.NetGenError('网络生成方式错误！')             
             
             # 邻居节点保存到各miner的neighbor_list中
             for minerid in list(self._graph.nodes):
-                self._miners[int(minerid)]._neighbors = \
-                    list(self._graph.neighbors(int(minerid)))
+                self._miners[int(minerid)]._neighbors = list(
+                    self._graph.neighbors(int(minerid)))
+                self._miners[int(minerid)].init_queues()
                 
+            # 生成拓扑位置, 并根据位置更新连接    
+            self.init_node_pos()
+
             # 结果展示和保存
-            #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')
             self.draw_and_save_network()
-            self.save_network_attribute()
+            # self.save_network_attribute()
                 
-        except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
-                errors.NetUnconnetedError, errors.NetGenError) as error:
+        except errors.NetGenError as error:
             print(error)
             sys.exit(0)
     
@@ -504,13 +518,13 @@ class TopologyNetwork(Network):
             if self._miners[m1].isAdversary and self._miners[m2].isAdversary:
                 if not self._graph.has_edge(m1, m2):
                     self._graph.add_edge(m1, m2)
-        # 设置带宽（MB/round）
-        bw_honest = self._bandwidth_honest
-        bw_adv = self._bandwidth_adv
-        bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
-                      and self._miners[v].isAdversary else bw_honest)
-                      for u,v in self._graph.edges}
-        nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
+        # # 设置带宽（MB/round）
+        # bw_honest = self._bandwidth_honest
+        # bw_adv = self._bandwidth_adv
+        # bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
+        #               and self._miners[v].isAdversary else bw_honest)
+        #               for u,v in self._graph.edges}
+        # nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
         self.tp_adjacency_matrix = nx.adjacency_matrix(self._graph).todense()
 
 
@@ -550,10 +564,10 @@ class TopologyNetwork(Network):
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
         bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
-        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), shape=(self.MINER_NUM, self.MINER_NUM))
+        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), shape=(10, 10))
         adj_values = np.array([1 for _ in range(len(bw_arrary) * 2)])
         self.tp_adjacency_matrix = sp.coo_matrix((adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
-                                                    shape=(self.MINER_NUM, self.MINER_NUM)).todense()
+                                                    shape=(10, 10)).todense()
         print('edges: \n', tp_bw_coo)
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         for edge_idx, (src, tgt) in enumerate(zip(row, col)):
@@ -605,11 +619,7 @@ class TopologyNetwork(Network):
             print('\n')
 
     
-    def get_node_pos(self):
-        '''使用spring_layout设置节点位置'''
-        if self._node_pos is None:
-            self._node_pos = nx.spring_layout(self._graph, seed=50)
-        return self._node_pos
+    
         
 
     def draw_and_save_network(self, file_name = None):
@@ -630,17 +640,8 @@ class TopologyNetwork(Network):
                                 node_color = node_colors, node_size=node_size)
         nx.draw_networkx_labels(self._graph, pos = node_pos, 
                                 font_size = font_size, font_family = 'times new roman')
-        edge_labels = {}
-        for src, tgt in self._graph.edges:
-            bandwidth = self._graph.get_edge_data(src, tgt)['bandwidth']
-            edge_labels[(src, tgt)] = f'BW:{bandwidth}'
         nx.draw_networkx_edges(self._graph, pos=node_pos, 
                                width = line_width, node_size=node_size)
-        if self._show_label:
-            nx.draw_networkx_edge_labels(self._graph, node_pos,
-                                         edge_labels = edge_labels,
-                                         font_size = 12/self.MINER_NUM**0.5, 
-                                         font_family ='times new roman')
         file_name = "network topology" if file_name is None else file_name
 
         RESULT_PATH = global_var.get_net_result_path()

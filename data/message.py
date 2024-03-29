@@ -1,3 +1,8 @@
+import math
+
+import global_var
+
+
 class Message(object):
     '''定义网络中传输的消息'''
     def __init__(self,  size:float = 2):# origin:int, creation_round:int,
@@ -10,3 +15,6 @@ class Message(object):
         # self.origin = origin
         # self.creation_round = creation_round
         self.size = size
+        self.segment_num = 0
+        if global_var.get_segmentsize() > 0:
+            self.segment_num = math.ceil(self.size/global_var.get_segmentsize())

@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 
 import global_var
 from data import Block, Message
@@ -11,8 +12,14 @@ GLOBAL = "global"
 ERR_OUTAGE = "err_outage"
 
 
+class Segment(object):
+    def __init__(self,  msg:Message, seg_id:int):
+        self.msg = msg
+        self.seg_id = seg_id
+
 class Packet(object):
-    def __init__(self, payload:Message):
+    def __init__(self, source:int, payload:(Message|Segment)):
+        self.source = source
         self.payload = payload
         
 class INVMsg(Message):
@@ -25,12 +32,13 @@ class INVMsg(Message):
 
 class GetDataMsg(Message):
     def __init__(self, source:int=None, target:int=None, 
-                 block_name:str=None, require:bool=None):
+                 req_blocks:list[Block]=None, require:bool=None):
         """a simple `getData` message"""
         super().__init__(size=0)
         self.source = source
         self.target:int = target
-        self.block_name:str = block_name
+        self.req_blocks:list[Block] = req_blocks
+        self.req_segs:list = []
         self.require:bool = require
 
 

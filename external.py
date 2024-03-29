@@ -60,7 +60,7 @@ def chain_quality(blockchain:Chain):
     if not blockchain.head:
         xc = []
     else:
-        blocktmp = blockchain.last_block()
+        blocktmp = blockchain.get_lastblock()
         xc = []
         while blocktmp:
             xc.append(blocktmp.isAdversaryBlock)
@@ -83,5 +83,5 @@ def chain_growth(blockchain:Chain):
     输入: blockchain
     输出：
     '''
-    last_block = blockchain.last_block()
+    last_block = blockchain.get_lastblock()
     return last_block.get_height()
