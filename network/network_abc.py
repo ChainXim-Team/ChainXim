@@ -54,7 +54,7 @@ class Network(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int = None):
         pass
 
     @abstractmethod

@@ -4,27 +4,26 @@ import random
 from typing import TYPE_CHECKING
 
 import global_var
-from data import Block
+from data import Block, Message
 
 if TYPE_CHECKING:   
     from miner.miner import Miner
 
-from .network_abc import Message, Network
+from .network_abc import Network, Packet
 
 logger = logging.getLogger(__name__)
 
-class PacketBDNet(object):
+class PacketBDNet(Packet):
     '''BoundedDelay网络中的数据包，包含路由相关信息'''
-    def __init__(self, payload, minerid: int, round: int, rcvprob_start, outnetobj):
-        self.payload = payload
-        self.minerid = minerid
+    def __init__(self, payload, source_id: int, round: int, rcvprob_start, outnetobj):
+        super().__init__(source_id, payload)
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程相关
-        self.received_miners = [minerid]
+        self.received_miners = [source_id]
         # self.received_rounds = [round]
         self.trans_process_dict = {
-            f'miner {minerid}': round
+            f'miner {source_id}': round
         }
         # 每次加self.rcvprob_inc
         self.recieve_prob = rcvprob_start
@@ -43,6 +42,8 @@ class BoundedDelayNetwork(Network):
     def __init__(self, miners):
         super().__init__()
         self.miners:list[Miner] = miners
+        for m in self.miners:
+            m.join_network(self)
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
         self.network_tape:list[PacketBDNet] = []
         self.rcvprob_start = 0.25
@@ -93,16 +94,15 @@ class BoundedDelayNetwork(Network):
         """
         for msg in new_msg:
             if not self.miners[minerid].isAdversary:
-                packet = PacketBDNet(msg, minerid, round, 
-                                            self.rcvprob_start, self)
+                packet = PacketBDNet(msg, minerid, round, self.rcvprob_start, self)
                 self.network_tape.append(packet)
             else:
             # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
                 packet = PacketBDNet(msg, minerid, round, 
-                                            self.rcvprob_start, self)
+                                    self.rcvprob_start, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.receive(packet)
+                    miner.NIC.nic_receive(packet)
                 self.network_tape.append(packet)
 
 
@@ -112,6 +112,8 @@ class BoundedDelayNetwork(Network):
         # 随着轮数的增加，收到的概率越高，无限轮
         # 超过某轮后所有人收到
         # 一个人收到之后就不会再次收到这个数据包了
+        for m in self.miners:
+            m.NIC.nic_forward(round)
         if len(self.network_tape)==0:
             return
         died_packets = []
@@ -123,7 +125,7 @@ class BoundedDelayNetwork(Network):
                 if (miner.miner_id not in packet.received_miners and
                     self.is_recieved(packet.recieve_prob)):
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.receive(packet)
+                    miner.NIC.nic_receive(packet)
                     self.record_block_propagation_time(packet, round)
                     # 如果一个adv收到，其他adv也立即收到
                     if not miner.isAdversary:
@@ -132,7 +134,7 @@ class BoundedDelayNetwork(Network):
                                         if m.miner_id != miner.miner_id]
                     for adv_miner in not_rcv_adv_miners:
                         packet.update_trans_process(adv_miner.miner_id, round)
-                        adv_miner.receive(packet)
+                        adv_miner.NIC.nic_receive(packet)
                         self.record_block_propagation_time(packet, round)
             # 更新recieve_prob
             if packet.recieve_prob < 1:

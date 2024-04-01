@@ -188,7 +188,7 @@ class AdHocNetwork(Network):
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int, target:int, round:int):
+    def access_network(self, new_msgs:list[Message], minerid:int,  round:int, target:int):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -218,7 +218,7 @@ class AdHocNetwork(Network):
             return False
         inv = new_msgs[0]
         getDataReply = new_msgs[1]
-        getData = self._miners[inv.target].getdata_stub(inv)
+        getData = self._miners[inv.target].NIC.getdata(inv)
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
@@ -245,7 +245,7 @@ class AdHocNetwork(Network):
                     dead_links.append(i)
                 continue
             rcv_state = link.target_miner().receive(link.packet)
-            link.source_miner().get_reply(
+            link.source_miner().NIC.get_reply(
                 link.get_seg_name(),link.target_id(), None, round)
             if rcv_state:
                 if self._rcv_miners[link.get_block_name()][-1]!=-1:
@@ -262,7 +262,7 @@ class AdHocNetwork(Network):
     def forward_process(self, round):
         """转发过程"""
         for m in self._miners:
-            m.forward_adhoc(round)
+            m.NIC.nic_forward(round)
 
     def link_outage(self, round:int, link:Link):
         """每条链路都有概率中断"""
@@ -274,7 +274,7 @@ class AdHocNetwork(Network):
         if random.uniform(0, 1) > self._outage_prob:
             return outage
         # 链路中断返回ERR_OUTAGE错误
-        link.source_miner().get_reply(
+        link.source_miner().NIC.get_reply(
             link.get_seg_name(), link.target_id(), ERR_OUTAGE, round)
         outage = True
         return outage
@@ -303,16 +303,16 @@ class AdHocNetwork(Network):
                                 - np.array(self._node_pos[node2]))
             if dist < self._commRangeNorm and not self._graph.has_edge(node1, node2):
                 self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
-                self._miners[node1].add_neighbor(node2, round)
-                self._miners[node2].add_neighbor(node1, round)
+                self._miners[node1].NIC.add_neighbor(node2, round)
+                self._miners[node2].NIC.add_neighbor(node1, round)
                 if "adds" not in list(change_op.keys()):
                     change_op["adds"]=[[node1, node2]]
                 else:
                     change_op["adds"].append([node1, node2])
             elif dist >= self._commRangeNorm and self._graph.has_edge(node1, node2):
                 self._graph.remove_edge(node1, node2)  # 超出范围且已连接则移除边
-                self._miners[node1].remove_neighbor(node2)
-                self._miners[node2].remove_neighbor(node1)
+                self._miners[node1].NIC.remove_neighbor(node2)
+                self._miners[node2].NIC.remove_neighbor(node1)
                 # 记录下拓扑变更操作
                 if "removes" not in list(change_op.keys()):
                     change_op["removes"]=[[node1, node2]]
@@ -332,7 +332,7 @@ class AdHocNetwork(Network):
             change_op.update({"partitions": sub_nets + isolates})
         self._tp_changes.append(change_op)
         self.write_tp_changes()
-        self.draw_and_save_network(f"round{round}")
+        # self.draw_and_save_network(f"round{round}")
     
     def get_node_pos(self):
         '''使用spring_layout设置节点位置'''
@@ -373,63 +373,6 @@ class AdHocNetwork(Network):
                 file.write('\n'.join(lines) + '\n\n')
         self._tp_changes.clear()
 
-    
-    def try_remove_edge(self,node1:int, node2:int, change_op:dict):
-        removed = False
-        if self._miners[node1].isAdversary and self._miners[node2].isAdversary:
-            return removed
-        if random.uniform(0, 1) > self._edgeRemoveProb:
-            return removed
-        self._graph.remove_edge(node1, node2)
-        sub_nets = nx.number_connected_components(self._graph)
-        isolates = nx.number_of_isolates(self._graph)
-        # 若不允许产生分区但产生了分区，则重新连接
-        if  sub_nets + isolates > self._maxPartitionsAllowed:
-            self._graph.add_edge(node1, node2)
-            bandwidths = {(node1,node2):(self._bandwidth_honest)}
-            nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-            return removed
-        
-        self._miners[node1].remove_neighbor(node2)
-        self._miners[node2].remove_neighbor(node1)
-        removed = True
-
-        # 记录下拓扑变更操作
-        if "removes" not in list(change_op.keys()):
-            change_op["removes"]=[[node1, node2]]
-        else:
-            change_op["removes"].append([node1, node2])
-            
-        remove_links = []
-        for i, link in enumerate(self._active_links):
-            if (((link.source_id(), link.target_id())==(node1,node2)) or 
-                ((link.source_id(), link.target_id())==(node2,node1))):
-                remove_links.append(i)
-        self._active_links = [link for i, link in enumerate(self._active_links) 
-                            if i not in remove_links]
-        return removed
-        
-                
-    def try_add_edge(self,node1:int, node2:int, change_op:dict):
-        added = False
-        if self._miners[node1].isAdversary and self._miners[node2].isAdversary:
-            return added
-        if random.uniform(0, 1) > self._edgeAddProb:
-            return added
-        
-        added = True
-        self._graph.add_edge(node1, node2)
-        # 设置带宽（MB/round）
-        bandwidths = {(node1,node2):(self._bandwidth_honest)}
-        nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-        self._miners[node1].add_neighbor(node2)
-        self._miners[node2].add_neighbor(node1)
-        # 记录下拓扑变更操作
-        if "adds" not in list(change_op.keys()):
-            change_op["adds"]=[[node1, node2]]
-        else:
-            change_op["adds"].append([node1, node2])
-        return added
 
 
     def stat_block_propagation_times(self, packet: AdHocPacket, r):
@@ -487,9 +430,9 @@ class AdHocNetwork(Network):
             
             # 邻居节点保存到各miner的neighbor_list中
             for minerid in list(self._graph.nodes):
-                self._miners[int(minerid)]._neighbors = list(
+                self._miners[int(minerid)].NIC._neighbors = list(
                     self._graph.neighbors(int(minerid)))
-                self._miners[int(minerid)].init_queues()
+                self._miners[int(minerid)].NIC.init_queues()
                 
             # 生成拓扑位置, 并根据位置更新连接    
             self.init_node_pos()
@@ -518,13 +461,6 @@ class AdHocNetwork(Network):
             if self._miners[m1].isAdversary and self._miners[m2].isAdversary:
                 if not self._graph.has_edge(m1, m2):
                     self._graph.add_edge(m1, m2)
-        # # 设置带宽（MB/round）
-        # bw_honest = self._bandwidth_honest
-        # bw_adv = self._bandwidth_adv
-        # bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
-        #               and self._miners[v].isAdversary else bw_honest)
-        #               for u,v in self._graph.edges}
-        # nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
         self.tp_adjacency_matrix = nx.adjacency_matrix(self._graph).todense()
 
 
@@ -543,15 +479,7 @@ class AdHocNetwork(Network):
         for m1 in range(len(self.tp_adjacency_matrix)): 
             for m2 in range(m1, len(self.tp_adjacency_matrix)):
                 if self.tp_adjacency_matrix[m1, m2] == 1:
-                    self._graph.add_edge(m1, m2)
-        # 设置带宽（MB/round）
-        bw_honest = self._bandwidth_honest
-        bw_adv = self._bandwidth_adv
-        bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
-                      and self._miners[v].isAdversary else bw_honest)
-                      for u,v in self._graph.edges}
-        nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-                    
+                    self._graph.add_edge(m1, m2)                  
 
 
     def gen_network_by_coo(self):
@@ -564,10 +492,12 @@ class AdHocNetwork(Network):
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
         bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
-        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), shape=(10, 10))
+        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), 
+                                  shape=(self.MINER_NUM, self.MINER_NUM))
         adj_values = np.array([1 for _ in range(len(bw_arrary) * 2)])
-        self.tp_adjacency_matrix = sp.coo_matrix((adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
-                                                    shape=(10, 10)).todense()
+        self.tp_adjacency_matrix = sp.coo_matrix(
+            (adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
+            shape=(self.MINER_NUM, self.MINER_NUM)).todense()
         print('edges: \n', tp_bw_coo)
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         for edge_idx, (src, tgt) in enumerate(zip(row, col)):

@@ -71,7 +71,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             for block in block_list:
                 if block.blockhash == rcvblock.blockhash:
                     return False
-        if self.is_in_local_chain(rcvblock):
+        if self.in_local_chain(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)

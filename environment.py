@@ -55,8 +55,7 @@ class Environment(object):
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         self.network.set_net_param(**network_param)
-        for m in self.miners:
-            m.join_network(self.network)
+        
         # generate adversary
         self.adversary = Adversary(
             adver_num = attack_param['adver_num'], 

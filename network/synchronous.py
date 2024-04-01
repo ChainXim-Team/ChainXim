@@ -1,23 +1,25 @@
 from typing import TYPE_CHECKING
 
-from .network_abc import Message, Network
+from data import Message
+
+from .network_abc import Network, Packet
 
 if TYPE_CHECKING:   
     from miner.miner import Miner
 
 
-class PacketSyncNet(object):
+class PacketSyncNet(Packet):
     '''同步网络中的数据包，包含路由相关信息'''
-    def __init__(self, payload, minerid: int):
-        self.payload = payload
-        self.minerid = minerid
-    
+    def __init__(self, payload, source_id: int):
+        super().__init__(source_id, payload)    
 class SynchronousNetwork(Network):
     """同步网络,在当前轮结束时将数据包传播给所有矿工"""
 
     def __init__(self, miners: list):
         super().__init__()
         self.miners:list[Miner] = miners
+        for m in self.miners:
+            m.join_network(self.network)
         # network_tape存储要广播的数据包和对应信息
         self.network_tape:list[PacketSyncNet] = []
         with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
@@ -55,6 +57,6 @@ class SynchronousNetwork(Network):
         if self.network_tape:
             for j in range(self.MINER_NUM):
                 for packet in self.network_tape:
-                    if j != packet.minerid:
-                        self.miners[j].receive(packet.payload)
+                    if j != packet.source:
+                        self.miners[j].NIC.nic_receive(packet.payload)
             self.clear_NetworkTape()

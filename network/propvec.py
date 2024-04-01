@@ -5,26 +5,27 @@ import random
 from typing import TYPE_CHECKING
 
 import global_var
-from data import Block
+from data import Block, Message
 
 if TYPE_CHECKING:   
     from miner.miner import Miner
 
-from .network_abc import Message, Network
+from .network_abc import Network, Packet
 
 logger = logging.getLogger(__name__)
 
-class PacketPVNet(object):
+class PacketPVNet(Packet):
     '''propagation vector网络中的数据包，包含路由相关信息'''
-    def __init__(self, payload: Message, minerid: int, round: int, prop_vector:list, outnetobj):
+    def __init__(self, payload: Message, source_id: int, round: int, prop_vector:list, outnetobj):
+        super().__init__(source_id, payload)
         self.payload = payload
-        self.minerid = minerid
+        self.source = source_id
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程相关
-        self.received_miners:list[int] = [minerid]
+        self.received_miners:list[int] = [source_id]
         self.trans_process_dict = {
-            f'miner {minerid}': round
+            f'miner {source_id}': round
         }
         # 每轮都pop第一个，记录剩余的传播向量
         self.remain_prop_vector = copy.deepcopy(prop_vector)
@@ -42,6 +43,8 @@ class PropVecNetwork(Network):
     def __init__(self, miners):
         super().__init__()
         self.miners:list[Miner] = miners
+        for m in self.miners:
+            m.join_network(self)
         self.adv_miners:list[Miner] = [m for m in self.miners if m.isAdversary]
         self.network_tape:list[PacketPVNet] = []
         self.prop_vector:list = [0.2, 0.4, 0.6, 0.8, 1.0] # 默认值
@@ -118,7 +121,7 @@ class PropVecNetwork(Network):
                                             self.prop_vector, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.receive(packet)
+                    miner.NIC.nic_receive(packet)
                 self.network_tape.append(packet)
 
 
@@ -140,7 +143,7 @@ class PropVecNetwork(Network):
             for miner in rcv_miners:
                 if miner.miner_id in packet.received_miners:
                     continue
-                miner.receive(packet)
+                miner.NIC.nic_receive(packet)
                 packet.update_trans_process(miner.miner_id, round)
                 self.record_block_propagation_time(packet, round)
                 # 如果一个adv收到，其他没收到的adv也立即收到
@@ -149,7 +152,7 @@ class PropVecNetwork(Network):
                 not_rcv_advs = [m for m in self.adv_miners 
                                 if m.miner_id != miner.miner_id]
                 for adv_miner in not_rcv_advs:
-                        adv_miner.receive(packet)
+                        adv_miner.NIC.nic_receive(packet)
                         packet.update_trans_process(adv_miner.miner_id, round)
                         self.record_block_propagation_time(packet, round)
             if len(set(packet.received_miners)) == self.MINER_NUM:

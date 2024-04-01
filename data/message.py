@@ -15,6 +15,6 @@ class Message(object):
         # self.origin = origin
         # self.creation_round = creation_round
         self.size = size
-        self.segment_num = 0
+        self.segment_num = 1
         if global_var.get_segmentsize() > 0:
             self.segment_num = math.ceil(self.size/global_var.get_segmentsize())
