@@ -63,7 +63,7 @@ class NICWithTp(NetworkInterface):
             self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
         self._channel_states.pop(remove_id, None)
         
-        logger.info("M%d: removed neighbour M%d", self.miner_id, remove_id)
+        # logger.info("M%d: removed neighbour M%d", self.miner_id, remove_id)
 
     def add_neighbor(self, add_id:int, round):
         if add_id in self._neighbors:
@@ -77,7 +77,7 @@ class NICWithTp(NetworkInterface):
         inv = INVMsg(self.miner.miner_id, add_id, 
                      self.miner.get_local_chain().get_last_block())
         self.ready_to_forward(inv, add_id, round)
-        logger.info("M%d: added neighbour M%d", self.miner.miner_id, add_id)
+        # logger.info("M%d: added neighbour M%d", self.miner.miner_id, add_id)
 
 
     def nic_receive(self, packet: Packet):
@@ -98,8 +98,8 @@ class NICWithTp(NetworkInterface):
         if len(set(self._segment_buffer[block_name])) != payload.msg.segment_num:
             return False
         self._segment_buffer.pop(block_name)
-        logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
-                    payload.msg.segment_num, payload.msg.name)
+        # logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
+        #             payload.msg.segment_num, payload.msg.name)
         self.miner.receive(payload)
 
     def _get_segids_not_rcv(self, block:Block):
@@ -116,7 +116,8 @@ class NICWithTp(NetworkInterface):
         getDataReply = GetDataMsg(require=False)
         self._network.access_network(
             [inv, getDataReply], self.miner.miner_id,  round, inv.target)
-        logger.info("round %d, Sending  inv , get reqblocks %s", round, str([b.name for b in getDataReply.req_blocks])) 
+        # logger.info("round %d, Sending  inv , get reqblocks %s", round, 
+        # str([b.name for b in getDataReply.req_blocks])) 
         return getDataReply
     
 
@@ -135,8 +136,8 @@ class NICWithTp(NetworkInterface):
             out_msg = 'inv' if  isinstance(msg, Block) else msg
             for target in  targets:
                 self._output_queues[target].append(out_msg)
-            logger.info("round %d, Sending  %s neighbor %s, outputqueue %s", 
-                    round,  out_msg,str(self._neighbors), str(self._output_queues))
+            # logger.info("round %d, Sending  %s neighbor %s, outputqueue %s", 
+            #         round,  out_msg,str(self._neighbors), str(self._output_queues))
             
         for neighbor in self._neighbors:
             que = self._output_queues[neighbor]
