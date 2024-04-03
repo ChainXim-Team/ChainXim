@@ -117,8 +117,7 @@ class PropVecNetwork(Network):
         
             # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
             if self.miners[minerid].isAdversary:
-                packet = PacketPVNet(msg, minerid, round, 
-                                            self.prop_vector, self)
+                packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
                     miner.NIC.nic_receive(packet)
@@ -133,6 +132,9 @@ class PropVecNetwork(Network):
         -----
         round (int): The current round in the Envrionment.
         """
+        for m in self.miners:
+            m.NIC.nic_forward(round)
+
         if len(self.network_tape) == 0:
             return
         died_packets = []
@@ -152,9 +154,9 @@ class PropVecNetwork(Network):
                 not_rcv_advs = [m for m in self.adv_miners 
                                 if m.miner_id != miner.miner_id]
                 for adv_miner in not_rcv_advs:
-                        adv_miner.NIC.nic_receive(packet)
-                        packet.update_trans_process(adv_miner.miner_id, round)
-                        self.record_block_propagation_time(packet, round)
+                    adv_miner.NIC.nic_receive(packet)
+                    packet.update_trans_process(adv_miner.miner_id, round)
+                    self.record_block_propagation_time(packet, round)
             if len(set(packet.received_miners)) == self.MINER_NUM:
                 died_packets.append(i)
                 if not global_var.get_compact_outputfile():
@@ -163,6 +165,9 @@ class PropVecNetwork(Network):
         self.network_tape = [n for i, n in enumerate(self.network_tape)
                             if i not in died_packets]
         died_packets = []
+
+        
+        
 
 
     

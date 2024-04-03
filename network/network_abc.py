@@ -21,7 +21,7 @@ class Segment(object):
         return str((self.msg.name, self.seg_id))
 
 class Packet(object):
-    def __init__(self, source:int, payload:(Message|Segment)):
+    def __init__(self, source:int, payload:Message):
         self.source = source
         self.payload = payload
         

@@ -149,6 +149,8 @@ class BoundedDelayNetwork(Network):
                                 if i not in died_packets]
         died_packets = []
 
+        
+
 
 
     def record_block_propagation_time(self, packet: PacketBDNet, r):
