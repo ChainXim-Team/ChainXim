@@ -1,6 +1,4 @@
 import logging
-import random
-from collections import defaultdict
 
 import global_var
 from consensus import Consensus
@@ -10,15 +8,8 @@ from functions import for_name
 
 # if TYPE_CHECKING:
 from network import (
-    ERR_OUTAGE,
     AdHocNetwork,
-    GetDataMsg,
-    INVMsg,
-    Network,
-    Packet,
-    Segment,
     TopologyNetwork,
-    TPPacket,
 )
 
 from ._consts import OUTER, SELF
@@ -121,42 +112,4 @@ class Miner(object):
         # self.NIC.clear_forward_buffer()
     
         
-# if __name__ == "__main__":
-#     import matplotlib.pyplot as plt
 
-#     l = []
-#     for i,ll in enumerate(l):
-#         print(i, "aaa")
-#     print("bbb")
-    # aa= defaultdict(lambda : True)
-
-    # neighbors = [1,3,5,7,11]
-    # output_queue=defaultdict(list)
-    # channel_states = {}
-
-    # for neighbor in neighbors:
-    #     output_queue[neighbor] = []
-    #     channel_states[neighbor] = _IDLE
-    # # if not  aa[2]:
-    # output_queue[1].append(1)
-    # print(output_queue, channel_states)
-    # times = {0:0, 0.03: 5.457, 0.05: 6.925, 0.08: 9.141, 0.1: 10.099, 0.2: 12.218, 0.4: 15.21, 0.5: 16.257, 0.6: 17.259, 0.7: 18.206, 0.8: 19.479, 0.9: 21.204, 0.93: 21.776, 0.95: 22.362, 0.98: 23.81, 1.0: 25.875}
-    # times2 = {0:0, 0.03: 0.944, 0.05: 1.804, 0.08: 2.767, 0.1: 3.308, 0.2: 5.421, 0.4: 8.797, 0.5: 10.396, 0.6: 12.071, 0.7: 13.956, 0.8: 16.217, 0.9: 19.377, 0.93: 20.777, 0.95: 21.971, 0.98: 24.683, 1.0: 29.027}
-    # times3 ={0:0, 0.1: 1, 0.2: 2, 0.3:3, 0.4: 4, 0.5: 5.0, 0.6: 6.0, 0.7: 7.0, 0.8: 8.0, 0.9: 9.0, 1.0: 10} 
-    # rcv_rates = list(times.keys())
-    # t = list(times.values())
-    # t = [tt/t[-1] for tt in t]
-    # plt.plot(t,rcv_rates,"--o", label= "Topology Network")
-    # rcv_rates = list(times2.keys())
-    # t = list(times2.values())
-    # t = [tt/t[-1] for tt in t]
-    # plt.plot(t,rcv_rates,"--^", label= "Stochastic Propagation Network")
-    # rcv_rates = list(times3.keys())
-    # t = list(times3.values())
-    # t = [tt/t[-1] for tt in t]
-    # plt.plot(t,rcv_rates,"--*", label= "Deterministic Propagation Network")
-    # plt.xlabel("Normalized number of rounds passed")
-    # plt.ylabel("Ratio of received miners")
-    # plt.legend()
-    # plt.grid()
-    # plt.show()

@@ -27,13 +27,10 @@ from .network_abc import (
     INVMsg,
     Network,
     Packet,
-    Segment,
 )
 
 if TYPE_CHECKING:
     from miner.miner import Miner
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +66,7 @@ class Link(object):
     def get_msg(self):
         return self.packet.payload
     
-    def get_msg_name(self):
+    def get_blobk_msg_name(self):
         if isinstance(self.packet.payload, Block):
             return self.packet.payload.name
         
@@ -118,7 +115,7 @@ class TopologyNetwork(Network):
         self._avgTpChangeInterval=0
         self._edgeRemoveProb=0
         self._edgeAddProb=0
-        self._maxPartitionsAllowed=False
+        self._maxPartitionsAllowed=0
 
         # status
         self._rcv_miners = defaultdict(list)
@@ -126,11 +123,11 @@ class TopologyNetwork(Network):
         self._stat_prop_times = {}
         self._block_num_bpt = []
         # 结果保存路径
-        NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
-            f.write('[')
-            json.dump({"B0": {}}, f, indent=4)
-            f.write(']')
+        # NET_RESULT_PATH = global_var.get_net_result_path()
+        # with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
+        #     f.write('[')
+        #     json.dump({"B0": {}}, f, indent=4)
+        #     f.write(']')
 
 
     def set_net_param(self, init_mode = None, 
@@ -180,6 +177,8 @@ class TopologyNetwork(Network):
             self._dynamic = dynamic
         if max_allowed_partitions is not None:
             self._maxPartitionsAllowed= max_allowed_partitions
+            if max_allowed_partitions <= 1:
+                self._maxPartitionsAllowed=1
         if avg_tp_change_interval is not None:
             self._avgTpChangeInterval = avg_tp_change_interval
             self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
@@ -211,7 +210,7 @@ class TopologyNetwork(Network):
             delay = self.cal_delay(msg, minerid, target)
             link = Link(packet, delay, self)
             self._active_links.append(link)
-            self._rcv_miners[link.get_msg_name()].append(minerid)
+            self._rcv_miners[link.get_blobk_msg_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
             if isinstance(msg, Block):
@@ -264,9 +263,12 @@ class TopologyNetwork(Network):
                 continue
             link.target_miner().NIC.nic_receive(link.packet)
             link.source_miner().NIC.get_reply(
-                link.get_msg_name(),link.target_id(), None, round)
-            if self._rcv_miners[link.get_msg_name()][-1]!=-1:
-                self._rcv_miners[link.get_msg_name()].append(link.target_id())
+                link.get_blobk_msg_name(),link.target_id(), None, round)
+            if self._rcv_miners[link.get_blobk_msg_name()][-1]!=-1:
+                self._rcv_miners[link.get_blobk_msg_name()].append(link.target_id())
+                self._routing_proc[link.get_blobk_msg_name()].append(
+                    [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
+                )
             self.stat_block_propagation_times(link.packet, round)
             dead_links.append(i)
         # 清理传播结束的link
@@ -292,7 +294,7 @@ class TopologyNetwork(Network):
             return outage
         # 链路中断返回ERR_OUTAGE错误
         link.source_miner().NIC.get_reply(
-            link.get_msg_name(), link.target_id(), ERR_OUTAGE, round)
+            link.get_blobk_msg_name(), link.target_id(), ERR_OUTAGE, round)
         outage = True
         return outage
 
@@ -312,16 +314,17 @@ class TopologyNetwork(Network):
             if len(non_neighbors) == 0:
                 continue
             node2 = random.choice(list(non_neighbors))
-            changed = changed or self.try_add_edge(int(node1), int(node2), change_op)
+            changed = changed or self.try_add_edge(int(node1), int(node2), change_op,round)
         
         self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
                                        0.2*self._avgTpChangeInterval))
         if changed:
             sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
-            isolates = [[int(i)] for i in nx.isolates(self._graph)]
+            # isolates = [[int(i)] for i in nx.isolates(self._graph)]
+            isolates = []
             if len(sub_nets) + len(isolates) > 1:
                 change_op.update({"partitions": sub_nets + isolates})
-            logger.info("partitions: %s", str(sub_nets + isolates))
+                logger.info("partitions: %s", str(sub_nets + isolates))
             self._tp_changes.append(change_op)
             self.write_tp_changes()
             # self.draw_and_save_network(f"round{round}")
@@ -363,7 +366,8 @@ class TopologyNetwork(Network):
             return removed
         self._graph.remove_edge(node1, node2)
         sub_nets = nx.number_connected_components(self._graph)
-        isolates = nx.number_of_isolates(self._graph)
+        # isolates = nx.number_of_isolates(self._graph)
+        isolates = 0
         # 若不允许产生分区但产生了分区，则重新连接
         if  sub_nets + isolates > self._maxPartitionsAllowed:
             self._graph.add_edge(node1, node2)
@@ -391,7 +395,7 @@ class TopologyNetwork(Network):
         return removed
         
                 
-    def try_add_edge(self,node1:int, node2:int, change_op:dict):
+    def try_add_edge(self,node1:int, node2:int, change_op:dict, round):
         added = False
         if self._miners[node1].isAdversary and self._miners[node2].isAdversary:
             return added
@@ -403,8 +407,8 @@ class TopologyNetwork(Network):
         # 设置带宽（MB/round）
         bandwidths = {(node1,node2):(self._bandwidth_honest)}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-        self._miners[node1].NIC.add_neighbor(node2)
-        self._miners[node2].NIC.add_neighbor(node1)
+        self._miners[node1].NIC.add_neighbor(node2, round)
+        self._miners[node2].NIC.add_neighbor(node1, round)
         # 记录下拓扑变更操作
         if "adds" not in list(change_op.keys()):
             change_op["adds"]=[[node1, node2]]
@@ -436,7 +440,24 @@ class TopologyNetwork(Network):
                 self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
                 logger.debug(f"{packet.payload.name}:{rn},{rcv_rate} at round {r}")
             if rn == mn and self._rcv_miners[packet.payload.name][-1] != -1:
-                self._rcv_miners[packet.payload.name][-1] = -1
+                self._rcv_miners[packet.payload.name].clear()
+                self._rcv_miners[packet.payload.name].append(-1)
+                self.save_specific_routing_process(packet.payload.name)
+    
+    def save_specific_routing_process(self, block_name:str):
+        with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', 
+                  encoding = 'utf-8') as f:
+            json.dump({block_name: self._routing_proc[block_name]},f)
+            self._routing_proc.pop(block_name)
+            f.write('\n')
+    
+    def save_rest_routing_process(self):
+        with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', 
+                  encoding = 'utf-8') as f:
+            for block_name, routing in self._routing_proc.items():
+                json.dump({block_name: routing},f)
+                f.write('\n')
+            self._routing_proc.clear()
 
     def cal_block_propagation_times(self):
         rcv_rates = [k for k in self._stat_prop_times.keys()]
@@ -486,6 +507,8 @@ class TopologyNetwork(Network):
             for minerid in list(self._graph.nodes):
                 self._miners[int(minerid)].NIC._neighbors = \
                     list(self._graph.neighbors(int(minerid)))
+            for miner in self._miners:
+                miner.NIC.init_queues()
                 
             # 结果展示和保存
             #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')

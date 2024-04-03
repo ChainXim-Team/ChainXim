@@ -3,15 +3,9 @@ from typing import TYPE_CHECKING
 
 from data import Block, Message
 from network import (
-    ERR_OUTAGE,
-    AdHocNetwork,
-    GetDataMsg,
     INVMsg,
     Network,
     Packet,
-    Segment,
-    TopologyNetwork,
-    TPPacket,
 )
 
 if TYPE_CHECKING:

@@ -46,7 +46,7 @@ class PoW(Consensus):
         self.target = bytes.fromhex(consensus_params.get('target') or self.target)
         self.q = consensus_params.get('q') or self.q
 
-    def mining_consensus(self, miner_id, isadversary, x, round):
+    def mining_consensus(self, miner_id:int, isadversary, x, round):
         '''计算PoW\n
         param:
             Miner_ID 该矿工的ID type:int
@@ -61,9 +61,9 @@ class PoW(Consensus):
         b_last = self.local_chain.get_last_block()#链中最后一个块
         prehash = b_last.blockhash
 
-        intermediate_hasher = hash_bytes(miner_id.to_bytes(INT_LEN, BYTE_ORDER, signed=True) + \
-                                         x.to_bytes(INT_LEN, BYTE_ORDER) + \
-                                         prehash)
+        intermediate_hasher = hash_bytes(
+            miner_id.to_bytes(INT_LEN, BYTE_ORDER, signed=True) + 
+            x.to_bytes(INT_LEN, BYTE_ORDER) + prehash)
         
         i = 0
         while i < self.q:

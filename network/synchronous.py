@@ -19,7 +19,7 @@ class SynchronousNetwork(Network):
         super().__init__()
         self.miners:list[Miner] = miners
         for m in self.miners:
-            m.join_network(self.network)
+            m.join_network(self)
         # network_tape存储要广播的数据包和对应信息
         self.network_tape:list[PacketSyncNet] = []
         with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:

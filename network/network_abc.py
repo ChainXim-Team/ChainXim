@@ -13,9 +13,12 @@ ERR_OUTAGE = "err_outage"
 
 
 class Segment(object):
-    def __init__(self,  msg:Message, seg_id:int):
+    def __init__(self,  msg:Block, seg_id:int):
         self.msg = msg
         self.seg_id = seg_id
+    
+    def __repr__(self) -> str:
+        return str((self.msg.name, self.seg_id))
 
 class Packet(object):
     def __init__(self, source:int, payload:(Message|Segment)):
@@ -23,12 +26,13 @@ class Packet(object):
         self.payload = payload
         
 class INVMsg(Message):
-    def __init__(self, source:int, target:int, block_to_forward:Block):
+    def __init__(self, source:int, target:int, block:Block,isSingleBlock:bool=False):
         """a simple `inv` message"""
         super().__init__(size=0)
         self.source = source
         self.target = target
-        self.block:Block = block_to_forward
+        self.block:Block = block
+        self.isSingleBlock = isSingleBlock
 
 class GetDataMsg(Message):
     def __init__(self, source:int=None, target:int=None, 

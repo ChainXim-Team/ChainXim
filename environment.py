@@ -316,8 +316,8 @@ class Environment(object):
         self.global_chain.ShowStructureWithGraphviz()
         if isinstance(self.network,network.TopologyNetwork):
             # 利用 isinstance 指定类型 方便调用类方法gen_routing_gragh_from_json()
+            # self.network.save_rest_routing_process()
             self.network.gen_routing_gragh_from_json()
-
         return stats
     
     def process_bar(self,process,total,t_0,unit='round/s'):
@@ -335,3 +335,49 @@ class Environment(object):
         return vel
 
         
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    times_prob = {0:0, 0.03: 0.944, 0.05: 1.804, 0.08: 2.767, 0.1: 3.308, 0.2: 5.421, 
+              0.4: 8.797, 0.5: 10.396, 0.6: 12.071, 0.7: 13.956, 0.8: 16.217, 0.9: 19.377, 
+              0.93: 20.777, 0.95: 21.971, 0.98: 24.683, 1.0: 29.027}
+    times_vec ={0:0, 0.1: 1, 0.2: 2, 0.3:3, 0.4: 4, 0.5: 5.0, 0.6: 6.0, 0.7: 7.0, 0.8: 8.0, 0.9: 9.0, 1.0: 10} 
+
+
+    times_tp = {0:0, 0.03: 9.297, 0.05: 12.257, 0.08: 15.889, 0.1: 17.185, 0.2: 21.459, 0.4: 26.592, 0.5: 28.493, 0.6: 30.343, 0.7: 32.232, 0.8: 34.231, 0.9: 36.993, 0.93: 38.194, 0.95: 39.256, 0.98: 41.946, 1.0: 46.706}
+    times_outage = {0:0, 0.03: 9.627, 0.05: 12.988, 0.08: 16.45, 0.1: 17.94, 0.2: 22.193, 0.4: 27.405, 0.5: 29.353, 0.6: 31.262, 0.7: 33.265, 0.8: 35.496, 0.9: 38.663, 0.93: 40.298, 0.95: 41.889, 0.98: 45.681, 1.0: 52.662}
+    times_wo_parition = {0:0,  0.05: 21.713, 0.08: 27.103, 0.1: 29.326, 0.2: 42.763, 0.4: 61.751, 0.5: 68.969, 0.6: 80.483, 0.8: 92.329, 0.9: 103.141, 0.93: 107.383, 0.95: 110.757, 0.98: 119.123, 1.0: 145.109}
+    times_dynamic ={0:0, 0.03: 18.237, 0.05: 24.153, 0.08: 30.627, 0.1: 34.757, 0.2: 56.545, 0.4: 81.044, 0.5: 84.115, 0.6: 103.68, 0.7: 128.212, 0.8: 147.1, 0.9: 196.187, 0.93: 238.383, 0.95: 360.152, 0.98: 2226.653, 1.0: 3848.5}
+    rcv_rates = list(times_tp.keys())
+    t = list(times_tp.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--o", label= "Topology Network")
+
+    rcv_rates = list(times_outage.keys())
+    t = list(times_outage.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--o", label= "Topology Network + Link Outage")
+
+    rcv_rates = list(times_wo_parition.keys())
+    t = list(times_wo_parition.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--o", label= "Topology Network + Dynamic")
+
+    rcv_rates = list(times_dynamic.keys())
+    t = list(times_dynamic.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--o", label= "Topology Network + Dynamic + 3Patitions")
+
+    rcv_rates = list(times_prob.keys())
+    t = list(times_prob.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--^", label= "Stochastic Propagation Network")
+    rcv_rates = list(times_vec.keys())
+    t = list(times_vec.values())
+    t = [tt/t[-1] for tt in t]
+    plt.plot(t,rcv_rates,"--*", label= "Deterministic Propagation Network")
+    plt.xlabel("Normalized number of rounds passed")
+    plt.ylabel("Ratio of received miners")
+    plt.legend()
+    plt.grid()
+    plt.show()

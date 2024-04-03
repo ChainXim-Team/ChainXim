@@ -1,13 +1,12 @@
 import copy
 from abc import ABCMeta, abstractmethod
 
-from functions import hash_bytes, INT_LEN, BYTE_ORDER
+from functions import BYTE_ORDER, INT_LEN, hash_bytes
 
 from .message import Message
 
 
 class BlockHead(metaclass=ABCMeta):
-    __omit_keys = {}
     def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
         self.prehash = prehash  # 前一个区块的hash
         self.timestamp = timestamp  # 时间戳
@@ -27,6 +26,7 @@ class BlockHead(metaclass=ABCMeta):
         return hash_bytes(data).digest()
 
     def __repr__(self) -> str:
+        __omit_keys = {}
         bhlist = []
         for k, v in self.__dict__.items():
             if k not in self.__omit_keys:
@@ -65,9 +65,10 @@ class Block(Message):
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    __omit_keys = {}
+    
     def __repr__(self) -> str:
-
+        __omit_keys = {}
+        return self.name
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
             s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v) if not isinstance(v, bytes) else v.hex()

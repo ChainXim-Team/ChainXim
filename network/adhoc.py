@@ -229,8 +229,6 @@ class AdHocNetwork(Network):
         self.receive_process(round)
         self.forward_process(round)
         self.gaussian_random_walk(round)
-        # if self._dynamic:
-        #     self.topology_changing(round)
             
     def receive_process(self,round):
         """接收过程"""
@@ -244,7 +242,7 @@ class AdHocNetwork(Network):
                 if self.link_outage(round, link):
                     dead_links.append(i)
                 continue
-            rcv_state = link.target_miner().receive(link.packet)
+            rcv_state = link.target_miner().NIC.nic_receive(link.packet)
             link.source_miner().NIC.get_reply(
                 link.get_seg_name(),link.target_id(), None, round)
             if rcv_state:
@@ -281,6 +279,7 @@ class AdHocNetwork(Network):
     
     # 高斯随机游走
     def gaussian_random_walk(self, round:int):
+        change_op = {"round": round}
         for current_node in self._graph:
             # 高斯随机移动当前节点
             distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm)
@@ -290,11 +289,12 @@ class AdHocNetwork(Network):
             self._node_pos[current_node] = np.clip(
                 self._node_pos[current_node] + movement, 0, 1)
 
-            self.update_edges(round)
+            self.update_edges(change_op, round)
+        self._tp_changes.append(change_op)
+        self.write_tp_changes()
 
     
-    def update_edges(self, round:int = 0):
-        change_op = {"round": round}
+    def update_edges(self,  change_op:dict=None, round:int = 0):
         node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
                       for j in self._graph.nodes if i < j]
         for node1, node2 in node_pairs:
@@ -305,19 +305,21 @@ class AdHocNetwork(Network):
                 self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
                 self._miners[node1].NIC.add_neighbor(node2, round)
                 self._miners[node2].NIC.add_neighbor(node1, round)
-                if "adds" not in list(change_op.keys()):
-                    change_op["adds"]=[[node1, node2]]
-                else:
-                    change_op["adds"].append([node1, node2])
+                if change_op is not None:
+                    if "adds" not in list(change_op.keys()):
+                        change_op["adds"]=[[node1, node2]]
+                    else:
+                        change_op["adds"].append([node1, node2])
             elif dist >= self._commRangeNorm and self._graph.has_edge(node1, node2):
                 self._graph.remove_edge(node1, node2)  # 超出范围且已连接则移除边
                 self._miners[node1].NIC.remove_neighbor(node2)
                 self._miners[node2].NIC.remove_neighbor(node1)
                 # 记录下拓扑变更操作
-                if "removes" not in list(change_op.keys()):
-                    change_op["removes"]=[[node1, node2]]
-                else:
-                    change_op["removes"].append([node1, node2])
+                if change_op is not None:
+                    if "removes" not in list(change_op.keys()):
+                        change_op["removes"]=[[node1, node2]]
+                    else:
+                        change_op["removes"].append([node1, node2])
                 remove_links = []
                 for node1, link in enumerate(self._active_links):
                     if (((link.source_id(), link.target_id())==(node1,node2)) or 
@@ -325,13 +327,14 @@ class AdHocNetwork(Network):
                         remove_links.append(node1)
                 self._active_links = [link for i, link in enumerate(self._active_links) 
                             if i not in remove_links]
+        if change_op is not None:
+            sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
+            # isolates = [[int(i)] for i in nx.isolates(self._graph)]
+            isolates = []
+            if len(sub_nets) + len(isolates) > 1:
+                change_op.update({"partitions": sub_nets + isolates})
+            
         
-        sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
-        isolates = [[int(i)] for i in nx.isolates(self._graph)]
-        if len(sub_nets) + len(isolates) > 1:
-            change_op.update({"partitions": sub_nets + isolates})
-        self._tp_changes.append(change_op)
-        self.write_tp_changes()
         # self.draw_and_save_network(f"round{round}")
     
     def get_node_pos(self):
@@ -346,7 +349,7 @@ class AdHocNetwork(Network):
 
 
     def write_tp_changes(self):
-        if len(self._tp_changes)<=50:
+        if len(self._tp_changes)<=500:
             return
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / "tp_changes.yml", 'a') as file:
