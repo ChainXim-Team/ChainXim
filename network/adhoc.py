@@ -123,6 +123,9 @@ class AdHocNetwork(Network):
         self._aveMoveNorm = None
         self._commRangeNorm = None
         self._tp_changes = []
+        self._node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
+                      for j in self._graph.nodes if i < j]
+        self._pos_matrix = None
 
         # 维护所有的活跃链路
         self._active_links:list[Link] = []
@@ -170,7 +173,7 @@ class AdHocNetwork(Network):
             self._region_width = region_width
         if comm_range is not None:
             self._comm_range = comm_range
-            self._commRangeNorm = comm_range/region_width
+            self._commRangeNorm = np.float32(comm_range/region_width)
         if ave_move is not None:
             self._ave_move = ave_move
             self._aveMoveNorm = ave_move/region_width
@@ -280,28 +283,43 @@ class AdHocNetwork(Network):
     # 高斯随机游走
     def gaussian_random_walk(self, round:int):
         change_op = {"round": round}
+        '''循环内逐一求取
         for current_node in self._graph:
             # 高斯随机移动当前节点
             distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm)
             angle = np.random.uniform(0, 2 * np.pi)
 
             movement = np.array([distance * np.cos(angle), distance * np.sin(angle)])
-            self._node_pos[current_node] = np.clip(
-                self._node_pos[current_node] + movement, 0, 1)
+            current_pos = self._node_pos[current_node]
+            np.clip(current_pos + movement, 0, 1, out=current_pos)
+        '''
+        # 向量化方式计算高斯游走后的坐标
+        node_num = self._pos_matrix.shape[0]
+        distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm, node_num)
+        angle = np.random.uniform(0, 2 * np.pi, node_num)
 
-            self.update_edges(change_op, round)
+        movement = np.array([distance * np.cos(angle), distance * np.sin(angle)]).T
+        np.clip(self._pos_matrix + movement, 0, 1, out=self._pos_matrix)
+
+        self.update_edges(change_op, round)
         self._tp_changes.append(change_op)
         self.write_tp_changes()
 
     
     def update_edges(self,  change_op:dict=None, round:int = 0):
-        node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
-                      for j in self._graph.nodes if i < j]
-        for node1, node2 in node_pairs:
+        # 利用numpy向量化特性优化欧几里得距离计算
+
+        dist_matrix = np.sqrt(np.sum((self._pos_matrix[:, np.newaxis, :] - self._pos_matrix[np.newaxis, :, :]) ** 2,
+                                     axis=-1))
+
+        for i, node in enumerate(self._node_pairs):
             # 计算两节点间的欧几里得距离
-            dist = np.linalg.norm(np.array(self._node_pos[node1])
-                                - np.array(self._node_pos[node2]))
-            if dist < self._commRangeNorm and not self._graph.has_edge(node1, node2):
+            #dist_array = self._node_pos[node1] - self._node_pos[node2]
+            #dist = np.dot(dist_array, dist_array)**0.5
+            node1, node2 = node
+            within_range = dist_matrix[node1, node2] < self._commRangeNorm
+            has_edge = self._graph.has_edge(node1, node2)
+            if within_range and not has_edge:
                 self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
                 self._miners[node1].NIC.add_neighbor(node2, round)
                 self._miners[node2].NIC.add_neighbor(node1, round)
@@ -310,7 +328,7 @@ class AdHocNetwork(Network):
                         change_op["adds"]=[[node1, node2]]
                     else:
                         change_op["adds"].append([node1, node2])
-            elif dist >= self._commRangeNorm and self._graph.has_edge(node1, node2):
+            elif not within_range and has_edge:
                 self._graph.remove_edge(node1, node2)  # 超出范围且已连接则移除边
                 self._miners[node1].NIC.remove_neighbor(node2)
                 self._miners[node2].NIC.remove_neighbor(node1)
@@ -345,6 +363,11 @@ class AdHocNetwork(Network):
 
     def init_node_pos(self):
         self._node_pos = nx.random_layout(self._graph, seed=50)
+        # 将每个节点的位置信息向量化存储
+        self._pos_matrix = np.array(list(self._node_pos.values()))
+        for i in self._node_pos:
+            # _pos_matrix的变动与_node_pos同步
+            self._node_pos[i] = self._pos_matrix[i,:]
         self.update_edges()
 
 
