@@ -60,5 +60,5 @@ class SynchronousNetwork(Network):
             for j in range(self.MINER_NUM):
                 for packet in self.network_tape:
                     if j != packet.source:
-                        self.miners[j].NIC.nic_receive(packet.payload)
+                        self.miners[j].NIC.nic_receive(packet)
             self.clear_NetworkTape()
