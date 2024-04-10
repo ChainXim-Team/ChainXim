@@ -34,12 +34,14 @@ class HonestMining(aa.AttackType):
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
                                          global_chain = self.global_chain, 
-                                         consensus = self.adver_consensus)
+                                         consensus = self.adver_consensus,
+                                         round = round)
         if attack_mine:
             self.behavior.upload(network = self.network, 
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
-                                 round = round)
+                                 round = round,
+                                 miner_list = self.adver_list)
         else:
             self.behavior.wait()
 
@@ -49,7 +51,7 @@ class HonestMining(aa.AttackType):
         self.__log['round'] = round
         self.__log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
         self.__log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
-        self.resultlog2txt()
+        # self.resultlog2txt()
 
 
     def excute_this_attack_per_round(self, round):

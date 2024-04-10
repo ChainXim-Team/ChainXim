@@ -21,10 +21,12 @@ class DoubleSpending(aa.AttackType):
             'adver_chain': None,
             'success': 0,
             'fail':0,
-            'behavior':None
+            'behavior':None,
+            'fork_block':None
         }
         self.__fork_block: Block
         self.__fork_height:int = 0
+        self.__fork_blockname =None
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -41,58 +43,68 @@ class DoubleSpending(aa.AttackType):
         adver_height = self.adver_chain.last_block.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height - self.__fork_height < n:
-            attack_mine = bh.mine(miner_list = self.adver_list, 
-                                  current_miner = current_miner,
-                                  miner_input = mine_input,
-                                  adver_chain = self.adver_chain, 
-                                  global_chain = self.global_chain,
-                                  consensus = self.adver_consensus)
+            attack_mine = bh.mine(miner_list = self.adver_list,
+                                         current_miner = current_miner,
+                                         miner_input = mine_input,
+                                         adver_chain = self.adver_chain,
+                                         global_chain = self.global_chain, 
+                                         consensus = self.adver_consensus,
+                                         round = round)
             self.__log['behavior'] = 'conforming ' + str(honest_height - self.__fork_height) + '/' +str(n)
         elif honest_height - self.__fork_height >= n:
             if honest_height - adver_height >= ng:
             # 攻击链比诚实链落后Ng个区块
                 self.__fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+                self.__fork_blockname = self.__fork_block.name
                 self.__fork_height = self.__fork_block.get_height()
-                attack_mine = bh.mine(miner_list = self.adver_list, 
-                                      current_miner = current_miner,
-                                       miner_input = mine_input,
-                                       adver_chain = self.adver_chain, 
-                                       global_chain = self.global_chain, 
-                                       consensus = self.adver_consensus) 
+                attack_mine = bh.mine(miner_list = self.adver_list,
+                                         current_miner = current_miner,
+                                         miner_input = mine_input,
+                                         adver_chain = self.adver_chain,
+                                         global_chain = self.global_chain, 
+                                         consensus = self.adver_consensus,
+                                         round = round) 
                 if self.__log['behavior'] != 'adopt':
                     self.__log['fail'] = self.__log['fail'] + 1
                 self.__log['behavior'] = 'adopt'
             elif adver_height > honest_height:
                 block = bh.upload(network = self.network, 
-                                  adver_chain = self.adver_chain, 
-                                  current_miner = current_miner, 
-                                  round = round)
-                attack_mine = bh.mine(miner_list = self.adver_list, 
-                                      current_miner = current_miner , 
-                                      miner_input = mine_input, 
-                                      adver_chain = self.adver_chain, 
-                                      global_chain = self.global_chain, 
-                                      consensus = self.adver_consensus)
+                                 adver_chain = self.adver_chain,
+                                 current_miner = current_miner, 
+                                 round = round,
+                                 miner_list = self.adver_list)
+                attack_mine = bh.mine(miner_list = self.adver_list,
+                                         current_miner = current_miner,
+                                         miner_input = mine_input,
+                                         adver_chain = self.adver_chain,
+                                         global_chain = self.global_chain, 
+                                         consensus = self.adver_consensus,
+                                         round = round)
                 if attack_mine:
                     block = bh.upload(network = self.network, 
-                                      adver_chain = self.adver_chain,
-                                      current_miner = current_miner, 
-                                      round = round)
+                                 adver_chain = self.adver_chain,
+                                 current_miner = current_miner, 
+                                 round = round,
+                                 miner_list = self.adver_list)
                 if self.__log['behavior'] != 'override':
                     self.__log['success'] = self.__log['success'] + 1
                 self.__log['behavior'] = 'override'
             else:
-                attack_mine = bh.mine(miner_list = self.adver_list, current_miner = current_miner \
-                              , miner_input = mine_input,\
-                              adver_chain = self.adver_chain, \
-                                global_chain = self.global_chain, consensus = self.adver_consensus)
+                attack_mine = bh.mine(miner_list = self.adver_list,
+                                         current_miner = current_miner,
+                                         miner_input = mine_input,
+                                         adver_chain = self.adver_chain,
+                                         global_chain = self.global_chain, 
+                                         consensus = self.adver_consensus,
+                                         round = round)
                 self.__log['behavior'] = 'matching'
 
     def clear_record_stage(self, round):
         bh = self.behavior
         self.__log['honest_chain']=self.honest_chain.last_block.name,self.honest_chain.last_block.height
         self.__log['adver_chain']=self.adver_chain.last_block.name,self.adver_chain.last_block.height
-        #self.log['other']=self.log['other']+' fork block is '+self.fork_blockname
+        self.__log['fork_block']=self.__fork_blockname
+        # self.__log['other']=self.__log['other']+' fork block is '+self.__fork_blockname
         bh.clear(miner_list = self.adver_list)# 清空
         self.resultlog2txt()
         
@@ -148,7 +160,7 @@ class DoubleSpending(aa.AttackType):
             ##
             return rate, thr_rate
         else:
-            return False
+            return -1,-1
         
     def resultlog2txt(self):
         ATTACK_RESULT_PATH = global_var.get_attack_result_path()
