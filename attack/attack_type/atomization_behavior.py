@@ -19,7 +19,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         mine_input = 0
         for temp_miner in miner_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
-            mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
+            mine_input = max(mine_input,I(round, temp_miner.input_tape)) # 模拟诚实矿工的BBP--输入
             chain_update : Chain
             # 如果存在更新将更新的区块添加到基准链上   
             cur_miner_newest_block = chain_update.get_last_block()
