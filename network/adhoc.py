@@ -15,7 +15,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
-import yaml
 
 import errors
 import global_var
