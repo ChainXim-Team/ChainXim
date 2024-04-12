@@ -20,7 +20,7 @@ class SelfishMining(aa.AttackType):
             'adver_chain': None,
             'state': '0'
         }
-        self._fork_block: Block
+        self.__fork_block: Block
 
     def renew_stage(self, round):
         ## 1. renew stage
@@ -37,7 +37,7 @@ class SelfishMining(aa.AttackType):
         current_miner = random.choice(self.adver_list)
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
-            self._fork_block = bh.adopt(adver_chain = self.adver_chain, 
+            self.__fork_block = bh.adopt(adver_chain = self.adver_chain, 
                                          honest_chain = self.honest_chain)
             # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，
             # 收益块数为从adver_chain与base_chain产生分歧的块数开始。
@@ -93,7 +93,8 @@ class SelfishMining(aa.AttackType):
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list)
+                                 miner_list = self.adver_list,
+                                 fork_block= self.__fork_block)
                         self.__log['state']='0'
                     else:
                         # 否则等待至下一回合，进入match状态。
@@ -104,14 +105,15 @@ class SelfishMining(aa.AttackType):
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list) 
+                                 miner_list = self.adver_list,
+                                 fork_block= self.__fork_block) 
                         # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
                         bh.wait()
                         # 但本质行为逻辑是wait
                         self.__log['state']='0#'
             else:
                 # 这时，攻击链比诚实链高，高多少不知道。什么状态也不确定。
-                if self.honest_chain.last_block.blockhash != self._fork_block.blockhash:
+                if self.honest_chain.last_block.blockhash != self.__fork_block.blockhash:
                     # 此时，攻击链和诚实链处于分叉了很久的状态。
                     if adver_height - honest_height >=2:
                         # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
@@ -130,7 +132,8 @@ class SelfishMining(aa.AttackType):
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list)
+                                 miner_list = self.adver_list,
+                                 fork_block= self.__fork_block)
                         attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,

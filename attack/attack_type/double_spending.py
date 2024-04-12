@@ -24,9 +24,9 @@ class DoubleSpending(aa.AttackType):
             'behavior':None,
             'fork_block':None
         }
-        self.__fork_block: Block
+        self.__fork_block: Block = None
         self.__fork_height:int = 0
-        self.__fork_blockname =None
+        self.__fork_blockname = None
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -72,7 +72,8 @@ class DoubleSpending(aa.AttackType):
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list)
+                                 miner_list = self.adver_list,
+                                 fork_block= self.__fork_block)
                 attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -85,7 +86,8 @@ class DoubleSpending(aa.AttackType):
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list)
+                                 miner_list = self.adver_list,
+                                 fork_block= self.__fork_block)
                 if self.__log['behavior'] != 'override':
                     self.__log['success'] = self.__log['success'] + 1
                 self.__log['behavior'] = 'override'

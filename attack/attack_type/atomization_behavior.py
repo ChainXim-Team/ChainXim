@@ -50,18 +50,25 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         pass
 
     def upload(self, network: network.Network, adver_chain: Chain,
-               current_miner: miner.Miner, round, miner_list: list[miner.Miner]) -> Block:
+               current_miner: miner.Miner, round, miner_list: list[miner.Miner], fork_block: Block = None) -> Block:
         # acceess to network
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
-        upload_block = adver_chain.get_last_block()
+        upload_block_list = [adver_chain.get_last_block()]
+        if fork_block != None: 
+            cur = upload_block_list[0]
+            while(cur != None and cur.blockhash != fork_block.blockhash):
+                upload_block_list.append(cur)
+                cur = cur.parentblock
+
+        # upload_block = adver_chain.get_last_block()
         # miner_list
         for adver_miner in miner_list:
             if adver_miner != current_miner:
-                adver_miner.forward([upload_block], OUTER)
+                adver_miner.forward(upload_block_list, OUTER)
             else:
-                adver_miner.forward([upload_block], SELF)
+                adver_miner.forward(upload_block_list, SELF)
         # upload_block: Block
-        return upload_block
+        return upload_block_list
 
     def mine(self, miner_list:list[miner.Miner],current_miner: miner.Miner, 
              miner_input: any, adver_chain: Chain, global_chain: Chain, 
@@ -72,7 +79,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 特别提醒： Miner_ID 和 isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
         #self.atlog['current_miner'] = self.current_miner.Miner_ID
         adm_newblock, mine_success = consensus.mining_consensus(
-            miner_id = current_miner.miner_id, isadversary=True, x=miner_input, round=round)
+            miner_id = current_miner.miner_id, isadversary=True, x=round, round=round)
         attack_mine: bool = False
         if adm_newblock:
             #self.atlog['block_content'] = adm_newblock.blockhead.content
