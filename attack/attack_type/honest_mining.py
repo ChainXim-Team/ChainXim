@@ -5,7 +5,7 @@ import random
 
 import attack.attack_type as aa
 import global_var
-
+from data import Block, Chain
 
 class HonestMining(aa.AttackType):
     '''
@@ -16,8 +16,10 @@ class HonestMining(aa.AttackType):
         self.__log = {
             'round': 0,
             'honest_chain': None,
-            'adver_chain': None
+            'adver_chain': None,
+            'fork_block': None
         }
+        self.__fork_block: Block = None
 
     def renew_stage(self,round):
         ## 1. renew stage
@@ -28,7 +30,7 @@ class HonestMining(aa.AttackType):
     def attack_stage(self,round,mine_input):
         ## 2. attack stage
         current_miner = random.choice(self.adver_list)       
-        fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+        self.__fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
         attack_mine = self.behavior.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -42,7 +44,7 @@ class HonestMining(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  miner_list = self.adver_list,
-                                 fork_block = fork_block)
+                                 fork_block = self.__fork_block)
         else:
             self.behavior.wait()
 
