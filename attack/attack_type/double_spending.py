@@ -15,7 +15,7 @@ class DoubleSpending(aa.AttackType):
     '''
     def __init__(self) -> None:
         super().__init__()
-        self.__log = {
+        self._log = {
             'round': 0,
             'honest_chain': None,
             'adver_chain': None,
@@ -24,9 +24,9 @@ class DoubleSpending(aa.AttackType):
             'behavior':None,
             'fork_block':None
         }
-        self.__fork_block: Block = None
-        self.__fork_height:int = 0
-        self.__fork_blockname = None
+        self._fork_block: Block = None
+        self._fork_height:int = 0
+        self._fork_blockname = None
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -42,7 +42,7 @@ class DoubleSpending(aa.AttackType):
         honest_height = self.honest_chain.last_block.get_height()
         adver_height = self.adver_chain.last_block.get_height()
         current_miner = random.choice(self.adver_list)
-        if honest_height - self.__fork_height < n:
+        if honest_height - self._fork_height < n:
             attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -50,13 +50,13 @@ class DoubleSpending(aa.AttackType):
                                          global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
-            self.__log['behavior'] = 'conforming ' + str(honest_height - self.__fork_height) + '/' +str(n)
-        elif honest_height - self.__fork_height >= n:
+            self._log['behavior'] = 'conforming ' + str(honest_height - self._fork_height) + '/' +str(n)
+        elif honest_height - self._fork_height >= n:
             if honest_height - adver_height >= ng:
             # 攻击链比诚实链落后Ng个区块
-                self.__fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-                self.__fork_blockname = self.__fork_block.name
-                self.__fork_height = self.__fork_block.get_height()
+                self._fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+                self._fork_blockname = self._fork_block.name
+                self._fork_height = self._fork_block.get_height()
                 attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -64,16 +64,16 @@ class DoubleSpending(aa.AttackType):
                                          global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round) 
-                if self.__log['behavior'] != 'adopt':
-                    self.__log['fail'] = self.__log['fail'] + 1
-                self.__log['behavior'] = 'adopt'
+                if self._log['behavior'] != 'adopt':
+                    self._log['fail'] = self._log['fail'] + 1
+                self._log['behavior'] = 'adopt'
             elif adver_height > honest_height:
                 block = bh.upload(network = self.network, 
                                  adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
                                  miner_list = self.adver_list,
-                                 fork_block= self.__fork_block)
+                                 fork_block= self._fork_block)
                 attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -87,10 +87,10 @@ class DoubleSpending(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  miner_list = self.adver_list,
-                                 fork_block= self.__fork_block)
-                if self.__log['behavior'] != 'override':
-                    self.__log['success'] = self.__log['success'] + 1
-                self.__log['behavior'] = 'override'
+                                 fork_block= self._fork_block)
+                if self._log['behavior'] != 'override':
+                    self._log['success'] = self._log['success'] + 1
+                self._log['behavior'] = 'override'
             else:
                 attack_mine = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
@@ -99,13 +99,13 @@ class DoubleSpending(aa.AttackType):
                                          global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
-                self.__log['behavior'] = 'matching'
+                self._log['behavior'] = 'matching'
 
     def clear_record_stage(self, round):
         bh = self.behavior
-        self.__log['honest_chain']=self.honest_chain.last_block.name,self.honest_chain.last_block.height
-        self.__log['adver_chain']=self.adver_chain.last_block.name,self.adver_chain.last_block.height
-        self.__log['fork_block']=self.__fork_blockname
+        self._log['honest_chain']=self.honest_chain.last_block.name,self.honest_chain.last_block.height
+        self._log['adver_chain']=self.adver_chain.last_block.name,self.adver_chain.last_block.height
+        self._log['fork_block']=self._fork_blockname
         # self.__log['other']=self.__log['other']+' fork block is '+self.__fork_blockname
         bh.clear(miner_list = self.adver_list)# 清空
         self.resultlog2txt()
@@ -125,15 +125,15 @@ class DoubleSpending(aa.AttackType):
         rate, thr_rate = self.__success_rate()
         return {'Success Rate': '{:.4f}'.format(rate),
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(thr_rate),
-                'Attack times': self.__log['success']+self.__log['fail'],
-                'Success times': self.__log['success'],
+                'Attack times': self._log['success']+self._log['fail'],
+                'Success times': self._log['success'],
                 'Ng': self.attack_arg['Ng'],
                 'N': self.attack_arg['N']
                 }
     
     def __success_rate(self):
-        if self.__log['success'] != 0 or self.__log['fail'] != 0:
-            rate = self.__log['success']/(self.__log['success']+self.__log['fail'])
+        if self._log['success'] != 0 or self._log['fail'] != 0:
+            rate = self._log['success']/(self._log['success']+self._log['fail'])
             ## 计算理论成功率
             tmp = 0
             n = self.attack_arg['N']
@@ -167,6 +167,6 @@ class DoubleSpending(aa.AttackType):
     def resultlog2txt(self):
         ATTACK_RESULT_PATH = global_var.get_attack_result_path()
         with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
-            print(self.__log, '\n',file=f)
+            print(self._log, '\n',file=f)
 
 

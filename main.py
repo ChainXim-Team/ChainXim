@@ -150,7 +150,8 @@ def main(**args):
                           else int(attack_setting['adver_num'])),
         'attack_type'  : (args.get('attack_type') if args.get('attack_type') is not None
                           else attack_setting['attack_type']),
-        'attack_arg'   : attack_setting['attack_arg'],
+        'attack_arg'   : attack_setting.get('attack_arg') if args.get('attack_arg') is not None
+                          else None,
         'adversary_ids': (args.get('adver_lists') if args.get('adver_lists') is not None
                           else eval(attack_setting.get('adver_lists') or 'None')),
         'eclipse'      : (True if attack_setting['eclipse'] is not None 
