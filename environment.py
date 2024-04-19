@@ -13,7 +13,7 @@ from attack.adversary import Adversary
 from data import Block, Chain
 from external import chain_growth, chain_quality, common_prefix
 from functions import for_name
-from miner import Miner
+from miner import Miner, network_interface
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class Environment(object):
             parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
             parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
             parameter_str += f"  Adversary's q: {self.adversary.get_adver_q()}) \n"
-        if isinstance(self.network, network.TopologyNetwork):
+        if isinstance(self.miners[0].NIC, network_interface.NICWithTp):
             parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
