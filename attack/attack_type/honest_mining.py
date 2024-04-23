@@ -6,6 +6,7 @@ import random
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
+import copy
 
 class HonestMining(aa.AttackType):
     '''
@@ -13,13 +14,14 @@ class HonestMining(aa.AttackType):
     '''
     def __init__(self) -> None:
         super().__init__()
-        self.__log = {
+        self._log = {
             'round': 0,
             'honest_chain': None,
             'adver_chain': None,
             'fork_block': None
         }
-        self.__fork_block: Block = None
+        self._fork_block: Block = None
+        self._simplifylog = {}
 
     def renew_stage(self,round):
         ## 1. renew stage
@@ -30,7 +32,7 @@ class HonestMining(aa.AttackType):
     def attack_stage(self,round,mine_input):
         ## 2. attack stage
         current_miner = random.choice(self.adver_list)       
-        self.__fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+        self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
         attack_mine = self.behavior.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
@@ -44,16 +46,16 @@ class HonestMining(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  miner_list = self.adver_list,
-                                 fork_block = self.__fork_block)
+                                 fork_block = self._fork_block)
         else:
             self.behavior.wait()
 
     def clear_record_stage(self,round):
         ## 3. clear and record stage
         self.behavior.clear(miner_list = self.adver_list)# 清空
-        self.__log['round'] = round
-        self.__log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
-        self.__log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
+        self._log['round'] = round
+        self._log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
+        self._log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
         # self.resultlog2txt()
 
 
@@ -81,8 +83,10 @@ class HonestMining(aa.AttackType):
     
 
     def resultlog2txt(self):
-        ATTACK_RESULT_PATH = global_var.get_attack_result_path()
-        with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
-            print(self.__log, '\n',file=f)
+        if self._simplifylog != self._log:
+            self._simplifylog = copy.deepcopy(self._log)
+            ATTACK_RESULT_PATH = global_var.get_attack_result_path()
+            with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
+                print(self._log, '\n',file=f)
 
 

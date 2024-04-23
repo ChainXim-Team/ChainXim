@@ -2,7 +2,7 @@
 定义honestminging攻击
 '''
 import random
-
+import copy
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
@@ -15,12 +15,12 @@ class SelfishMining(aa.AttackType):
     def __init__(self) -> None:
         super().__init__()
         self._log = {
-            'round': 0,
             'honest_chain': None,
             'adver_chain': None,
             'state': '0'
         }
         self._fork_block: Block
+        self._simplifylog = {}
 
     def renew_stage(self, round):
         ## 1. renew stage
@@ -113,7 +113,9 @@ class SelfishMining(aa.AttackType):
                         self._log['state']='0#'
             else:
                 # 这时，攻击链比诚实链高，高多少不知道。什么状态也不确定。
-                if self.honest_chain.last_block.blockhash != self._fork_block.blockhash:
+                if self._fork_block == None:
+                    self._fork_block = self.honest_chain.get_last_block()
+                if self.honest_chain.last_block.blockhash != self._fork_block.blockhash: 
                     # 此时，攻击链和诚实链处于分叉了很久的状态。
                     if adver_height - honest_height >=2:
                         # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
@@ -158,10 +160,9 @@ class SelfishMining(aa.AttackType):
         # 3. clear and record stage
         bh = self.behavior
         bh.clear(miner_list = self.adver_list)# 清空
-        self._log['round']=round
         self._log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
         self._log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
-        self.resultlog2txt()
+        # self.resultlog2txt(round)
     
     def excute_this_attack_per_round(self, round):
         '''
@@ -197,9 +198,11 @@ class SelfishMining(aa.AttackType):
 
         return thryRegion
 
-    def resultlog2txt(self):
-        ATTACK_RESULT_PATH = global_var.get_attack_result_path()
-        with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
-            print(self._log, '\n',file=f)
+    def resultlog2txt(self,round):
+        if self._simplifylog != self._log:
+            self._simplifylog = copy.deepcopy(self._log)
+            ATTACK_RESULT_PATH = global_var.get_attack_result_path()
+            with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
+                print(self._log,round, '\n',file=f)
 
 
