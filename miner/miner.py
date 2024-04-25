@@ -67,8 +67,11 @@ class Miner(object):
     def receive(self, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
         rcvSuccess = self.consensus.receive_filter(msg)
-        if rcvSuccess and global_var.get_attack_execute_type() != 'Eclipce':
-            self.forward([msg], OUTER)
+        if rcvSuccess:
+            if (not self.isAdversary or 
+                (self.isAdversary and global_var.get_attack_execute_type() != 'Eclipce')):
+                self.forward([msg], OUTER)
+
         return rcvSuccess
     
        
