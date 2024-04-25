@@ -64,7 +64,7 @@ class Environment(object):
             network_type = self.network, 
             consensus_type = global_var.get_consensus_type(), 
             miner_list = self.miners, 
-            eclipse = attack_param['eclipse'], 
+            # eclipse = attack_param['eclipse'], 
             global_chain = self.global_chain, 
             adver_consensus_param = consensus_param, 
             attack_arg = attack_param['attack_arg'])
@@ -84,8 +84,8 @@ class Environment(object):
         if adversary_ids:
             parameter_str += f'Adversary Miners: {adversary_ids} \n'
             parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
-            parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
-            parameter_str += f"  Adversary's q: {self.adversary.get_adver_q()}) \n"
+            # parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
+            parameter_str += f"  (Adversary's q: {self.adversary.get_adver_q()}) \n"
         if isinstance(self.miners[0].NIC, network_interface.NICWithTp):
             parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)

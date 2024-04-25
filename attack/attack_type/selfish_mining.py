@@ -19,7 +19,7 @@ class SelfishMining(aa.AttackType):
             'adver_chain': None,
             'state': '0'
         }
-        self._fork_block: Block
+        self._fork_block: Block = None
         self._simplifylog = {}
 
     def renew_stage(self, round):

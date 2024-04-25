@@ -23,12 +23,14 @@ class AttackType(metaclass=ABCMeta):
 
 
     def set_init(self, global_chain: Chain, adver_list:list[miner.Miner], miner_list:list[miner.Miner], \
-                network_type: network.Network, adver_consensus: consensus.Consensus, attack_arg:dict):
+                network_type: network.Network, adver_consensus: consensus.Consensus, attack_arg:dict, \
+                    eclipsed_list:list[miner.Miner] = None):
         self.global_chain: Chain = global_chain
         self.honest_chain: Chain = copy.deepcopy(global_chain)
         self.honest_chain.add_blocks(blocks=[global_chain.get_last_block()])
         self.miner_list: list[miner.Miner] = miner_list
         self.adver_list: list[miner.Miner] = adver_list
+        self.eclipsed_list: list[miner.Miner] = eclipsed_list if eclipsed_list is not None else None
         self.network: network.Network = network_type
         self.adver_consensus: consensus.Consensus = adver_consensus
         self.adver_chain: Chain = self.adver_consensus.local_chain

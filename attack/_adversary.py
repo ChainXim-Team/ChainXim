@@ -7,6 +7,7 @@ import network
 from attack import attack_type as at
 from data import Chain
 from functions import for_name
+import global_var
 
 
 class Adversary(metaclass=ABCMeta): 
@@ -34,16 +35,11 @@ class Adversary(metaclass=ABCMeta):
             '''
         self.__adver_num: int = (args.get('adver_num') if args.get('adver_num') is not None \
                 else 0)
-
-        self.__eclipse: bool = args.get('eclipse') if args.get('eclipse') is not None \
-                else False
         
         self.__attack_type: at.AttackType = for_name('attack.attack_type.' + args.get('attack_type'))() if args.get('attack_type') is not None  \
                 else at.HonestMining
-        
-        self.__eclipse_attack: at.AttackType = at.Eclipse(self.__attack_type) if self.__eclipse else None
 
-        self.__excute_attack: at.AttackType = self.__attack_type if self.__eclipse is not None else self.__eclipse_attack
+        self.__excute_attack: at.AttackType = self.__attack_type
         
         self.__adver_ids: list = list(args.get('adversary_ids')) if args.get('adversary_ids') is not None \
                 else []
@@ -79,6 +75,10 @@ class Adversary(metaclass=ABCMeta):
                 for adversary in self.__adver_list:
                     adversary.set_adversary(True)
                     self.__adver_ids.append(adversary.miner_id)
+        if global_var.get_attack_execute_type() == 'Eclipse':
+            self.__eclipsed_list: list[miner.Miner] = [self.__miner_list[i] for i in list(self.__attack_arg.get('eclipse_target'))]
+        else:
+            self.__eclipsed_list = None
         return self.__adver_list    
     
     def __consensus_q_init(self):
@@ -96,7 +96,8 @@ class Adversary(metaclass=ABCMeta):
                                     adver_list = self.__adver_list,
                                     network_type = self.__network_type, 
                                     adver_consensus = self.__consensus_type, 
-                                    attack_arg = self.__attack_arg)
+                                    attack_arg = self.__attack_arg,
+                                    eclipsed_list = self.__eclipsed_list)
     '''
     相关值返回 构造器
     '''

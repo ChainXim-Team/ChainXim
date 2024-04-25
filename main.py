@@ -154,8 +154,6 @@ def main(**args):
                           else None,
         'adversary_ids': (args.get('adver_lists') if args.get('adver_lists') is not None
                           else eval(attack_setting.get('adver_lists') or 'None')),
-        'eclipse'      : (True if attack_setting['eclipse'] is not None 
-                          and attack_setting['eclipse'].upper() == 'TRUE'else False),
     }
 
 

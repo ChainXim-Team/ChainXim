@@ -9,7 +9,7 @@ import miner.miner as miner
 import network
 from data import Block, Chain
 from external import I
-from miner._consts import OUTER, SELF
+from miner._consts import OUTER, SELF,FLOODING,SELFISH,SPEC_TARGETS
 
 
 class AtomizationBehavior(aa.AtomizationBehavior):
@@ -52,7 +52,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         pass
 
     def upload(self, network: network.Network, adver_chain: Chain,
-               current_miner: miner.Miner, round, miner_list: list[miner.Miner], fork_block: Block = None) -> Block:
+               current_miner: miner.Miner, round, miner_list: list[miner.Miner], fork_block: Block = None,
+               strategy = FLOODING, forward_target:list = None) -> Block:
         # acceess to network
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
         upload_block_list = [adver_chain.get_last_block()]
@@ -64,11 +65,12 @@ class AtomizationBehavior(aa.AtomizationBehavior):
 
         # upload_block = adver_chain.get_last_block()
         # miner_list
+        
         for adver_miner in miner_list:
-            if adver_miner != current_miner:
-                adver_miner.forward(upload_block_list, OUTER)
+            if adver_miner.miner_id != current_miner.miner_id:
+                adver_miner.forward(upload_block_list, OUTER, strategy =strategy)
             else:
-                adver_miner.forward(upload_block_list, SELF)
+                adver_miner.forward(upload_block_list, OUTER, strategy =strategy)
         # upload_block: Block
         return upload_block_list
 

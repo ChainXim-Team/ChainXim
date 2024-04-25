@@ -69,7 +69,7 @@ class Miner(object):
         rcvSuccess = self.consensus.receive_filter(msg)
         if rcvSuccess:
             if (not self.isAdversary or 
-                (self.isAdversary and global_var.get_attack_execute_type() != 'Eclipce')):
+                (self.isAdversary and global_var.get_attack_execute_type() != 'Eclipse')):
                 self.forward([msg], OUTER)
 
         return rcvSuccess
