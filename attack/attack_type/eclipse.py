@@ -1,14 +1,13 @@
 '''
 定义honestminging攻击
 '''
+import copy
 import random
 
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
-import copy
-from miner._consts import OUTER, SELF,FLOODING,SELFISH,SPEC_TARGETS
-
+from miner._consts import FLOODING, OUTER, SELF, SELFISH, SPEC_TARGETS
 
 attack_type= aa.HonestMining
 
