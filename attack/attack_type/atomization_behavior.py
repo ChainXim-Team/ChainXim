@@ -8,16 +8,30 @@ import global_var
 import miner.miner as miner
 import network
 from data import Block, Chain
+from consensus.consensus_abc import Consensus
 from external import I
 from miner._consts import OUTER, SELF,FLOODING,SELFISH,SPEC_TARGETS
 
 
 class AtomizationBehavior(aa.AtomizationBehavior):
 
-    def renew(self, miner_list:list[miner.Miner], honest_chain: Chain, round):
+    def renew(self, miner_list:list[miner.Miner], honest_chain: Chain, round, eclipse_list_ids:list[int] = None):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         mine_input = 0
         newest_block = honest_chain.get_last_block()
+        imcoming_block_from_eclipse:dict[any,Block] = {}
+        if eclipse_list_ids is not None:
+            for temp_miner in miner_list:
+                remove_block:list[Block] = []
+                for i,incoming_block in enumerate(temp_miner.consensus._receive_tape):
+                    if not isinstance(incoming_block, Consensus.Block):
+                        continue
+                    if incoming_block.blockhead.miner in eclipse_list_ids:
+                        remove_block.append(incoming_block)
+                for block in remove_block:
+                    imcoming_block_from_eclipse[block.blockhash] = block
+                    temp_miner.consensus._receive_tape.remove(block)
+                
         for temp_miner in miner_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
             mine_input = max(mine_input,I(round, temp_miner.input_tape)) # 模拟诚实矿工的BBP--输入
@@ -30,7 +44,10 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             temp_miner.consensus.local_chain._add_block_forcibly(block=newest_block)
             #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
         mine_input:any
-        return newest_block, mine_input
+        if eclipse_list_ids is not None:
+            return newest_block, mine_input,imcoming_block_from_eclipse
+        else:
+            return newest_block, mine_input
 
     def clear(self, miner_list:list[miner.Miner]) -> None:
         # clear the input tape and communcation tape
@@ -68,9 +85,9 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         
         for adver_miner in miner_list:
             if adver_miner.miner_id != current_miner.miner_id:
-                adver_miner.forward(upload_block_list, OUTER, strategy =strategy)
+                adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
             else:
-                adver_miner.forward(upload_block_list, OUTER, strategy =strategy)
+                adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
         # upload_block: Block
         return upload_block_list
 
