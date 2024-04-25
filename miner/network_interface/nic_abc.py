@@ -11,7 +11,7 @@ from network import (
 if TYPE_CHECKING:
     from .. import Miner
 
-from .._consts import OUTER, SELF
+from .._consts import FLOODING, OUTER, SELF
 
 
 class NetworkInterface(metaclass=ABCMeta):
@@ -31,14 +31,15 @@ class NetworkInterface(metaclass=ABCMeta):
         self._forward_buffer[OUTER].clear()
         self._forward_buffer[SELF].clear()
     
-    def append_forward_buffer(self, msg:Message, type:str):
+    def append_forward_buffer(self, msg:Message, type:str, 
+                              strategy: str = FLOODING, spec_target:list = None):
         """将要转发的消息添加到_forward_buffer中"""
         if type != SELF and type != OUTER:
             raise ValueError("Message type must be MINED or RECEIVED")
         if type == SELF:
-            self._forward_buffer[SELF].append(msg)
+            self._forward_buffer[SELF].append([msg, strategy, spec_target])
         elif type == OUTER:
-            self._forward_buffer[OUTER].append(msg)
+            self._forward_buffer[OUTER].append([msg, strategy, spec_target])
     
     @abstractmethod
     def nic_join_network(self, network):

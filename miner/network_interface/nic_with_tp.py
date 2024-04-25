@@ -15,7 +15,7 @@ from network import (
     TPPacket,
 )
 
-from .._consts import _IDLE, FLOODING, OUTER, SELF
+from .._consts import _IDLE, FLOODING, INV, OUTER, SELF, SELFISH, SPEC_TARGETS
 from .nic_abc import NetworkInterface
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class NICWithTp(NetworkInterface):
         super().__init__(miner)
         self._neighbors:list[int] = []
 
-        self._forward_strategy = FLOODING
+        # self._default_forward_strategy = FLOODING
         
 
         # 暂存本轮收到的数据包
@@ -127,14 +127,15 @@ class NICWithTp(NetworkInterface):
         if (len(self._forward_buffer[SELF]) != 0 or 
             len(self._forward_buffer[OUTER]) != 0) :
         
-            for msg in self._forward_buffer[SELF]:
-                out_msg = 'inv' if  isinstance(msg, Block) else msg
-                targets = self.select_target()
+            for [msg, strategy, spec_tgts] in self._forward_buffer[SELF]:
+                # INV消息代表后续会同步链的所有新区块，只有泛洪转发会
+                out_msg = INV if isinstance(msg, Block) and strategy == FLOODING else msg
+                targets = self.select_target(out_msg, strategy, spec_tgts)
                 for target in  targets:
                     self._output_queues[target].append(out_msg)
                 
-            for msg in self._forward_buffer[OUTER]:
-                targets = self.select_target(msg)
+            for [msg, strategy, spec_tgts] in self._forward_buffer[OUTER]:
+                targets = self.select_target(msg, strategy, spec_tgts)
                 if isinstance(msg, Block) and self.withSegments:
                     segs = self.seg_blocks(msg)
                     for target in  targets:
@@ -269,9 +270,15 @@ class NICWithTp(NetworkInterface):
 
 
             
-    def select_target(self, msg:Message=None):
-        if self._forward_strategy == FLOODING:
+    def select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:list=None):
+        if strategy == FLOODING:
             return self.select_target_flooding(msg)
+        if strategy == SPEC_TARGETS:
+            if spec_tgts is None or len(spec_tgts) == 0:
+                raise ValueError("Please specify the targets(SPEC_TARGETS)")
+            return spec_tgts
+        if strategy == SELFISH:
+            return []
 
 
     def select_target_flooding(self, block_msg:Block=None):
@@ -280,7 +287,7 @@ class NICWithTp(NetworkInterface):
         """
         targets = []
         msg_from = -1
-        if block_msg is not None and isinstance(block_msg, Block):
+        if block_msg is not None and block_msg != INV and isinstance(block_msg, Block):
             for packet in self._receive_buffer:
                 if not isinstance(packet.payload, Block):
                     continue

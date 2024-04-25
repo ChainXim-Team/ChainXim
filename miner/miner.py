@@ -12,7 +12,7 @@ from network import (
     TopologyNetwork,
 )
 
-from ._consts import OUTER, SELF
+from ._consts import FLOODING, OUTER, SELF
 from .network_interface import NetworkInterface, NICWithoutTp, NICWithTp
 
 logger = logging.getLogger(__name__)
@@ -67,18 +67,18 @@ class Miner(object):
     def receive(self, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
         rcvSuccess = self.consensus.receive_filter(msg)
-        if rcvSuccess:
+        if rcvSuccess and global_var.get_attack_execute_type() != 'Eclipce':
             self.forward([msg], OUTER)
         return rcvSuccess
     
        
-    def forward(self, msgs, type):
+    def forward(self, msgs, type, strategy:str=FLOODING, spec_targets:list = None):
         if type != SELF and type != OUTER:
             raise ValueError("Message type must be SELF or OUTER")
         
         for msg in msgs:
-            logger.info("M%d: forwarding %s", self.miner_id, msg.name)
-            self.NIC.append_forward_buffer(msg, type)
+            # logger.info("M%d: forwarding %s", self.miner_id, msg.name)
+            self.NIC.append_forward_buffer(msg, type, strategy, spec_targets)
 
     
     def launch_consensus(self, input, round):
