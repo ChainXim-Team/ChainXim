@@ -78,9 +78,10 @@ class Miner(object):
     def forward(self, msgs, type, strategy:str=FLOODING, spec_targets:list = None):
         if type != SELF and type != OUTER:
             raise ValueError("Message type must be SELF or OUTER")
-        
+        logger.info("M%d: forwarding %s, type %s, strategy %s", 
+                    self.miner_id, str([msg.name for msg in msgs]), type, strategy)
         for msg in msgs:
-            # logger.info("M%d: forwarding %s", self.miner_id, msg.name)
+            
             self.NIC.append_forward_buffer(msg, type, strategy, spec_targets)
 
     

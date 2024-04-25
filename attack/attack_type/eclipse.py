@@ -1,14 +1,13 @@
 '''
 定义honestminging攻击
 '''
+import copy
 import random
 
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
-import copy
-from miner._consts import OUTER, SELF,FLOODING,SELFISH,SPEC_TARGETS
-
+from miner._consts import FLOODING, OUTER, SELF, SELFISH, SPEC_TARGETS
 
 attack_type= aa.HonestMining
 
@@ -65,7 +64,7 @@ class Eclipse(aa.AttackType):
         ## 2. attack stage
         current_miner = random.choice(self.adver_list)       
         self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-        attack_mine = self.behavior.mine(miner_list = self.adver_list,
+        attack_mine, block = self.behavior.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -95,9 +94,9 @@ class Eclipse(aa.AttackType):
         
         ## 1. renew stage
         newest_block, mine_input = self.renew_stage(round)
-        ## 2. attack stage
+        # ## 2. attack stage
         self.attack_stage(round, mine_input)
-        ## 3. clear and record stage
+        # ## 3. clear and record stage
         self.clear_record_stage(round)
         
         

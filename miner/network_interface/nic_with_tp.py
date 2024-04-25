@@ -131,8 +131,14 @@ class NICWithTp(NetworkInterface):
                 # INV消息代表后续会同步链的所有新区块，只有泛洪转发会
                 out_msg = INV if isinstance(msg, Block) and strategy == FLOODING else msg
                 targets = self.select_target(out_msg, strategy, spec_tgts)
-                for target in  targets:
-                    self._output_queues[target].append(out_msg)
+                if out_msg != INV and isinstance(out_msg, Block) and self.withSegments:
+                    segs = self.seg_blocks(msg)
+                    for target in  targets:
+                        self._output_queues[target].extend(segs)
+                else:
+                    for target in  targets:
+                        self._output_queues[target].append(out_msg)
+                
                 
             for [msg, strategy, spec_tgts] in self._forward_buffer[OUTER]:
                 targets = self.select_target(msg, strategy, spec_tgts)
@@ -276,7 +282,7 @@ class NICWithTp(NetworkInterface):
         if strategy == SPEC_TARGETS:
             if spec_tgts is None or len(spec_tgts) == 0:
                 raise ValueError("Please specify the targets(SPEC_TARGETS)")
-            return spec_tgts
+            return self.select_target_spec(msg, spec_tgts)
         if strategy == SELFISH:
             return []
 
@@ -299,6 +305,23 @@ class NICWithTp(NetworkInterface):
             if neighbor == msg_from:
                 continue
             targets.append(neighbor)
+        return targets
+    
+
+    def select_target_spec(self, block_msg:Block=None, spec_tgts:list = None):
+        """
+        泛洪转发，转发给不包括source的邻居节点
+        """
+        targets = [t for t in spec_tgts if t in self._neighbors]
+        msg_from = -1
+        if block_msg is not None and block_msg != INV and isinstance(block_msg, Block):
+            for packet in self._receive_buffer:
+                if not isinstance(packet.payload, Block):
+                    continue
+                if block_msg.name == packet.payload.name:
+                    msg_from = packet.source
+                    break
+        targets = [t for t in spec_tgts if t in self._neighbors and t != msg_from]
         return targets
 
     
