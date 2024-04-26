@@ -74,11 +74,12 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # acceess to network
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
         upload_block_list = [adver_chain.get_last_block()]
+        # upload_block_list 不能有重复元素 必须是有前指关系 item0->item1->item2->....
         if fork_block != None: 
             cur = upload_block_list[0]
             while(cur != None and cur.blockhash != fork_block.blockhash):
-                upload_block_list.append(cur)
                 cur = cur.parentblock
+                upload_block_list.append(cur)
 
         # upload_block = adver_chain.get_last_block()
         # miner_list
@@ -87,7 +88,9 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             if adver_miner.miner_id != current_miner.miner_id:
                 adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
             else:
-                adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
+                adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
+                # adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
+            adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)
         # upload_block: Block
         return upload_block_list
 
@@ -105,8 +108,11 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         if adm_newblock:
             #self.atlog['block_content'] = adm_newblock.blockhead.content
             attack_mine = True
+            # if len(miner_list) == 1:
+            #     adm_newblock = miner_list[0].consensus.local_chain.add_blocks(adm_newblock)
             # 自己挖出来的块直接用AddBlock即可
             adm_newblock = adver_chain.add_blocks(blocks=adm_newblock)
+
             adver_chain.set_last_block(adm_newblock)
             # adver_chain.last_block = adm_newblock
             # 作为历史可能分叉的一部添加到全局链中
@@ -114,5 +120,6 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             # for temp_miner in miner_list:
             #     # 将新挖出的区块放在攻击者的receive_tape
             #     temp_miner._consensus._receive_tape.append(adm_newblock)
+
         adm_newblock: Block
         return attack_mine, adm_newblock

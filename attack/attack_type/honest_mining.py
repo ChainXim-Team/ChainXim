@@ -15,7 +15,7 @@ class HonestMining(aa.AttackType):
     def __init__(self) -> None:
         super().__init__()
         self._log = {
-            'round': 0,
+            # 'round': 0,
             'honest_chain': None,
             'adver_chain': None,
             'fork_block': None
@@ -34,7 +34,7 @@ class HonestMining(aa.AttackType):
         current_miner = random.choice(self.adver_list)
         if self.honest_chain.get_height() > self.adver_chain.get_height():       
             self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-        attack_mine = self.behavior.mine(miner_list = self.adver_list,
+        attack_mine,block = self.behavior.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -54,10 +54,10 @@ class HonestMining(aa.AttackType):
     def clear_record_stage(self,round):
         ## 3. clear and record stage
         self.behavior.clear(miner_list = self.adver_list)# 清空
-        self._log['round'] = round
+        # self._log['round'] = round
         self._log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
         self._log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
-        # self.resultlog2txt()
+        self.resultlog2txt(round)
 
 
     def excute_this_attack_per_round(self, round):
@@ -83,11 +83,11 @@ class HonestMining(aa.AttackType):
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
     
 
-    def resultlog2txt(self):
+    def resultlog2txt(self,round):
         if self._simplifylog != self._log:
             self._simplifylog = copy.deepcopy(self._log)
             ATTACK_RESULT_PATH = global_var.get_attack_result_path()
             with open(ATTACK_RESULT_PATH / f'Attack Log.txt','a') as f:
-                print(self._log, '\n',file=f)
+                print(self._log,round, '\n',file=f)
 
 

@@ -41,7 +41,7 @@ class SelfishMining(aa.AttackType):
                                          honest_chain = self.honest_chain)
             # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，
             # 收益块数为从adver_chain与base_chain产生分歧的块数开始。
-            attack_mine = bh.mine(miner_list = self.adver_list,
+            attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -65,7 +65,7 @@ class SelfishMining(aa.AttackType):
                 # 此时攻击链与诚实链等高
                 if self.honest_chain.last_block.blockhash == self.adver_chain.last_block.blockhash:
                     # 同高位置的区块相同，因此为0状态，攻击者尝试挖矿，挖出与否都不公布
-                    attack_mine = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -80,7 +80,7 @@ class SelfishMining(aa.AttackType):
                         self._log['state']='0'
                 else:
                     # 同高位置的区块不相同，因此为0'状态，攻击者依然尝试挖矿
-                    attack_mine = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -119,7 +119,7 @@ class SelfishMining(aa.AttackType):
                     # 此时，攻击链和诚实链处于分叉了很久的状态。
                     if adver_height - honest_height >=2:
                         # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
-                        attack_mine = bh.mine(miner_list = self.adver_list,
+                        attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -136,7 +136,7 @@ class SelfishMining(aa.AttackType):
                                  round = round,
                                  miner_list = self.adver_list,
                                  fork_block= self._fork_block)
-                        attack_mine = bh.mine(miner_list = self.adver_list,
+                        attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -146,7 +146,7 @@ class SelfishMining(aa.AttackType):
                         self._log['state']='2' if attack_mine else '1'
                 else:
                     # 此时，攻击链从主链挖出若干隐形块，不需要担心受到威胁
-                    attack_mine = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -162,7 +162,7 @@ class SelfishMining(aa.AttackType):
         bh.clear(miner_list = self.adver_list)# 清空
         self._log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
         self._log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
-        # self.resultlog2txt(round)
+        self.resultlog2txt(round)
     
     def excute_this_attack_per_round(self, round):
         '''

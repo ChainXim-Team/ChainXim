@@ -79,6 +79,7 @@ class Adversary(metaclass=ABCMeta):
             self.__eclipsed_list: list[miner.Miner] = [self.__miner_list[i] for i in list(self.__attack_arg.get('eclipse_target'))]
         else:
             self.__eclipsed_list = None
+        self.__adver_num = len(self.__adver_list)
         return self.__adver_list    
     
     def __consensus_q_init(self):
