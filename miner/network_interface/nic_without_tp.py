@@ -18,7 +18,7 @@ class NICWithoutTp(NetworkInterface):
     def nic_forward(self, round:int):
         if len(self._forward_buffer[SELF])==0:
             return 
-        for msg in self._forward_buffer[SELF]:
+        for msg,_,_ in self._forward_buffer[SELF]:
             self._network.access_network([msg], self.miner_id, round)
         self.clear_forward_buffer()
         
