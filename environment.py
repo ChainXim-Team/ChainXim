@@ -313,7 +313,8 @@ class Environment(object):
         # block interval distribution
         self.miners[0].consensus.local_chain.GetBlockIntervalDistribution()
 
-        self.global_chain.ShowStructureWithGraphviz()
+        other_list = self.adversary.get_eclipsed_ids()
+        self.global_chain.ShowStructureWithGraphviz(other_list= other_list)
         if isinstance(self.network,network.TopologyNetwork):
             # 利用 isinstance 指定类型 方便调用类方法gen_routing_gragh_from_json()
             # self.network.save_rest_routing_process()

@@ -249,7 +249,7 @@ class Chain(object):
             plt.show()
         plt.close()
 
-    def ShowStructureWithGraphviz(self):
+    def ShowStructureWithGraphviz(self,other_list:list[int] = None):
         '''借助Graphviz将区块链可视化'''
         # 采用有向图
         dot = graphviz.Digraph('Blockchain Structure',engine='dot')
@@ -261,7 +261,10 @@ class Chain(object):
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red')
                 else:
-                    dot.node(blocktmp.name,shape='rect',color='blue')
+                    if other_list is None:
+                        dot.node(blocktmp.name,shape='rect',color='blue')
+                    else:
+                        dot.node(blocktmp.name,shape='rect',color='orange' if blocktmp.blockhead.miner in other_list else 'blue')
                 # 建立区块连接
                 dot.edge(blocktmp.parentblock.name, blocktmp.name)
             else:
