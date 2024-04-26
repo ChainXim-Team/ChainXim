@@ -120,6 +120,11 @@ class Adversary(metaclass=ABCMeta):
     def get_adver_q(self):
         return self.__consensus_type.q
     
+    def get_eclipsed_ids(self):
+        if self.__eclipsed_list:
+            return [m.miner_id for m in self.__eclipsed_list]
+        else:
+            return None
     '''
     以下为非构造器
     用于Adversary的进阶功能
