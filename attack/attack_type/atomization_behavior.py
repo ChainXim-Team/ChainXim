@@ -22,16 +22,16 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         imcoming_block_from_eclipse:dict[any,Block] = {}
         if eclipse_list_ids is not None:
             for temp_miner in miner_list:
-                remove_block:list[Block] = []
+                remove_block:dict[str,Block] = {}
                 for i,incoming_block in enumerate(temp_miner.consensus._receive_tape):
                     if not isinstance(incoming_block, Consensus.Block):
                         continue
                     if incoming_block.blockhead.miner in eclipse_list_ids:
-                        remove_block.append(incoming_block)
-                for block in remove_block:
+                        remove_block[incoming_block.blockhash] = incoming_block
+                for k,block in remove_block.items():
                     imcoming_block_from_eclipse[block.blockhash] = block
                     temp_miner.consensus._receive_tape.remove(block)
-                
+            
         for temp_miner in miner_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
             mine_input = max(mine_input,I(round, temp_miner.input_tape)) # 模拟诚实矿工的BBP--输入
@@ -42,7 +42,6 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         newest_block = honest_chain._add_block_forcibly(block=newest_block)
         for temp_miner in miner_list:
             temp_miner.consensus.local_chain._add_block_forcibly(block=newest_block)
-            #self.local_record.add_block_copy(chain_update.lastblock) # 同时 也将该区块同步到全局链上
         mine_input:any
         if eclipse_list_ids is not None:
             return newest_block, mine_input,imcoming_block_from_eclipse
@@ -70,7 +69,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
 
     def upload(self, network: network.Network, adver_chain: Chain,
                current_miner: miner.Miner, round, miner_list: list[miner.Miner], fork_block: Block = None,
-               strategy = FLOODING, forward_target:list = None) -> Block:
+               strategy = FLOODING, forward_target:list = None, upload_statement=None) -> Block:
         # acceess to network
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
         upload_block_list = [adver_chain.get_last_block()]
@@ -86,10 +85,11 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         
         for adver_miner in miner_list:
             if adver_miner.miner_id != current_miner.miner_id:
-                adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
-            else:
                 adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
-                # adver_miner.forward(upload_block_list, OUTER, strategy =strategy, spec_targets=forward_target)
+            else:
+                # adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
+                adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
+            '''保证adverminer一定会收到'''
             adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)
         # upload_block: Block
         return upload_block_list
