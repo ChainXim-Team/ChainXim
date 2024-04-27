@@ -54,7 +54,7 @@ class DoubleSpending(aa.AttackType):
         adver_height = self.adver_chain.last_block.get_height()
         current_miner = random.choice(self.adver_list)
         if honest_height - self._fork_height < n:
-            attack_mine = bh.mine(miner_list = self.adver_list,
+            attack_mine,blocks = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -67,7 +67,7 @@ class DoubleSpending(aa.AttackType):
             # 攻击链比诚实链落后Ng个区块
                 self._fork_block = bh.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
                 self._fork_height = self._fork_block.get_height()
-                attack_mine = bh.mine(miner_list = self.adver_list,
+                attack_mine,blocks = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -86,7 +86,7 @@ class DoubleSpending(aa.AttackType):
                                  miner_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
                 self._lastattackblock = self.adver_chain.get_last_block()
-                attack_mine = bh.mine(miner_list = self.adver_list,
+                attack_mine,blocks = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -106,7 +106,7 @@ class DoubleSpending(aa.AttackType):
 
                 self._log['behavior'] = 'override'
             elif adver_height == honest_height:
-                attack_mine = bh.mine(miner_list = self.adver_list,
+                attack_mine,blocks = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
@@ -129,7 +129,7 @@ class DoubleSpending(aa.AttackType):
                     self._log['behavior'] = 'matching'
             else:
                 # 攻击链与诚实链 matching
-                attack_mine = bh.mine(miner_list = self.adver_list,
+                attack_mine,blocks = bh.mine(miner_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
