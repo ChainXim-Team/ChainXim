@@ -75,7 +75,7 @@ class Adversary(metaclass=ABCMeta):
                 for adversary in self.__adver_list:
                     adversary.set_adversary(True)
                     self.__adver_ids.append(adversary.miner_id)
-        if global_var.get_attack_execute_type() == 'Eclipse':
+        if 'Eclipse' in global_var.get_attack_execute_type():
             self.__eclipsed_list: list[miner.Miner] = [self.__miner_list[i] for i in list(self.__attack_arg.get('eclipse_target'))]
         else:
             self.__eclipsed_list = None
