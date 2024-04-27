@@ -253,7 +253,12 @@ class NICWithTp(NetworkInterface):
         loc_chain = self.miner.get_local_chain()
         loc_h = loc_chain.get_last_block().get_height()
         if inv_h < loc_h:
-            return getData
+            if not self.miner.isAdversary:
+                return getData
+            else:
+                getData.require = True
+                getData.req_blocks = [inv.block]
+                return getData
         getData.require = True
         getData.req_blocks = []
         req_b = inv.block
