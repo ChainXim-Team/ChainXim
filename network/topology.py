@@ -142,7 +142,8 @@ class TopologyNetwork(Network):
                       edge_add_prob = None,
                       stat_prop_times = None, 
                       show_label = None,
-                      save_routing_graph = None):
+                      save_routing_graph = None,
+                      rand_mode = None):
         ''' 
         set the network parameters
 
@@ -166,7 +167,7 @@ class TopologyNetwork(Network):
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
                 self._ave_degree = ave_degree
-                self.network_generator(init_mode, ave_degree)
+                self.network_generator(init_mode, ave_degree, rand_mode)
             else:
                 self._init_mode = init_mode
                 self.edge_prob = None
@@ -471,7 +472,7 @@ class TopologyNetwork(Network):
         return self._stat_prop_times
     
 
-    def network_generator(self, gen_net_approach, ave_degree=None):
+    def network_generator(self, gen_net_approach, ave_degree=None, rand_mode=None):
         '''
         根据csv文件的邻接矩'adj'或coo稀疏矩阵'coo'生成网络拓扑    
         '''
@@ -482,7 +483,7 @@ class TopologyNetwork(Network):
             elif gen_net_approach == 'coo':
                 self.gen_network_by_coo()
             elif gen_net_approach == 'rand' and ave_degree is not None:
-                self.gen_network_rand(ave_degree)
+                self.gen_network_rand(ave_degree, rand_mode)
             else:
                 raise errors.NetGenError('网络生成方式错误！')
             
@@ -495,7 +496,7 @@ class TopologyNetwork(Network):
                     raise errors.NetIsoError('Brain-split in the newtork! ')
                 retry_num = 10
                 for _ in range(retry_num):
-                    self.gen_network_rand(ave_degree)
+                    self.gen_network_rand(ave_degree, rand_mode)
                     if nx.number_connected_components(self._graph) == 1:
                         break
                 if nx.number_connected_components(self._graph) == 1:
@@ -520,10 +521,44 @@ class TopologyNetwork(Network):
             print(error)
             sys.exit(0)
     
-    def gen_network_rand(self, ave_degree):
-        """采用Erdős-Rényi算法生成随机图"""
-        edge_prop = ave_degree/self.MINER_NUM
-        self._graph = nx. gnp_random_graph(self.MINER_NUM, edge_prop)
+    def get_neighbor_len(self, G: nx.Graph, minerid):
+        return len(list(G.neighbors(minerid)))
+
+    def random_graph_with_fixed_degree(self, n, ave_degree):
+        G = nx.Graph()
+        G.add_nodes_from(range(n))
+        edge_adding_queue = list(range(n))
+        random.shuffle(edge_adding_queue)
+        ready_nodes = []
+        while edge_adding_queue:
+            i = edge_adding_queue.pop()
+            neighbor_len = self.get_neighbor_len(G, i)
+            if neighbor_len >= ave_degree:
+                continue
+            if len(edge_adding_queue) >= ave_degree - neighbor_len:
+                neighbor_lens = map(self.get_neighbor_len, [G]*len(edge_adding_queue), edge_adding_queue)
+                remaining_edges = np.clip(ave_degree - np.fromiter(neighbor_lens, np.float16), 0.0001, None)
+                new_neighbor = np.random.choice(edge_adding_queue,
+                                                int(ave_degree) - neighbor_len,
+                                                replace=False,
+                                                p=remaining_edges/remaining_edges.sum())
+            else:
+                new_neighbor = edge_adding_queue + random.sample(ready_nodes,
+                                                                 int(ave_degree) - neighbor_len - len(edge_adding_queue))
+            for j in new_neighbor:
+                G.add_edge(i, j)
+            ready_nodes.append(i)
+        return G
+
+    def gen_network_rand(self, ave_degree, rand_mode):
+        """生成随机图"""
+        if rand_mode == 'homogeneous':
+            self._graph = self.random_graph_with_fixed_degree(self.MINER_NUM, ave_degree)
+        elif rand_mode == 'binomial':
+            self._graph = nx.binomial_graph(self.MINER_NUM,
+                                            ave_degree/(self.MINER_NUM-1))
+        else:
+            raise errors.NetGenError(f'Random network mode {rand_mode} is not supported!')
         # 防止出现孤立节点
         if nx.number_of_isolates(self._graph) > 0:
             iso_nodes = list(nx.isolates(self._graph))

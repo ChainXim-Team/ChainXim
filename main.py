@@ -119,7 +119,9 @@ def main(**args):
             'init_mode': (args.get('init_mode') or 
                           config.get(net_setting, 'init_mode')),
             'stat_prop_times': (args.get('stat_prop_times') or 
-                                eval(config.get(net_setting, 'stat_prop_times')))
+                                eval(config.get(net_setting, 'stat_prop_times'))),
+            'rand_mode': (args.get('rand_mode') or
+                          config.get(net_setting, 'rand_mode'))
         })
     # AdHocNetwork
     elif network_type == 'network.AdHocNetwork':
@@ -237,6 +239,10 @@ could be performed with attackers designed in the simulator'
                                   action='store_true')
     topology_setting.add_argument('--save_routing_graph',help='Genarate routing graph at the end of simulation or not.',
                                   action='store_true')
+    rand_mode_help_text = '''Options:homogeneous/binomial.
+    homogeneous: try to keep the degree of each node the same.
+    binomial: set up edges with probability ave_degree/(miner_num-1) for each node. '''
+    topology_setting.add_argument('--rand_mode',help=rand_mode_help_text,type=str)
     topology_setting.add_argument('--ave_degree',help='Set the average degree of the network.',type=float)
     topology_setting.add_argument('--bandwidth_honest',
                                   help='Set bandwidth between honest miners and between the honest and adversaries(MB/round)',
