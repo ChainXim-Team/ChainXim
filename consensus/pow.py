@@ -2,7 +2,7 @@ import time
 from typing import List, Tuple
 
 import global_var
-from functions import BYTE_ORDER, INT_LEN, hash_bytes
+from functions import BYTE_ORDER, INT_LEN, HASH_LEN, hash_bytes
 
 from .consensus_abc import Consensus
 
@@ -12,7 +12,7 @@ class PoW(Consensus):
     class BlockHead(Consensus.BlockHead):
         '''适用于PoW共识协议的区块头'''
         def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,
-                     target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+                     target = (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER),
                      nonce = 0):
             # currently content is an integer equal to the round the block is generated
             super().__init__(preblock, timestamp, content, miner_id)

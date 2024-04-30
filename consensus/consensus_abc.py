@@ -121,7 +121,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def mining_consensus(self, miner_id, isadversary, x):
+    def mining_consensus(self, miner_id, isadversary, x, round):
         '''共识机制定义的挖矿算法
         return:
             新产生的区块  type:Block 

@@ -232,22 +232,26 @@ could be performed with attackers designed in the simulator'
     bound_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
     # TopologyNetworkSettings
     topology_setting = parser.add_argument_group('TopologyNetworkSettings','Settings for TopologyNetwork')
-    topology_setting.add_argument('--gen_net_approach',
-                        help='One of the three methods to generate network topology:coo/adj/rand',
-                        type=str)
+    gen_net_approach_help_text = '''Options:coo/adj/rand.
+    coo: load adjecent matrix from network/topolpgy_coo.csv in COOrdinate format.
+    adj: load adjecent matrix from network/topolpgy.csv.
+    rand: randomly generate a network.'''
+    topology_setting.add_argument('--gen_net_approach',help=gen_net_approach_help_text,type=str)
     topology_setting.add_argument('--show_label',help='Show edge labels on network and routing graph.',
                                   action='store_true')
     topology_setting.add_argument('--save_routing_graph',help='Genarate routing graph at the end of simulation or not.',
                                   action='store_true')
     rand_mode_help_text = '''Options:homogeneous/binomial.
     homogeneous: try to keep the degree of each node the same.
-    binomial: set up edges with probability ave_degree/(miner_num-1) for each node. '''
+    binomial: set up edges with probability ave_degree/(miner_num-1). '''
     topology_setting.add_argument('--rand_mode',help=rand_mode_help_text,type=str)
     topology_setting.add_argument('--ave_degree',help='Set the average degree of the network.',type=float)
     topology_setting.add_argument('--bandwidth_honest',
                                   help='Set bandwidth between honest miners and between the honest and adversaries(MB/round)',
                                   type=float)
     topology_setting.add_argument('--bandwidth_adv',help='Set bandwidth between adversaries(MB/round)')
+    topology_setting.add_argument('--outage_prob',help='The outage probability of each link.',type=float)
+    topology_setting.add_argument('--dynamic',help='Whether the network topology can dynamically change.',action='store_true')
     parser.add_argument('--result_path',help='The path to output results', type=str)
 
     args = vars(parser.parse_args())
