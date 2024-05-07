@@ -54,7 +54,6 @@ class Environment(object):
         self.cp_cdf_k = np.zeros((1, self.max_suffix))  
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        self.network.set_net_param(**network_param)
         
         # generate adversary
         self.adversary = Adversary(
@@ -70,6 +69,10 @@ class Environment(object):
             attack_arg = attack_param['attack_arg'])
         # get adversary IDs
         adversary_ids = self.adversary.get_adver_ids()
+
+        # set parameters for network
+        self.network.set_net_param(**network_param)
+
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         for miner in self.miners:
