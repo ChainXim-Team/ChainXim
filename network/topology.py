@@ -66,7 +66,7 @@ class Link(object):
     def get_msg(self):
         return self.packet.payload
     
-    def get_blobk_msg_name(self):
+    def get_block_msg_name(self):
         if isinstance(self.packet.payload, Block):
             return self.packet.payload.name
         
@@ -211,7 +211,7 @@ class TopologyNetwork(Network):
             delay = self.cal_delay(msg, minerid, target)
             link = Link(packet, delay, self)
             self._active_links.append(link)
-            self._rcv_miners[link.get_blobk_msg_name()].append(minerid)
+            self._rcv_miners[link.get_block_msg_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
             if isinstance(msg, Block):
@@ -264,10 +264,10 @@ class TopologyNetwork(Network):
                 continue
             link.target_miner().NIC.nic_receive(link.packet)
             link.source_miner().NIC.get_reply(
-                link.get_blobk_msg_name(),link.target_id(), None, round)
-            if self._rcv_miners[link.get_blobk_msg_name()][-1]!=-1:
-                self._rcv_miners[link.get_blobk_msg_name()].append(link.target_id())
-                self._routing_proc[link.get_blobk_msg_name()].append(
+                link.get_block_msg_name(),link.target_id(), None, round)
+            if self._rcv_miners[link.get_block_msg_name()][-1]!=-1:
+                self._rcv_miners[link.get_block_msg_name()].append(link.target_id())
+                self._routing_proc[link.get_block_msg_name()].append(
                     [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
                 )
             self.stat_block_propagation_times(link.packet, round)
@@ -295,7 +295,7 @@ class TopologyNetwork(Network):
             return outage
         # 链路中断返回ERR_OUTAGE错误
         link.source_miner().NIC.get_reply(
-            link.get_blobk_msg_name(), link.target_id(), ERR_OUTAGE, round)
+            link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, round)
         outage = True
         return outage
 

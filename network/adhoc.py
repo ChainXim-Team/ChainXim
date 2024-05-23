@@ -73,7 +73,8 @@ class Link(object):
     def get_seg_name(self):
         if (isinstance(self.packet.payload, Segment) and 
             isinstance(self.packet.payload.msg, Block)):
-            return str((self.packet.payload.msg.name, self.packet.payload.seg_id))
+            return str((self.packet.payload.msg.name, 
+                        self.packet.payload.seg_id))
         print(0)
         
     def get_block_name(self):
@@ -117,9 +118,13 @@ class AdHocNetwork(Network):
         
         self._region_width = None
         self._comm_range = None
-        self._ave_move = None
+        # self._ave_move = None
+        self._min_move = None
+        self._max_move= None
         self._node_pos = None #后面由set_node_pos生成
-        self._aveMoveNorm = None
+        # self._aveMoveNorm = None
+        self._minMoveNorm = None
+        self._maxMoveNorm = None
         self._commRangeNorm = None
         self._tp_changes = []
         self._node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
@@ -148,7 +153,8 @@ class AdHocNetwork(Network):
                       ave_degree = None, 
                       region_width = None,
                       comm_range = None,
-                      ave_move = None,
+                      min_move = None,
+                      max_move = None,
                       outage_prob = None, 
                       stat_prop_times = None, ):
         ''' 
@@ -173,9 +179,15 @@ class AdHocNetwork(Network):
         if comm_range is not None:
             self._comm_range = comm_range
             self._commRangeNorm = np.float32(comm_range/region_width)
-        if ave_move is not None:
-            self._ave_move = ave_move
-            self._aveMoveNorm = ave_move/region_width
+        # if ave_move is not None:
+        #     self._ave_move = ave_move
+        #     self._aveMoveNorm = ave_move/region_width
+        if min_move is not None:
+            self.min_move = min_move
+            self._minMoveNorm = min_move/region_width
+        if max_move is not None:
+            self._max_move = max_move
+            self._maxMoveNorm = max_move/region_width
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -209,9 +221,9 @@ class AdHocNetwork(Network):
             self._rcv_miners[link.get_block_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
-            if isinstance(msg, Block):
-                logger.info("%s access network: M%d -> M%d, round %d", 
-                        msg.name, minerid, target, round)
+            if isinstance(msg, Segment):
+                logger.info("Seg(%s, %d) access network: M%d -> M%d, round %d", 
+                        msg.msg.name,msg.seg_id, minerid, target, round)
                 
     def inv_handler(self, new_msgs:list[Message]):
         """先处理inv消息"""
@@ -230,7 +242,7 @@ class AdHocNetwork(Network):
         
         self.receive_process(round)
         self.forward_process(round)
-        self.gaussian_random_walk(round)
+        self.random_walk(round)
             
     def receive_process(self,round):
         """接收过程"""
@@ -246,11 +258,11 @@ class AdHocNetwork(Network):
                 continue
             rcv_state = link.target_miner().NIC.nic_receive(link.packet)
             link.source_miner().NIC.get_reply(
-                link.get_seg_name(),link.target_id(), None, round)
+                link.get_seg_name(), link.target_id(), None, round)
             if rcv_state:
                 if self._rcv_miners[link.get_block_name()][-1]!=-1:
                     self._rcv_miners[link.get_block_name()].append(link.target_id())
-            self.stat_block_propagation_times(link.packet, round)
+                self.stat_block_propagation_times(link.packet, round)
             dead_links.append(i)
         # 清理传播结束的link
         if len(dead_links) == 0:
@@ -279,12 +291,11 @@ class AdHocNetwork(Network):
         outage = True
         return outage
     
-    # 高斯随机游走
-    def gaussian_random_walk(self, round:int):
-        change_op = {"round": round}
+    # 随机游走
+    def random_walk(self, round:int):
         '''循环内逐一求取
         for current_node in self._graph:
-            # 高斯随机移动当前节点
+            # 随机移动当前节点
             distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm)
             angle = np.random.uniform(0, 2 * np.pi)
 
@@ -292,9 +303,11 @@ class AdHocNetwork(Network):
             current_pos = self._node_pos[current_node]
             np.clip(current_pos + movement, 0, 1, out=current_pos)
         '''
+        change_op = {"round": round}
         # 向量化方式计算高斯游走后的坐标
         node_num = self._pos_matrix.shape[0]
-        distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm, node_num)
+        # distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm, node_num)
+        distance = np.random.uniform(self._minMoveNorm, self._maxMoveNorm, node_num)
         angle = np.random.uniform(0, 2 * np.pi, node_num)
 
         movement = np.array([distance * np.cos(angle), distance * np.sin(angle)]).T
@@ -402,10 +415,10 @@ class AdHocNetwork(Network):
 
     def stat_block_propagation_times(self, packet: AdHocPacket, r):
         '''calculate the block propagation time'''
-        if not isinstance(packet.payload, Block):
+        if not isinstance(packet.payload, Segment):
             return
 
-        rn = len(set(self._rcv_miners[packet.payload.name]))
+        rn = len(set(self._rcv_miners[packet.payload.msg.name]))
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
@@ -418,17 +431,17 @@ class AdHocNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in rcv_rates:
-            if  self._rcv_miners[packet.payload.name][-1] != -1:
-                self._stat_prop_times[rcv_rate] += r-packet.payload.blockhead.timestamp
+            if  self._rcv_miners[packet.payload.msg.name][-1] != -1:
+                self._stat_prop_times[rcv_rate] += r-packet.payload.msg.blockhead.timestamp
                 self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
-                logger.debug(f"{packet.payload.name}:{rn},{rcv_rate} at round {r}")
-            if rn == mn and self._rcv_miners[packet.payload.name][-1] != -1:
-                self._rcv_miners[packet.payload.name][-1] = -1
+                logger.debug(f"{packet.payload.msg.name}:{rn},{rcv_rate} at round {r}")
+            if rn == mn and self._rcv_miners[packet.payload.msg.name][-1] != -1:
+                self._rcv_miners[packet.payload.msg.name][-1] = -1
 
     def cal_block_propagation_times(self):
         rcv_rates = [k for k in self._stat_prop_times.keys()]
         for i ,  rcv_rate in enumerate(rcv_rates):
-            total_bpt = self._stat_prop_times[rcv_rate ]
+            total_bpt = self._stat_prop_times[rcv_rate]
             total_num = self._block_num_bpt[i]
             if total_num == 0:
                 continue

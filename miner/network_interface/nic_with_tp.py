@@ -73,8 +73,8 @@ class NICWithTp(NetworkInterface):
         self._channel_states[add_id] = _IDLE
         if add_id not in self._output_queues.keys():
             self._output_queues[add_id] = []
-        logger.info("round%d, M%d: added neighbour M%d", 
-                    round, self.miner.miner_id, add_id)
+        # logger.info("round%d, M%d: added neighbour M%d", 
+        #             round, self.miner.miner_id, add_id)
         self.ready_to_forward(add_id, round)
        
 
@@ -97,9 +97,9 @@ class NICWithTp(NetworkInterface):
         if len(set(self._segment_buffer[block_name])) != payload.msg.segment_num:
             return False
         self._segment_buffer.pop(block_name)
-        logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
-                    payload.msg.segment_num, payload.msg.name)
-        self.miner.receive(payload.msg)
+        # logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
+        #             payload.msg.segment_num, payload.msg.name)
+        return self.miner.receive(payload.msg)
 
     def _get_segids_not_rcv(self, block:Block):
         seg_ids = self._segment_buffer[block.name]
@@ -150,8 +150,8 @@ class NICWithTp(NetworkInterface):
                     for target in  targets:
                         self._output_queues[target].append(msg)
             
-            logger.info("round %d, M%d, neighbors %s, outputqueue %s", 
-                        round,  self.miner_id, str(self._neighbors), str(dict(self._output_queues)))
+            # logger.info("round %d, M%d, neighbors %s, outputqueue %s", 
+            #             round,  self.miner_id, str(self._neighbors), str(dict(self._output_queues)))
             
         for neighbor in self._neighbors:
             if self._channel_states[neighbor] != _IDLE:
@@ -166,8 +166,8 @@ class NICWithTp(NetworkInterface):
                     to_send = to_send.name
                 if isinstance(to_send,Segment):
                     to_send = str((to_send.msg.name,to_send.seg_id))
-                logger.info("round %d, M%d->M%d, try to send %s", 
-                        round, self.miner_id, neighbor, to_send)
+                # logger.info("round %d, M%d->M%d, try to send %s", 
+                #         round, self.miner_id, neighbor, to_send)
                 if msg == "inv":
                     self.ready_to_forward(neighbor, round)
                     while len(self._output_queues[neighbor]) != 0:
@@ -197,8 +197,8 @@ class NICWithTp(NetworkInterface):
         """在发送某个区块前，询问其本地是否已经有该区块了"""
         inv = INVMsg(self.miner_id, target, msg, isSingleBlock=True)
         getDataReply  = self.inv_rpc(inv, round)
-        logger.info("round%d, M%d->M%d: %s require: %s", 
-                    round, self.miner_id, target, msg, getDataReply.require)
+        # logger.info("round%d, M%d->M%d: %s require: %s", 
+        #             round, self.miner_id, target, msg, getDataReply.require)
         return getDataReply.require
     
     def ready_to_forward(self, target:int, round:int):
@@ -213,8 +213,8 @@ class NICWithTp(NetworkInterface):
         
         if inv.target not in self._output_queues.keys():
             self._output_queues[inv.target] = []
-        logger.info("round%d, M%d -> M%d: getData %s", round, target, self.miner_id, 
-                    str([req_b.name for req_b in getDataReply.req_blocks]))
+        # logger.info("round%d, M%d -> M%d: getData %s", round, target, self.miner_id, 
+        #             str([req_b.name for req_b in getDataReply.req_blocks]))
         if not self.withSegments:
             for req_b in getDataReply.req_blocks:
                 self._output_queues[inv.target].append(req_b)
@@ -336,8 +336,8 @@ class NICWithTp(NetworkInterface):
         """
         # 传输成功即将信道状态置为空闲
         if err is None:
-            logger.info("round %d, M%d -> M%d: Forward  %s success!", 
-                    round, self.miner_id, target, msg_name)
+            # logger.info("round %d, M%d -> M%d: Forward  %s success!", 
+            #         round, self.miner_id, target, msg_name)
             self._channel_states[target]=_IDLE
             return
         # 信道中断将msg重新放回队列，等待下轮重新发送
@@ -348,5 +348,5 @@ class NICWithTp(NetworkInterface):
             self._channel_states[target] = _IDLE
             self._output_queues[target].insert(0, sending_msg)
             return
-        logger.error("round %d, M%d -> M%d: Forward  %s unkonwn ERR!", 
-                    round, self.miner_id, target, msg_name)
+        # logger.error("round %d, M%d -> M%d: Forward  %s unkonwn ERR!", 
+        #             round, self.miner_id, target, msg_name)
