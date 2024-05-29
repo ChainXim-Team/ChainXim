@@ -119,12 +119,14 @@ class AdHocNetwork(Network):
         self._region_width = None
         self._comm_range = None
         # self._ave_move = None
-        self._min_move = None
-        self._max_move= None
+        # self._min_move = None
+        # self._max_move= None
+        
         self._node_pos = None #后面由set_node_pos生成
         # self._aveMoveNorm = None
-        self._minMoveNorm = None
-        self._maxMoveNorm = None
+        # self._minMoveNorm = None
+        # self._maxMoveNorm = None
+        self._moveVariance = None
         self._commRangeNorm = None
         self._tp_changes = []
         self._node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
@@ -153,8 +155,9 @@ class AdHocNetwork(Network):
                       ave_degree = None, 
                       region_width = None,
                       comm_range = None,
-                      min_move = None,
-                      max_move = None,
+                      move_variance= None,
+                    #   min_move = None,
+                    #   max_move = None,
                       outage_prob = None, 
                       stat_prop_times = None, ):
         ''' 
@@ -182,12 +185,14 @@ class AdHocNetwork(Network):
         # if ave_move is not None:
         #     self._ave_move = ave_move
         #     self._aveMoveNorm = ave_move/region_width
-        if min_move is not None:
-            self.min_move = min_move
-            self._minMoveNorm = min_move/region_width
-        if max_move is not None:
-            self._max_move = max_move
-            self._maxMoveNorm = max_move/region_width
+        # if min_move is not None:
+        #     self.min_move = min_move
+        #     self._minMoveNorm = min_move/region_width
+        # if max_move is not None:
+        #     self._max_move = max_move
+        #     self._maxMoveNorm = max_move/region_width
+        if move_variance is not None:
+            self._moveVariance = move_variance
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -307,10 +312,15 @@ class AdHocNetwork(Network):
         # 向量化方式计算高斯游走后的坐标
         node_num = self._pos_matrix.shape[0]
         # distance = np.random.normal(self._aveMoveNorm, 0.2*self._aveMoveNorm, node_num)
-        distance = np.random.uniform(self._minMoveNorm, self._maxMoveNorm, node_num)
-        angle = np.random.uniform(0, 2 * np.pi, node_num)
 
-        movement = np.array([distance * np.cos(angle), distance * np.sin(angle)]).T
+        # distance = np.random.uniform(self._minMoveNorm, self._maxMoveNorm, node_num)
+        # angle = np.random.uniform(0, 2 * np.pi, node_num)
+        # movement = np.array([distance * np.cos(angle), distance * np.sin(angle)]).T
+
+        x_move = np.random.normal(0, self._moveVariance, node_num)
+        y_move = np.random.normal(0, self._moveVariance, node_num)
+        movement = np.stack((x_move, y_move), axis=1)
+        
         np.clip(self._pos_matrix + movement, 0, 1, out=self._pos_matrix)
 
         self.update_edges(change_op, round)

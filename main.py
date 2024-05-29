@@ -128,7 +128,7 @@ def main(**args):
         net_setting = 'AdHocNetworkSettings'
         bool_params  = []
         float_params = ['ave_degree', 'region_width', 'comm_range',
-                        'min_move', 'max_move','outage_prob']
+                        'move_variance','outage_prob'] # 'min_move', 'max_move'
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
                                  config.getboolean(net_setting, bparam)})
