@@ -333,13 +333,14 @@ class AdHocNetwork(Network):
                                      axis=-1))
 
         disconnected_node_pairs = [list() for _ in range(self.MINER_NUM)]
+        within_range_matrix = dist_matrix < self._commRangeNorm
         for i, node_pair in enumerate(self._node_pairs):
             # 计算两节点间的欧几里得距离
             #dist_array = self._node_pos[node1] - self._node_pos[node2]
             #dist = np.dot(dist_array, dist_array)**0.5
             node1, node2 = node_pair
-            within_range = dist_matrix[node1, node2] < self._commRangeNorm
-            has_edge = self._graph.has_edge(node1, node2)
+            within_range = within_range_matrix[node1, node2]
+            has_edge = node2 in self._graph._adj[node1]
             if within_range and not has_edge:
                 self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
                 self._miners[node1].NIC.add_neighbor(node2, round)
