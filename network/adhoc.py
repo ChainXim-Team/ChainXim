@@ -192,7 +192,7 @@ class AdHocNetwork(Network):
         #     self._max_move = max_move
         #     self._maxMoveNorm = max_move/region_width
         if move_variance is not None:
-            self._moveVariance = move_variance
+            self._moveVariance = move_variance/region_width
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -317,9 +317,7 @@ class AdHocNetwork(Network):
         # angle = np.random.uniform(0, 2 * np.pi, node_num)
         # movement = np.array([distance * np.cos(angle), distance * np.sin(angle)]).T
 
-        x_move = np.random.normal(0, self._moveVariance, node_num)
-        y_move = np.random.normal(0, self._moveVariance, node_num)
-        movement = np.stack((x_move, y_move), axis=1)
+        movement = np.random.normal(0, self._moveVariance, (node_num, 2))
         
         np.clip(self._pos_matrix + movement, 0, 1, out=self._pos_matrix)
 
@@ -334,11 +332,12 @@ class AdHocNetwork(Network):
         dist_matrix = np.sqrt(np.sum((self._pos_matrix[:, np.newaxis, :] - self._pos_matrix[np.newaxis, :, :]) ** 2,
                                      axis=-1))
 
-        for i, node in enumerate(self._node_pairs):
+        disconnected_node_pairs = [list() for _ in range(self.MINER_NUM)]
+        for i, node_pair in enumerate(self._node_pairs):
             # 计算两节点间的欧几里得距离
             #dist_array = self._node_pos[node1] - self._node_pos[node2]
             #dist = np.dot(dist_array, dist_array)**0.5
-            node1, node2 = node
+            node1, node2 = node_pair
             within_range = dist_matrix[node1, node2] < self._commRangeNorm
             has_edge = self._graph.has_edge(node1, node2)
             if within_range and not has_edge:
@@ -360,13 +359,12 @@ class AdHocNetwork(Network):
                         change_op["removes"]=[[node1, node2]]
                     else:
                         change_op["removes"].append([node1, node2])
-                remove_links = []
-                for node1, link in enumerate(self._active_links):
-                    if (((link.source_id(), link.target_id())==(node1,node2)) or 
-                        ((link.source_id(), link.target_id())==(node2,node1))):
-                        remove_links.append(node1)
-                self._active_links = [link for i, link in enumerate(self._active_links) 
-                            if i not in remove_links]
+                # 不会重复，因为_node_pairs已经保证每一个pair的有序性
+                disconnected_node_pairs[node1].append(node2)
+                disconnected_node_pairs[node2].append(node1)
+
+        self._active_links = [link for i, link in enumerate(self._active_links) 
+                    if link.target_id() not in disconnected_node_pairs[link.source_id()]]
         if change_op is not None:
             sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
             # isolates = [[int(i)] for i in nx.isolates(self._graph)]
