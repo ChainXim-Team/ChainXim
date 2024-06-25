@@ -236,7 +236,7 @@ class Environment(object):
         # Network Property
         stats.update({'block_propagation_times': {} })
         if not isinstance(self.network,network.SynchronousNetwork):
-            self.network: network.BoundedDelayNetwork
+            self.network: network.StochPropNetwork
             ave_block_propagation_times = self.network.cal_block_propagation_times()
             stats.update({
                 'block_propagation_times': ave_block_propagation_times
@@ -276,6 +276,7 @@ class Environment(object):
         # Attack Property
         if self.adversary.get_info():
             print('The simulation data of', self.adversary.get_attack_type_name() , 'is as follows', ':\n', self.adversary.get_info())
+            stats.update(self.adversary.get_info())
         # Network Property
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)

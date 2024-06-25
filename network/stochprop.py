@@ -14,7 +14,7 @@ from .network_abc import Network, Packet
 logger = logging.getLogger(__name__)
 
 class PacketBDNet(Packet):
-    '''BoundedDelay网络中的数据包，包含路由相关信息'''
+    '''stochastic propagation 网络中的数据包，包含路由相关信息'''
     def __init__(self, payload, source_id: int, round: int, rcvprob_start, outnetobj):
         super().__init__(source_id, payload)
         self.round = round
@@ -36,7 +36,7 @@ class PacketBDNet(Packet):
             f'miner {minerid}': round
         })
 
-class BoundedDelayNetwork(Network):
+class StochPropNetwork(Network):
     """矿工以概率接收到消息，在特定轮数前必定所有矿工都收到消息"""
 
     def __init__(self, miners):
@@ -67,7 +67,7 @@ class BoundedDelayNetwork(Network):
             self.stat_prop_times.update({rcv_rate:0})
             self.block_num_bpt = [0 for _ in range(len(stat_prop_times))]
         with open(self.NET_RESULT_PATH / 'network_attributes.txt', 'a') as f:
-            print('Network Type: BoundedDelayNetwork', file=f)
+            print('Network Type: StochPropNetwork', file=f)
             print(f'rcvprob_start:{self.rcvprob_start},rcvprob_inc={self.rcvprob_inc}', file=f)
 
 
@@ -107,7 +107,7 @@ class BoundedDelayNetwork(Network):
 
 
     def diffuse(self, round):
-        """Diffuse algorithm for boundeddelay network"""
+        """Diffuse algorithm for stochastic propagation network"""
         # recieve_prob=0.7#设置接收概率，目前所有矿工概率一致
         # 随着轮数的增加，收到的概率越高，无限轮
         # 超过某轮后所有人收到

@@ -84,9 +84,9 @@ def main(**args):
 
     # 设置网络参数
     network_param = {}
-    # BoundedDelayNetwork
-    if network_type == 'network.BoundedDelayNetwork':
-        bdnet_settings = dict(config["BoundedDelayNetworkSettings"])
+    # StochPropNetwork
+    if network_type == 'network.StochPropNetwork':
+        bdnet_settings = dict(config["StochPropNetworkSettings"])
         network_param = {
             'rcvprob_start': (args.get('rcvprob_start') 
                               if args.get('rcvprob_start') is not None  
@@ -97,9 +97,9 @@ def main(**args):
             'stat_prop_times': (args.get('stat_prop_times') or 
                                 eval(bdnet_settings['stat_prop_times']))
         }
-    # PropVecNetwork
-    elif network_type == 'network.PropVecNetwork':
-        pvnet_settings = dict(config["PropVecNetworkSettings"])
+    # DeterPropNetwork
+    elif network_type == 'network.DeterPropNetwork':
+        pvnet_settings = dict(config["DeterPropNetworkSettings"])
         network_param = {'prop_vector':(args.get('prop_vector') or 
                                         eval(pvnet_settings['prop_vector']))}
     # TopologyNetwork
@@ -226,8 +226,8 @@ could be performed with attackers designed in the simulator'
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
     attack_setting.add_argument('-t',help='The total number of attackers. If t non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
     attack_setting.add_argument('--attack_execute_type', help='The name of attack type defined in attack mode.',type=str)
-    # BoundedDelayNetworkSettings
-    bound_setting = parser.add_argument_group('BoundedDelayNetworkSettings','Settings for BoundedDelayNetwork')
+    # StochPropNetworkSettings
+    bound_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
     bound_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
     bound_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
     # TopologyNetworkSettings

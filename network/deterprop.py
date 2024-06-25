@@ -15,7 +15,7 @@ from .network_abc import Network, Packet
 logger = logging.getLogger(__name__)
 
 class PacketPVNet(Packet):
-    '''propagation vector网络中的数据包，包含路由相关信息'''
+    '''deterministic propagation网络中的数据包，包含路由相关信息'''
     def __init__(self, payload: Message, source_id: int, round: int, prop_vector:list, outnetobj):
         super().__init__(source_id, payload)
         self.payload = payload
@@ -37,7 +37,7 @@ class PacketPVNet(Packet):
             f'miner {minerid}': round
         })
 
-class PropVecNetwork(Network):
+class DeterPropNetwork(Network):
     """依照传播向量,在每一轮中将消息传播给固定比例的矿工"""
 
     def __init__(self, miners):
@@ -74,7 +74,7 @@ class PropVecNetwork(Network):
         else:
             print(f"Use the default Propagation Vector:{self.prop_vector}")
         with open(self.NET_RESULT_PATH / 'network_attributes.txt', 'a') as f:
-            print('Network Type: PropVecNetwork', file=f)
+            print('Network Type: DeterPropNetwork', file=f)
             print(f'propagation_vector:{self.prop_vector}', file=f)
 
 
@@ -125,7 +125,7 @@ class PropVecNetwork(Network):
 
 
     def diffuse(self, round):
-        """Diffuse algorithm for `propagation vector network`.
+        """Diffuse algorithm for `deterministic propagation network`.
         依照传播向量,在每一轮中将数据包传播给固定比例的矿工。
 
         param
@@ -214,3 +214,4 @@ class PropVecNetwork(Network):
                 print(result_str, file=f)
                 for miner_str,round in packet.trans_process_dict.items():
                     print(' '*4, miner_str.ljust(10), ': ', round, file=f)
+
