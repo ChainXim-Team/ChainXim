@@ -68,12 +68,11 @@ class Block(Message):
     
     def __repr__(self) -> str:
         __omit_keys = {}
-        return self.name
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
-            s = '\n'.join([k.rjust(m) + ': ' + _indenter(str(v) if not isinstance(v, bytes) else v.hex()
-                                                         , m+2)
-                            for k, v in d.items()])
+            s = '\n'.join([k.rjust(m) + ': ' + 
+                           _indenter(str(v) if not isinstance(v, bytes) 
+                           else v.hex(), m+2) for k, v in d.items()])
             return s
         def _indenter(s, n=0):
             split = s.split("\n")

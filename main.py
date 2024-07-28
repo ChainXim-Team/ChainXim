@@ -128,7 +128,7 @@ def main(**args):
         net_setting = 'AdHocNetworkSettings'
         bool_params  = []
         float_params = ['ave_degree', 'region_width', 'comm_range',
-                        'move_variance','outage_prob'] # 'min_move', 'max_move'
+                        'move_variance','outage_prob','segment_size'] # 'min_move', 'max_move'
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
                                  config.getboolean(net_setting, bparam)})
@@ -227,16 +227,16 @@ could be performed with attackers designed in the simulator'
     attack_setting.add_argument('-t',help='The total number of attackers. If t non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
     attack_setting.add_argument('--attack_execute_type', help='The name of attack type defined in attack mode.',type=str)
     # StochPropNetworkSettings
-    bound_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
-    bound_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
-    bound_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
+    stoch_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
+    stoch_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
+    stoch_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
     # TopologyNetworkSettings
     topology_setting = parser.add_argument_group('TopologyNetworkSettings','Settings for TopologyNetwork')
-    gen_net_approach_help_text = '''Options:coo/adj/rand.
+    init_mode_help_text = '''Options:coo/adj/rand.
     coo: load adjecent matrix from network/topolpgy_coo.csv in COOrdinate format.
     adj: load adjecent matrix from network/topolpgy.csv.
     rand: randomly generate a network.'''
-    topology_setting.add_argument('--gen_net_approach',help=gen_net_approach_help_text,type=str)
+    topology_setting.add_argument('--init_mode',help=init_mode_help_text,type=str)
     topology_setting.add_argument('--show_label',help='Show edge labels on network and routing graph.',
                                   action='store_true')
     topology_setting.add_argument('--save_routing_graph',help='Genarate routing graph at the end of simulation or not.',
@@ -252,6 +252,22 @@ could be performed with attackers designed in the simulator'
     topology_setting.add_argument('--bandwidth_adv',help='Set bandwidth between adversaries(MB/round)')
     topology_setting.add_argument('--outage_prob',help='The outage probability of each link.',type=float)
     topology_setting.add_argument('--dynamic',help='Whether the network topology can dynamically change.',action='store_true')
+    topology_setting.add_argument('--avg_tp_change_interval',help='The average interval of topology changing.',type=float)
+    topology_setting.add_argument('--edge_remove_prob',help='The probability of each links being removed in each round.',type=float)
+    topology_setting.add_argument('--edge_add_prob',help='The probability of each links being added in each round.',type=float)
+    topology_setting.add_argument('--max_allowed_partitions',help='The maximum number of network partitions being allowed.', type=int)
+
+
+    # AdhocNetworkSettings
+    adhoc_setting = parser.add_argument_group('AdhocNetworkSettings','Settings for AdhocNetwork')
+    init_mode_help_text = '''Only rand supportted.
+    rand: randomly generate a network.'''
+    adhoc_setting.add_argument('--init_mode',help=init_mode_help_text,type=str)
+    adhoc_setting.add_argument('--ave_degree',help='Set the average degree of the network.',type=float)
+    adhoc_setting.add_argument('--outage_prob',help='The outage probability of each link.',type=float)
+    adhoc_setting.add_argument('--region_width',help='Whether the network topology can dynamically change.' ,type=float)
+    adhoc_setting.add_argument('--comm_range',help='communication range',type=float)
+    adhoc_setting.add_argument('--move_variance',help='Variance of the movement when position updates in Gaussian random walk. ', type=float)
     parser.add_argument('--result_path',help='The path to output results', type=str)
 
     args = vars(parser.parse_args())

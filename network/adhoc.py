@@ -159,7 +159,8 @@ class AdHocNetwork(Network):
                     #   min_move = None,
                     #   max_move = None,
                       outage_prob = None, 
-                      stat_prop_times = None, ):
+                      stat_prop_times = None, 
+                      segment_size=None):
         ''' 
         set the network parameters
 
@@ -173,8 +174,6 @@ class AdHocNetwork(Network):
         save_routing_graph (bool): Genarate routing graph at the end of simulation or not.
         show_label (bool): Show edge labels on network and routing graph or not. 
         '''
-
-        
         if outage_prob is not None:
             self._outage_prob = outage_prob
         if region_width is not None:
@@ -322,8 +321,8 @@ class AdHocNetwork(Network):
         np.clip(self._pos_matrix + movement, 0, 1, out=self._pos_matrix)
 
         self.update_edges(change_op, round)
-        self._tp_changes.append(change_op)
-        self.write_tp_changes()
+        # self._tp_changes.append(change_op)
+        # self.write_tp_changes()
 
     
     def update_edges(self,  change_op:dict=None, round:int = 0):
