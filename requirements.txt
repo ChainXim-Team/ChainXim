@@ -1,0 +1,4 @@
+scipy
+matplotlib > 3.5.1
+networkx > 2.8.7
+pandas

@@ -198,7 +198,7 @@ if __name__ == '__main__':
     import argparse
     from pathlib import Path
     program_description = 'ChainXim, a blockchain simulator developed by XinLab\
-, simulates and assesses blockchain system with various consensus protocols\
+, simulates and assesses blockchain system with various consensus protocols \
 under different network conditions. Security evaluation of blockchain systems \
 could be performed with attackers designed in the simulator'
     parser = argparse.ArgumentParser(description=program_description)
