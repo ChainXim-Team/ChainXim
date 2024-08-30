@@ -2,7 +2,7 @@
 ## 简介 Introduction
 
 ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。目前仿真器还处于内部测试阶段。  
-ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance indicators. The emulator is currently in the internal testing stage.
+ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance metrics. The emulator is currently in the internal testing stage.
 
 ## Quick Start
 ### 下载 Download
@@ -19,26 +19,39 @@ chain-xim
     ├── Attack.py
     ├── Environment.py
     ├── README.md
-    ├── chain.py
+    ├── data
+    │   ├── __init__.py
+    │   ├── block.py
+    │   ├── chain.py
+    │   └── message.py
     ├── consensus
     │   ├── __init__.py
     │   ├── consensus_abc.py
-    │   ├── pow.py
+    │   └── pow.py
     ├── errors.py
     ├── external.py
     ├── functions.py
     ├── global_var.py
     ├── main.py
-    ├── miner.py
+    ├── miner
+    │   ├── __init__.py
+    │   ├── _consts.py
+    │   ├── miner.py.py
+    │   ├── network_interface
+    │       ├── nic_abc.py
+    │       ├── nic_with_tp.py
+    │       └── nic_without_tp.py
     ├── network
     │   ├── __init__.py
-    │   ├── bounded_delay_network.py
+    │   ├── adhoc.py
+    │   ├── deterprop.py
     │   ├── network_abc.py
-    │   ├── propvec_network.py
-    │   ├── synchronous_network.py
-    │   └── topology_network.py
-    ├── network_topolpgy.csv
-    ├── network_topolpgy_coo.csv
+    │   ├── stochprop.py
+    │   ├── synchronous.py
+    │   ├── topology.py
+    │   ├── topolpgy.csv
+    │   ├── topolpgy_coo.csv
+    │   └── topology_eclipse_sample.csv
     └── system_config.ini
 ```
 
@@ -48,8 +61,8 @@ chain-xim
 | system_config\.ini | 配置文件 |
 | README.md | 用户文档 |
 | Environment\.py | 环境类与相关函数 |
-| Miner\.py | 矿工类与相关函数 |
-| chain\.py | BlockHead、Block、Chain类与相关函数 |
+| miner/ | 存放矿工类与网络接口 |
+| data/ | 存放Mesage、BlockHead、Block、Chain类与相关函数 |
 | consensus/ | 存放抽象共识类、PoW类与相关函数的目录 |
 | network/ | 存放多种网络类的目录 |
 | Attack\.py | 攻击者类与相关函数 |
@@ -61,9 +74,9 @@ chain-xim
 ### 配置环境 Configuration
 1. 安装Anaconda。[Anaconda下载链接](https://www.anaconda.com/download)
 2. 从开始菜单打开Anaconda Prompt。
-3. 生成一个conda环境并激活，Python版本选择3.9。
+3. 生成一个conda环境并激活，Python版本选择3.10。
 ```
-conda create -n chainxim python=3.9 python-graphviz
+conda create -n chainxim python=3.10 python-graphviz
 activate chainxim
 ```
 4. 在ChainXim的根目录下通过pip安装所需要的包。
@@ -192,17 +205,17 @@ Attack Execute Type: execute_sample1
 | adversary_ids       | 无                                       | tuple[int] | 攻击者id e.g.(1,3,5)                            |
 | attack_execute_type | `--attack_execute_type execute_sample1 ` | str   | 攻击类型<br>execute_sample0：算力攻击；<br>execute_sample1：自私挖矿 |
 
-### PropVecNetworkSettings
+### DeterPropNetworkSettings
 
-配置PropVecNetwork参数
+配置DeterPropNetwork参数
 
 | system_config | 类型        | 说明                                                         |
 | ------------- | ----------- | ------------------------------------------------------------ |
 | prop_vector   | list[float] | 传播向量（以列表形式）e.g.[0.1, 0.2, 0.4, 0.6, 1.0]其中的元素代表了当(1,2,3...)轮过后接收到消息的矿工比例，最后一个元素必须为1.0 |
 
-### BoundedDelayNetworkSettings
+### StochPropNetworkSettings
 
-配置BoundedDelayNetwork参数
+配置StochPropNetwork参数
 
 | system_config | 命令行示例 | 类型 | 说明|
 | -------- | -------- | -------- | -------- |
@@ -214,16 +227,36 @@ Attack Execute Type: execute_sample1
 
 配置TopologyNetwork参数
 
-| system_config | 命令行示例 | 类型 | 说明|
-| -------- | -------- | -------- | -------- |
-| TTL       | `--TTL 500` | int    | 消息能够在网络中存在的最大轮数|
-| gen_net_approach           | `--gen_net_approach rand` | str        | 生成网络拓扑的途径<br>'adj'：通过network_topolpgy.csv指定邻接矩阵；<br>'coo'：通过network_topolpgy_coo.csv指定稀疏的邻接矩阵，同时指定各节点间的带宽；<br>'rand'：通过后面的参数随机生成网络拓扑 |
-|  save_routing_graph    |  `--save_routing_graph`  |  bool  | 是否保存各消息的路由传播图，建议网络规模较大时关闭 |
-|  show_label    |  `--show_label`  |  bool  | 是否显示拓扑图或路由传播图上的标签，建议网络规模较大时关闭 |
-| ave_degree     | `--ave_degree 8` | float | 网络生成方式为'rand'时，设置拓扑平均度   |
-| bandwidth_honest     | `--bandwidth_honest 0.5` | float |  诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round  |
-| bandwidth_adv     | `--bandwidth_adv 5` | float | 攻击者之间的带宽，单位MB/round  |
-| block_prop_times_statistic          | 无       | list[float] | 需统计的区块传播时间对应的接收矿工比例|
+| system_config          | 命令行示例                | 类型        | 说明                                                         |
+| ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode              | `--init_mode rand`        | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
+| bandwidth_honest       | `--bandwidth_honest 0.5`  | float       | 诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round |
+| bandwidth_adv          | `--bandwidth_adv 5`       | float       | 攻击者之间的带宽，单位MB/round                               |
+| rand_mode              | `--rand_mode homogeneous` | str         | 随机网络拓扑的生成模式<br />'homogeneous'：根据ave_degree生成网络并尽可能保持每个节点的度相同<br />'binomial'：采用Erdős-Rényi算法，以`ave_degree/(miner_num-1)`概率在节点之间随机建立链接 |
+| ave_degree             | `--ave_degree 8`          | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
+| stat_prop_times        | 无                        | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
+| outage_prob            | `--outage_prob 0.1`       | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
+| dynamic                | `--dynamic`               | bool        | 是否使网络动态变化，如果动态变化，会以一定概率添加或者删除节点之间的链接 |
+| avg_tp_change_interval | 无                        | float       | dynamic=true时，设置拓扑变化的平均轮次                       |
+| edge_remove_prob       | 无                        | float       | dynamic=true时，设置拓扑变化时，已存在的每条边移除的概率     |
+| edge_add_prob          | 无                        | float       | dynamic=true时，设置拓扑变化时，未存在的条边新建立连接的概率 |
+| max_allowed_partitions | 无                        | int         | dynamic=true时,设置拓扑变化时，最大可存在的分区数量          |
+| save_routing_graph     | `--save_routing_graph`    | bool        | 是否保存各消息的路由传播图，建议网络规模较大时关闭           |
+| show_label             | `--show_label`            | bool        | 是否显示拓扑图或路由传播图上的标签，建议网络规模较大时关闭   |
+
+### AdHocNetworkSettings
+
+配置AdHocNetwork参数
+| system_config   | 命令行示例           | 类型        | 说明                                                         |
+| --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode       | `--init_mode rand`   | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
+| ave_degree      | `--ave_degree 3`     | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
+| segment_size    | `--ave_degree 8`     | float       | 消息分段大小 ；将完整消息分若干段，每段消息传播时间为一轮    |
+| region_width    | `--region_width 100` | float       | 正方形区域的宽度，节点在该区域中进行高斯随机游走             |
+| comm_range      | `--comm_range 30`    | float       | 节点通信距离，在通信距离内的两节点自动建立连接               |
+| move_variance   | `--move_variance 5`  | float       | 节点进行高斯随机游走时，指定xy坐标移动距离的方差             |
+| outage_prob     | `--outage_prob 0.1`  | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
+| stat_prop_times | 无                   | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
 
 
 ## 仿真器输出 Output
@@ -261,9 +294,8 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 | Average block time (total) | 总平均出块时间=总轮数/生成的区块总数 |
 | Block throughput (total) | 总区块吞吐量=生成的区块总数/总轮数 |
 | Throughput in MB (total) | =总区块吞吐量\*区块大小 |
-|common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）**（注：统计速度较慢，默认未开启）**|
-|Consistency rate|一致性指标=common_prefix_pdf[0]**（注：默认未开启）**|
-|The common prefix cdf with respect to k|统计共同前缀得到的cdf（统计每轮结束时，将诚实节点的最长链截取k个区块，观察是否包含在其他诚实节点链之中，由此统计得到的累积分布函数） **（注：暂时无法正常使用）**|
+|common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）|
+|Consistency rate|一致性指标=common_prefix_pdf[0]|
 |Chain_Quality Property|诚实矿工和恶意矿工的出块总数|
 |Ratio of blocks contributed by malicious players|恶意节点出块比例|
 |Upper Bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
