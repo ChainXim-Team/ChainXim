@@ -230,44 +230,36 @@ could be performed with attackers designed in the simulator'
     stoch_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
     stoch_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
     stoch_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
-    # TopologyNetworkSettings
-    topology_setting = parser.add_argument_group('TopologyNetworkSettings','Settings for TopologyNetwork')
+    # CommonSettings for both TopologyNetwork and AdhocNetwork
+    common_setting = parser.add_argument_group('CommonSettings', 'Common settings for both TopologyNetwork and AdhocNetwork')
     init_mode_help_text = '''Options:coo/adj/rand.
     coo: load adjecent matrix from network/topolpgy_coo.csv in COOrdinate format.
     adj: load adjecent matrix from network/topolpgy.csv.
-    rand: randomly generate a network.'''
-    topology_setting.add_argument('--init_mode',help=init_mode_help_text,type=str)
-    topology_setting.add_argument('--show_label',help='Show edge labels on network and routing graph.',
-                                  action='store_true')
-    topology_setting.add_argument('--save_routing_graph',help='Genarate routing graph at the end of simulation or not.',
-                                  action='store_true')
+    rand: randomly generate a network. AdhocNetwork only support this.'''
+    common_setting.add_argument('--init_mode', help='Initialization mode for the network.', type=str)
+    common_setting.add_argument('--ave_degree', help='Set the average degree of the network.', type=float)
+    common_setting.add_argument('--outage_prob', help='The outage probability of each link.', type=float)
+    # TopologyNetworkSettings
+    topology_setting = parser.add_argument_group('TopologyNetworkSettings', 'Settings for TopologyNetwork')
+    topology_setting.add_argument('--show_label', help='Show edge labels on network and routing graph.', action='store_true')
+    topology_setting.add_argument('--save_routing_graph', help='Generate routing graph at the end of simulation or not.', action='store_true')
     rand_mode_help_text = '''Options:homogeneous/binomial.
     homogeneous: try to keep the degree of each node the same.
     binomial: set up edges with probability ave_degree/(miner_num-1). '''
-    topology_setting.add_argument('--rand_mode',help=rand_mode_help_text,type=str)
-    topology_setting.add_argument('--ave_degree',help='Set the average degree of the network.',type=float)
-    topology_setting.add_argument('--bandwidth_honest',
-                                  help='Set bandwidth between honest miners and between the honest and adversaries(MB/round)',
-                                  type=float)
-    topology_setting.add_argument('--bandwidth_adv',help='Set bandwidth between adversaries(MB/round)')
-    topology_setting.add_argument('--outage_prob',help='The outage probability of each link.',type=float)
-    topology_setting.add_argument('--dynamic',help='Whether the network topology can dynamically change.',action='store_true')
-    topology_setting.add_argument('--avg_tp_change_interval',help='The average interval of topology changing.',type=float)
-    topology_setting.add_argument('--edge_remove_prob',help='The probability of each links being removed in each round.',type=float)
-    topology_setting.add_argument('--edge_add_prob',help='The probability of each links being added in each round.',type=float)
-    topology_setting.add_argument('--max_allowed_partitions',help='The maximum number of network partitions being allowed.', type=int)
-
-
+    topology_setting.add_argument('--rand_mode', help=rand_mode_help_text, type=str)
+    topology_setting.add_argument('--bandwidth_honest', help='Set bandwidth between honest miners and between the honest and adversaries(MB/round)', type=float)
+    topology_setting.add_argument('--bandwidth_adv', help='Set bandwidth between adversaries(MB/round)', type=float)
+    topology_setting.add_argument('--dynamic', help='Whether the network topology can dynamically change.', action='store_true')
+    topology_setting.add_argument('--avg_tp_change_interval', help='The average interval of topology changing.', type=float)
+    topology_setting.add_argument('--edge_remove_prob', help='The probability of each links being removed in each round.', type=float)
+    topology_setting.add_argument('--edge_add_prob', help='The probability of each links being added in each round.', type=float)
+    topology_setting.add_argument('--max_allowed_partitions', help='The maximum number of network partitions being allowed.', type=int)
     # AdhocNetworkSettings
-    adhoc_setting = parser.add_argument_group('AdhocNetworkSettings','Settings for AdhocNetwork')
-    init_mode_help_text = '''Only rand supportted.
-    rand: randomly generate a network.'''
-    adhoc_setting.add_argument('--init_mode',help=init_mode_help_text,type=str)
-    adhoc_setting.add_argument('--ave_degree',help='Set the average degree of the network.',type=float)
-    adhoc_setting.add_argument('--outage_prob',help='The outage probability of each link.',type=float)
-    adhoc_setting.add_argument('--region_width',help='Whether the network topology can dynamically change.' ,type=float)
-    adhoc_setting.add_argument('--comm_range',help='communication range',type=float)
-    adhoc_setting.add_argument('--move_variance',help='Variance of the movement when position updates in Gaussian random walk. ', type=float)
+    adhoc_setting = parser.add_argument_group('AdhocNetworkSettings', 'Settings for AdhocNetwork')
+    adhoc_setting.add_argument('--region_width', help='Width of the region for the network.', type=float)
+    adhoc_setting.add_argument('--comm_range', help='Communication range.', type=float)
+    adhoc_setting.add_argument('--move_variance', help='Variance of the movement when position updates in Gaussian random walk.', type=float)
+        
     parser.add_argument('--result_path',help='The path to output results', type=str)
 
     args = vars(parser.parse_args())

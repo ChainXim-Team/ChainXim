@@ -7,6 +7,9 @@ from .message import Message
 
 
 class BlockHead(metaclass=ABCMeta):
+    
+    __omit_keys = {} # The items to omit when printing the object
+    
     def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
         self.prehash = prehash  # 前一个区块的hash
         self.timestamp = timestamp  # 时间戳
@@ -26,7 +29,6 @@ class BlockHead(metaclass=ABCMeta):
         return hash_bytes(data).digest()
 
     def __repr__(self) -> str:
-        __omit_keys = {}
         bhlist = []
         for k, v in self.__dict__.items():
             if k not in self.__omit_keys:
@@ -35,6 +37,8 @@ class BlockHead(metaclass=ABCMeta):
 
 
 class Block(Message):
+
+    __omit_keys = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
@@ -67,7 +71,6 @@ class Block(Message):
 
     
     def __repr__(self) -> str:
-        __omit_keys = {}
         def _formatter(d, mplus=1):
             m = max(map(len, list(d.keys()))) + mplus
             s = '\n'.join([k.rjust(m) + ': ' + 
@@ -83,7 +86,8 @@ class Block(Message):
         bdict.update({'next': [b.name for b in self.next if self.next], 
                       'parentblock': self.parentblock.name if self.parentblock is not None else None})
         for omk in self.__omit_keys:
-            del bdict[omk]
+            if omk in bdict:
+                del bdict[omk]
         return '\n'+ _formatter(bdict)
 
     @property
