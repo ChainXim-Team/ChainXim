@@ -3,7 +3,7 @@
 ## 总体架构 Framework
 ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockchain六个组件组成，其中Consensus、Adversary与Network三大组件可配置、可替换，从而适应不同类型的共识协议、攻击向量与网络模型。六个抽象组件之间的关系如下图所示：
 
-![framework](framework.svg)
+![framework](doc/framework.svg)
 
 每个抽象组件由对应的一个或多个类实现，其中Consensus对应的Consensus类以及Network对应的Network类仅为抽象类，还需要派生出有实际功能的类，以实现各类共识协议与网络模型。
 
@@ -43,7 +43,7 @@ ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全
 **Environment中设置了exec函数来一次性完成上述两种方法**：每一轮次中，所有矿工将依次被唤醒，并各自执行随机预言方法：如果矿工为诚实方，那么exec函数将调用Consensus组件执行进行相关操作；如果激活了攻击者，则调用Attacker组件进行相关操作。（每一轮次中只会调用一次Attacker组件）
 当所有矿工都完成自己的行动，即回合结束时，exec函数中将执行Network组件中的扩散方法，在网络中传播区块。一个具体的实例如下图所示：
 
-![environment](environment.png)
+![environment](doc/environment.png)
 
 该实例中n=4，t=1。当第k轮次（Round k）开始时，四个矿工将依照序号从小到大的顺序被依次唤醒，且各自完成自己的q次行动。其中，仅有2号矿工（Miner 2）成功获得了记账权，并将产生的区块进行传播（Diffuse方法）。由于各自的传播时延不尽相同，1号矿工与3号矿工在第k+1轮次便已成功接收到了该区块，而4号矿工则到第k+2轮次才收到此区块。第k+1轮次没有矿工完成出块，第k+2轮次中1号与4号矿工则都完成了出块，但这里4号矿工为攻击者，它采取了自私挖矿的攻击手段，将随机预言中产生的区块置于私链上，在扩散中也暂不传播给其它矿工。第k+3轮次中只有4号攻击者矿工完成出块，这时在它的视野中，自己的私链已经长于主链，故它会将私链通过扩散方法传播给其它矿工，区块链至此发生分叉，且在收到该私链矿工的视野中，攻击者的链为最长合法链。第k+4轮次中，如果1号或2号矿工没有收到私链，并继续在诚实主链上挖矿，则它们的利益将可能受到损害。
 
@@ -86,7 +86,7 @@ Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其
 
 本节介绍ChainXim中的基础数据类型。在仿真过程中产生的所有区块数据通过data.BlockHead、data.Block、data.Chain描述。下图为ChainXim中区块链数据结构的示意图。所有Block以多叉树形式组织起来，树上的每一对父节点与子节点通过Block中的parentblock与next属性双向链接，树的根节点与末端节点分别记录于Chain.head以及Chain.last_block。图中Chain对象包含高度为2的区块链，除创世区块`Block 0`以外，共有三个区块，在区块高度1处出现分叉，`Block 0 - Block 1 - Block 3`构成主链，`Block 3`是主链的链尾。
 
-![blockhead-block-chain](blockhead-block-chain.svg)
+![blockhead-block-chain](doc/blockhead-block-chain.svg)
 
 ### 消息类 Message
 Message是矿工在挖矿过程中产生的所有消息的基类，目前主要的消息仅有区块Block。Message的属性目前仅包含消息长度size，单位MB。
@@ -156,7 +156,7 @@ Chain类具有多种方法，可以用于添加新区块、合并链、搜索区
 ## 共识 Consensus
 本节介绍ChainXim的共识层架构，以工作量证明（Proof of Work, PoW）为例解释共识协议在ChainXim中的实现。Consensus类是一个描述ChainXim共识层基本要素的抽象类，在ChainXim中实现共识协议需要在Consensus类基础上扩展出新的共识类。目前已经实现的共识类是PoW，下图为展现PoW与Consensus关系的类图。
 
-![consensus-pow](consensus-pow.svg)
+![consensus-pow](doc/consensus-pow.svg)
 
 每一个PoW对象包含以下属性：
 
@@ -180,7 +180,7 @@ PoW类通过以下方法模拟工作量证明机制中的出块、验证行为�
 
 下图展示了Chainxim中与共识相关的继承与派生关系。如图所示，PoW.BlockHead与PoW.Block类是共识类的子类，派生自data.BlockHead与data.Block。Consensus类的子类BlockHead与Block类分别继承自data.BlockHead与data.Block，并重新定义了BlockHead与Block的初始化接口。
 
-![consensus-block](consensus-block.svg)
+![consensus-block](doc/consensus-block.svg)
 
 Consensus.BlockHead与Consensus.Block通过如下接口初始化。
 
@@ -238,7 +238,7 @@ def create_genesis_block(self, chain:Chain, blockheadextra:dict = None, blockext
 
 下图展示ChainXim中不同模块、不同方法间的调用关系：
 
-![message-lifecycle](message-lifecycle.svg)
+![message-lifecycle](doc/message-lifecycle.svg)
 
 其中比较值得关注的是粗体的六个方法，consensus_process调用mining_consensus实现出块，新区块经由launch_consensus调用forward进入矿工的转发队列，每轮次diffuse被调用时会调用Miner.NIC.nic_forward使区块进入模拟网络开始仿真。在矿工接收到新区块时，diffuse调用该矿工的receive方法实现区块接收（接收到的区块暂存于接收缓冲区_receive_tape），local_state_update在每个轮次开始时逐个验证\_receive_tape中的区块并更新到目标矿工的本地链中。需要注意的是消息的具体转发、接收过程对于不同网络类型会略有不同，详见[网络](#网络-Network)一节）
 
@@ -708,7 +708,7 @@ def forward_process(self, round):
 ### 攻击层与整体的交互逻辑
 下图为某一回合攻击模块的运行示例，攻击模块实际进行的部分为下图虚线框内所示。t个攻击者散布在矿工之间（编号可在system_config.ini中指定）。每个轮次中，攻击模块只会被触发一次，每次触发都会进行一次完整的攻击行为（例如，以所有矿工每轮次计算哈希数q均相同的PoW为例，攻击者每次攻击行为可以执行t*q次哈希计算）**当前版本中，每轮次攻击者会在随机位置被触发，主要防止攻击者在固定位置触发影响公平性。** 攻击模块主要与网络和环境进行交互，与环境交互的主要内容为感知当前“局势”与向全局链上传区块两个部分；与网络交互的内容主要是将区块发送至网络。攻击模块具体的交互内容在“[重要抽象类的实现](#重要抽象类的实现)”以及“[调用方式与具体实现](#调用方式与具体实现)”中有详细介绍。
 
-<img src="attack.png" alt="attack" width="600" />
+<img src="doc/attack.png" alt="attack" width="600" />
 
 ### 已实现的攻击方式(Attack Type)
 - 算力攻击(Honest Mining)

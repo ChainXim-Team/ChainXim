@@ -563,7 +563,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 
 ## 开发者文档 Developer's Document
-详见[developer-guide](doc/developer-guide.md)
+详见[developer-guide](developer-guide.md)
 
 
 
