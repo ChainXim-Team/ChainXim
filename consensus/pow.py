@@ -11,6 +11,7 @@ class PoW(Consensus):
 
     class BlockHead(Consensus.BlockHead):
         '''适用于PoW共识协议的区块头'''
+        __slots__ = ['target', 'nonce']
         def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,
                      target = (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER),
                      nonce = 0):

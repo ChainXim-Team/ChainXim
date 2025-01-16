@@ -1,4 +1,5 @@
 import copy
+from itertools import chain
 from abc import ABCMeta, abstractmethod
 
 from functions import BYTE_ORDER, INT_LEN, hash_bytes
@@ -7,7 +8,7 @@ from .message import Message
 
 
 class BlockHead(metaclass=ABCMeta):
-    
+    __slots__ = ['prehash', 'timestamp', 'content', 'miner']
     __omit_keys = {} # The items to omit when printing the object
     
     def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
@@ -30,14 +31,16 @@ class BlockHead(metaclass=ABCMeta):
 
     def __repr__(self) -> str:
         bhlist = []
-        for k, v in self.__dict__.items():
+        keys = chain.from_iterable(list(getattr(s, '__slots__', []) for s in self.__class__.__mro__) + list(getattr(self, '__dict__', {}).keys()))
+        for k in keys:
             if k not in self.__omit_keys:
+                v = getattr(self, k)
                 bhlist.append(k + ': ' + (str(v) if not isinstance(v, bytes) else v.hex()))
         return '\n'.join(bhlist)
 
 
 class Block(Message):
-
+    __slots__ = ['name', '_blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
     __omit_keys = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
@@ -58,14 +61,19 @@ class Block(Message):
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if cls.__name__ == 'Block' and k != 'next' and k != 'parentblock':
-                setattr(result, k, copy.deepcopy(v, memo))
-            if cls.__name__ == 'Block' and k == 'next':
-                setattr(result, k, [])
-            if cls.__name__ == 'Block' and k == 'parentblock':
-                setattr(result, k, None)
-            if cls.__name__ != 'Block':
+
+        slots = chain.from_iterable(getattr(s, '__slots__', []) for s in self.__class__.__mro__)
+        for k in slots:
+            if cls.__name__ == 'Block':
+                if k == 'next':
+                    setattr(result, k, [])
+                    continue
+                if k == 'parentblock':
+                    setattr(result, k, None)
+                    continue
+            setattr(result, k, copy.deepcopy(getattr(self, k), memo))
+        if var_dict := getattr(self, '__dict__', None):
+            for k, v in var_dict.items():
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
@@ -82,13 +90,16 @@ class Block(Message):
             indent = " "*n
             return ("\n" + indent).join(split)
         
-        bdict = copy.deepcopy(self.__dict__)
-        bdict.update({'next': [b.name for b in self.next if self.next], 
+        slots = chain.from_iterable(getattr(s, '__slots__', []) for s in self.__class__.__mro__)
+        var_dict = {k: getattr(self, k) for k in slots}
+        if hasattr(self, '__dict__'):
+            var_dict.update(self.__dict__)
+        var_dict.update({'next': [b.name for b in self.next if self.next], 
                       'parentblock': self.parentblock.name if self.parentblock is not None else None})
         for omk in self.__omit_keys:
-            if omk in bdict:
-                del bdict[omk]
-        return '\n'+ _formatter(bdict)
+            if omk in var_dict:
+                del var_dict[omk]
+        return '\n'+ _formatter(var_dict)
 
     @property
     def blockhead(self):
