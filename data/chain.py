@@ -219,8 +219,8 @@ class Chain(object):
         fork_list = []
         while blocktmp:
             if blocktmp.isGenesis is False:
-                rd2 = blocktmp.blockhead.content + blocktmp.blockhead.miner / miner_num
-                rd1 = blocktmp.parentblock.blockhead.content + blocktmp.parentblock.blockhead.miner / miner_num
+                rd2 = blocktmp.blockhead.timestamp + blocktmp.blockhead.miner / miner_num
+                rd1 = blocktmp.parentblock.blockhead.timestamp + blocktmp.parentblock.blockhead.miner / miner_num
                 ht2 = blocktmp.height
                 ht1 = ht2 - 1
                 if blocktmp.isAdversaryBlock:
@@ -288,7 +288,7 @@ class Chain(object):
         height = blocktmp2.height
         while not blocktmp2.isGenesis:
             blocktmp1 = blocktmp2.parentblock
-            stat.append(blocktmp2.blockhead.content - blocktmp1.blockhead.content)
+            stat.append(blocktmp2.blockhead.timestamp - blocktmp1.blockhead.timestamp)
             blocktmp2 = blocktmp1
         if height <= 1000:
             bins = 10
