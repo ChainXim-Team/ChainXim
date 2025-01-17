@@ -21,11 +21,28 @@ class Chain(object):
         默认情况下chain不可能为空
         '''
 
+    def __getstate__(self):
+        chain = copy.deepcopy(self)
+        for block in chain.block_set.values():
+            block.parentblock = None
+            block.next = [block.blockhash for block in block.next]
+        chain.last_block = self.last_block.blockhash
+        return vars(chain)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        for block in self.block_set.values():
+            if block.height != 0:
+                block.parentblock = self.block_set[block.blockhead.prehash]
+            block.next = [self.block_set[hash] for hash in block.next]
+        self.last_block = self.block_set[self.last_block]
+
     def __deepcopy__(self, memo):
         if self.head is None:
             return None
-        copy_chain = Chain()
+        copy_chain = Chain(miner_id=self.miner_id)
         copy_chain.head = copy.deepcopy(self.head)
+        copy_chain.block_set[copy_chain.head.blockhash] = copy_chain.head
         memo[id(copy_chain.head)] = copy_chain.head
         q = [copy_chain.head]
         q_o = [self.head]
@@ -38,6 +55,7 @@ class Chain(object):
                 q.append(copy_block)
                 q_o.append(block)
                 memo[id(copy_block)] = copy_block
+                copy_chain.block_set[copy_block.blockhash] = copy_block
                 if block.name == self.last_block.name:
                     copy_chain.last_block = copy_block
             q.pop(0)
