@@ -62,6 +62,8 @@ def main(**args):
     global_var.set_compact_outputfile(
         config.getboolean('EnvironmentSettings','compact_outputfile')
         if not args.get('no_compact_outputfile') else False)
+    global_var.set_common_prefix_enable(
+        config.getboolean('EnvironmentSettings','common_prefix_enable'))
     
     # 配置日志
     config_log(env_config)

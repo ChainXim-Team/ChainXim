@@ -16,6 +16,8 @@ class Chain(object):
         self.head = None
         self.last_block = self.head  # 指向最新区块，代表矿工认定的主链
         self.block_set = defaultdict(Block)
+        self.switch_tracker_callback = None # 用于记录链尾切换事件
+        # self.merge_tracker_callback = None # 用于记录区块并入事件
         '''
         默认的共识机制中会对chain添加一个创世区块
         默认情况下chain不可能为空
@@ -26,6 +28,8 @@ class Chain(object):
         for block in chain.block_set.values():
             block.parentblock = None
             block.next = [block.blockhash for block in block.next]
+        chain.switch_tracker_callback = None
+        # chain.merge_tracker_callback = None
         chain.last_block = self.last_block.blockhash
         return vars(chain)
 
@@ -92,6 +96,8 @@ class Chain(object):
         # 本块必须是在链中的
         if self.search_block(block):
             self.last_block = block
+            if self.switch_tracker_callback:
+                self.switch_tracker_callback(block)
         else:
             return
 
@@ -138,6 +144,9 @@ class Chain(object):
             cur2add.next = []            # 初始化它的子节点
             insert_point = cur2add             # 父节点设置为它
             self.block_set[cur2add.blockhash] = cur2add # 将它加入blockset中
+
+        # if self.merge_tracker_callback:
+        #     self.merge_tracker_callback(cur2add)
 
         # 如果新加的区块的高度比现在的链的高度高 重新将lastblock指向新加区块
         if cur2add.get_height() > self.get_height():
@@ -411,4 +420,71 @@ class Chain(object):
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats
+    
+    def set_switch_tracker_callback(self, callback):
+        self.switch_tracker_callback = callback
 
+    def set_merge_tracker_callback(self, callback):
+        self.merge_tracker_callback = callback
+
+class LocalChainTracker(object):
+    '''记录本地链每次切换lastblock的轮次以及lastblock的信息'''
+    class ChainSwitchEvent(object):
+        '''记录一次链尾切换的事件'''
+        __slots__ = ['switch_round','name','blockhash','height','timestamp','subject']
+        def __init__(self,switch_round:int,last_block:Block, subject:int):
+            self.switch_round = switch_round
+            self.name = last_block.name
+            self.blockhash = last_block.blockhash
+            self.height = last_block.height
+            self.timestamp = last_block.blockhead.timestamp
+            self.subject = subject # the miner who switches lastblock
+
+    # class ChainMergeEvent(object):
+    #     '''记录一次区块并入本地链的事件'''
+    #     __slots__ = ['merge_round','name','blockhash','height','timestamp','subject']
+    #     def __init__(self,merge_round:int,last_block:Block, subject:int):
+    #         self.merge_round = merge_round
+    #         self.name = last_block.name
+    #         self.blockhash = last_block.blockhash
+    #         self.height = last_block.height
+    #         self.timestamp = last_block.blockhead.timestamp
+    #         self.subject = subject # the miner who switches lastblock
+
+    def __init__(self):
+        self.chain_switch_events = []
+        # self.block_merge_round = dict()
+        self.current_round = 0
+        
+    def get_switch_tracker(self, miner_id:int):
+        def tracker(last_block:Block):
+            self.chain_switch_events.append(LocalChainTracker.ChainSwitchEvent(self.current_round,
+                                                                                      last_block, miner_id))
+        return tracker
+    
+    # def get_merge_tracker(self, miner_id:int):
+    #     block_merge_round_per_miner = dict()
+    #     self.block_merge_round[miner_id] = block_merge_round_per_miner
+    #     def tracker(last_block:Block):
+    #         block_merge_round_per_miner[last_block.blockhash] = self.current_round
+
+    #     return tracker
+    
+    def update_round(self,current_round):
+        self.current_round = current_round
+
+    def dump_events(self, filename: str, chains: list[Chain] = None,
+                    honest_miner_ids: list[int] = None):
+        dump_data = {'chain_switch_events': self.chain_switch_events}
+        if chains is not None:
+            chain_state = []
+            for chain in chains:
+                chain_copy = copy.deepcopy(chain)
+                chain_state.append(chain_copy)
+            dump_data['chains'] = chain_state
+        if honest_miner_ids is not None:
+            dump_data['honest_miner_ids'] = honest_miner_ids
+        '''将链切换事件记录到文件'''
+        import pickle
+        with open(filename, 'wb') as f:
+            pickle.dump(dump_data, f)

@@ -43,12 +43,32 @@ def R(blockchain:Chain):
                 q.append(i)
     return xc
 
-def common_prefix(prefix1:Block, chain2:Chain):
-    while prefix1:
-        if chain2.search_block(prefix1) is not None:
+MAX_SUFFIX = 10 # 最大链后缀回溯距离
+
+def common_prefix(prefix1:Block, prefix2:Block):
+    height1 = prefix1.get_height()
+    height2 = prefix2.get_height()
+    if height1 > height2:
+        for _ in range(height1 - height2):
+            if prefix1 is None:
+                return None
+            prefix1 = prefix1.parentblock
+    elif height1 < height2:
+        for _ in range(height2 - height1):
+            if prefix2 is None:
+                return None
+            prefix2 = prefix2.parentblock
+    while prefix1 and prefix2:
+        if prefix1.blockhash == prefix2.blockhash:
             break
         prefix1 = prefix1.parentblock
+        prefix2 = prefix2.parentblock
     return prefix1
+    # while prefix1:
+    #     if chain2.search_block(prefix1) is not None:
+    #         break
+    #     prefix1 = prefix1.parentblock
+    # return prefix1
 
 def chain_quality(blockchain:Chain, honest_miner_ids:list):
     '''
