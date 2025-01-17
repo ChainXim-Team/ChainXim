@@ -67,8 +67,9 @@ class Environment(object):
             global_chain = self.global_chain, 
             adver_consensus_param = consensus_param, 
             attack_arg = attack_param['attack_arg'])
-        # get adversary IDs
+        # get honest miner IDs
         adversary_ids = self.adversary.get_adver_ids()
+        self.honest_miner_ids = [miner.miner_id for miner in self.miners if miner.miner_id not in adversary_ids]
 
         # set parameters for network
         self.network.set_net_param(**network_param)
@@ -227,7 +228,7 @@ class Environment(object):
             'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.adversary.get_adver_num())*self.total_round)
         })
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.global_chain)
+        cq_dict, chain_quality_property = chain_quality(self.global_chain, self.honest_miner_ids)
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
