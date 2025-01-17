@@ -40,13 +40,13 @@ class BlockHead(metaclass=ABCMeta):
 
 
 class Block(Message):
-    __slots__ = ['name', '_blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
+    __slots__ = ['name', '__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
     __omit_keys = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
         self.name = name
-        self._blockhead = blockhead
+        self.__blockhead = blockhead
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
@@ -71,7 +71,12 @@ class Block(Message):
                 if k == 'parentblock':
                     setattr(result, k, None)
                     continue
-            setattr(result, k, copy.deepcopy(getattr(self, k), memo))
+            if k.startswith('__'):
+                key = '_' + cls.__name__ + k
+                setattr(result, key, copy.deepcopy(getattr(self, key), memo))
+            else:
+                setattr(result, k, copy.deepcopy(getattr(self, k), memo))
+            
         if var_dict := getattr(self, '__dict__', None):
             for k, v in var_dict.items():
                 setattr(result, k, copy.deepcopy(v, memo))
@@ -91,7 +96,14 @@ class Block(Message):
             return ("\n" + indent).join(split)
         
         slots = chain.from_iterable(getattr(s, '__slots__', []) for s in self.__class__.__mro__)
-        var_dict = {k: getattr(self, k) for k in slots}
+        var_dict = {}
+        for k in slots:
+            if k.startswith('__'):
+                key = '_' + self.__class__.__name__ + k
+                var_dict[k] = getattr(self, key)
+            else:
+                var_dict[k] = getattr(self, k)
+
         if hasattr(self, '__dict__'):
             var_dict.update(self.__dict__)
         var_dict.update({'next': [b.name for b in self.next if self.next], 
@@ -103,7 +115,7 @@ class Block(Message):
 
     @property
     def blockhead(self):
-        return self._blockhead
+        return self.__blockhead
 
     def calculate_blockhash(self):
         self.blockhash = self.blockhead.calculate_blockhash()
