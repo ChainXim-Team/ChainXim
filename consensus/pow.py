@@ -4,6 +4,8 @@ from typing import List, Tuple
 import global_var
 from functions import BYTE_ORDER, INT_LEN, HASH_LEN, hash_bytes
 
+import random
+
 from .consensus_abc import Consensus
 
 
@@ -30,7 +32,7 @@ class PoW(Consensus):
     def __init__(self,miner_id,consensus_params:dict):
         super().__init__(miner_id=miner_id)
         self.ctr=0 #计数器
-        self.target = bytes.fromhex(consensus_params['target'])
+        self.target = bytes.fromhex(consensus_params['target'])    
         if consensus_params['q_distr'] == 'equal':
             self.q = consensus_params['q_ave']
         else:
@@ -44,7 +46,7 @@ class PoW(Consensus):
         '''
         设置pow参数,主要是target
         '''
-        self.target = bytes.fromhex(consensus_params.get('target') or self.target)
+        self.target = bytes.fromhex(consensus_params.get('target') or self.target)            
         self.q = consensus_params.get('q') or self.q
 
     def mining_consensus(self, miner_id:int, isadversary, x, round):
@@ -66,22 +68,33 @@ class PoW(Consensus):
             miner_id.to_bytes(INT_LEN, BYTE_ORDER, signed=True) + 
             x.to_bytes(INT_LEN, BYTE_ORDER) + prehash)
         
-        i = 0
-        while i < self.q:
-            self.ctr = self.ctr+1
-            hasher = intermediate_hasher.copy()
-            hasher.update(self.ctr.to_bytes(INT_LEN, BYTE_ORDER))
-            currenthash=hasher.digest()#计算哈希
-            if currenthash<self.target:
+        if global_var.get_lightweight_enable():
+            random_float = random.random()#轻量级仿真下，通过一个随机数来替代哈希计算，缩短仿真时间
+            p = int.from_bytes(self.target, byteorder='big')
+            target_value =  1 - (1 - p/2**256)**self.q
+            if random_float < target_value:
                 pow_success = True
-                # blockhead = PoW.BlockHead(b_last,time.time_ns(),x,miner_id,self.target,self.ctr)
-                # Use round instead as real world timestamp is meaningless in chainxim
+                self.ctr = 1
                 blockhead = PoW.BlockHead(b_last,round,x,miner_id,self.target,self.ctr)
                 blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
-                self.ctr = 0
                 return (blocknew, pow_success)
-            else:
-                i = i+1
+        else:
+            i = 0
+            while i < self.q:
+                self.ctr = self.ctr+1
+                hasher = intermediate_hasher.copy()
+                hasher.update(self.ctr.to_bytes(INT_LEN, BYTE_ORDER))
+                currenthash=hasher.digest()#计算哈希
+                if currenthash<self.target:
+                    pow_success = True
+                    # blockhead = PoW.BlockHead(b_last,time.time_ns(),x,miner_id,self.target,self.ctr)
+                    # Use round instead as real world timestamp is meaningless in chainxim
+                    blockhead = PoW.BlockHead(b_last,round,x,miner_id,self.target,self.ctr)
+                    blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
+                    self.ctr = 0
+                    return (blocknew, pow_success)
+                else:
+                    i = i+1
         return (None, pow_success)
         
     def local_state_update(self):
@@ -144,10 +157,18 @@ class PoW(Consensus):
         return:
             block_vali 合法标识 type:bool
         '''
-        btemp = block
-        target = btemp.blockhead.target
-        hash = btemp.calculate_blockhash()
-        if hash >= target:
-            return False
+        if global_var.get_lightweight_enable():
+            btemp = block
+            ctr = btemp.blockhead.nonce
+            if ctr != 1:#轻量级仿真下，区块哈希随机生成，无法用于验证PoW合法性，这里就简单固定挖出区块的nonce作为合法性指示
+                return False
+            else:
+                return True
         else:
-            return True
+            btemp = block
+            target = btemp.blockhead.target
+            hash = btemp.calculate_blockhash()
+            if hash >= target:
+                return False
+            else:
+                return True
