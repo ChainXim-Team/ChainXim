@@ -64,6 +64,8 @@ def main(**args):
         if not args.get('no_compact_outputfile') else False)
     global_var.set_common_prefix_enable(
         config.getboolean('EnvironmentSettings','common_prefix_enable'))
+    global_var.set_lightweight_enable(
+        config.getboolean('EnvironmentSettings','lightweight_enable'))
     
     # 配置日志
     config_log(env_config)
@@ -71,13 +73,18 @@ def main(**args):
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
     if global_var.get_consensus_type() == 'consensus.PoW':
-        target = args.get('target') or consensus_settings['target']
-        global_var.set_PoW_target(target)
-        q_ave = args.get('q_ave') or int(consensus_settings['q_ave'])
+        q_ave = args.get('q_ave') or float(consensus_settings['q_ave'])
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
         if q_distr == 'rand':
             q_distr = get_random_q_gaussian(miner_num,q_ave)
+        average_block_time = args.get('average_block_time') or float(consensus_settings['average_block_time'])
+        if average_block_time == 0:
+            target = args.get('target') or consensus_settings['target']
+            global_var.set_PoW_target(target)
+        else:
+            target =  f"{round(2**256/miner_num/q_ave/average_block_time):064x}"
+            global_var.set_PoW_target(target)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
     else:
         consensus_param = {}
