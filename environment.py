@@ -37,7 +37,8 @@ class Environment(object):
         self.miner_num = global_var.get_miner_num()
         self.total_round = 0
         # configure extra genesis block info
-        consensus_type:consensus.Consensus = for_name(global_var.get_consensus_type())
+        consensus_type_str = global_var.get_consensus_type()
+        consensus_type:consensus.Consensus = for_name(consensus_type_str)
         consensus_type.genesis_blockheadextra = genesis_blockheadextra
         consensus_type.genesis_blockextra = genesis_blockextra
         # Local chain tracker generation
@@ -65,11 +66,15 @@ class Environment(object):
             miner_list = self.miners, 
             # eclipse = attack_param['eclipse'], 
             global_chain = self.global_chain, 
-            adver_consensus_param = consensus_param, 
+            adver_consensus_param = copy.deepcopy(consensus_param), 
             attack_arg = attack_param['attack_arg'])
         # get honest miner IDs
         adversary_ids = self.adversary.get_adver_ids()
         self.honest_miner_ids = [miner.miner_id for miner in self.miners if miner.miner_id not in adversary_ids]
+
+        # configure oracles
+        if consensus_type_str == 'consensus.PoWstrict':
+            self.configure_oracles(consensus_param, adversary_ids)
 
         # set parameters for network
         self.network.set_net_param(**network_param)
@@ -96,6 +101,36 @@ class Environment(object):
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
 
+    def configure_oracles(self, consensus_params:dict, adversary_ids:list):
+        if consensus_params['q_distr'] == 'equal':
+            q_list = [consensus_params['q_ave'] for _ in range(self.miner_num)]
+        elif isinstance(eval(consensus_params['q_distr']), list):
+            q_list = eval(consensus_params['q_distr'])
+        else:   
+            raise ValueError("q_distr should be a list or the string 'equal'")
+
+        from consensus import RandomOracleRoot
+        self.oracle_root = RandomOracleRoot()
+        self.verifying_oracles = []
+        self.mining_oracles = []
+        attacker_oracle_verifying = self.oracle_root.get_verifying_oracle(adversary_ids)
+        adversary_q = [q_list[id] for id in adversary_ids]
+        attacker_oracle_mining = self.oracle_root.get_mining_oracle(sum(adversary_q))
+
+        for id, miner in enumerate(self.miners):
+            if id in adversary_ids:
+                verifying_oracle = attacker_oracle_verifying
+                mining_oracle = attacker_oracle_mining
+            else:
+                verifying_oracle = self.oracle_root.get_verifying_oracle([miner.miner_id])
+                mining_oracle = self.oracle_root.get_mining_oracle(q_list[miner.miner_id])
+
+            self.verifying_oracles.append(verifying_oracle)
+            self.mining_oracles.append(mining_oracle)
+            miner.consensus.set_random_oracle(mining_oracle=mining_oracle, verifying_oracle=verifying_oracle)
+
+        self.adversary.get_attack_type().adver_consensus.set_random_oracle(mining_oracle=attacker_oracle_mining,
+                                                                           verifying_oracle=attacker_oracle_verifying)
 
     def envir_create_global_chain(self):
         '''create global chain and its genesis block by copying
@@ -105,7 +140,10 @@ class Environment(object):
         # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         # self.global_chain.lastblock = self.global_chain.head
 
-
+    def on_round_start(self, round):
+        self.local_chain_tracker.update_round(round)
+        if getattr(self, 'oracle_root', None):
+            self.oracle_root.reset_counters(self.mining_oracles)
         
     def exec(self, num_rounds, max_height, process_bar_type):
 
@@ -120,7 +158,7 @@ class Environment(object):
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
         for round in range(1, num_rounds+1):
-            self.local_chain_tracker.update_round(round)
+            self.on_round_start(round)
             inputfromz = round # 生成输入
 
             adver_tmpflag = 1
