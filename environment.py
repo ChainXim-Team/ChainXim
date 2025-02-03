@@ -318,7 +318,7 @@ class Environment(object):
                 'common_prefix_cdf_k': cp_cdf_k/(len(self.honest_miner_ids)*timestamp_of_last_block)
             })
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.global_chain, self.honest_miner_ids)
+        cq_dict, chain_quality_property = chain_quality(self.global_chain, self.adversary.get_adver_ids())
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
