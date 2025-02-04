@@ -15,20 +15,20 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+sys.path.append("E:\Files\gitspace\\chain-xim")
 
 import errors
 import global_var
 from data import Block, Message
 
-from .network_abc import (
-    DIRECT,
+from network_abc import (
     ERR_OUTAGE,
     GLOBAL,
     GetDataMsg,
     INVMsg,
     Network,
     Packet,
-    Segment,
+    DataSegment,
 )
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 class AdHocPacket(Packet):
-    def __init__(self, payload: Message, round, source: int = None, target: int = None, 
+    def __init__(self, payload: Message|list[DataSegment], round, source: int = None, target: int = None, 
                  type: str = GLOBAL, destination:int=None):
         """
         param
@@ -70,17 +70,12 @@ class Link(object):
     def get_msg(self):
         return self.packet.payload
     
-    def get_seg_name(self):
-        if (isinstance(self.packet.payload, Segment) and 
-            isinstance(self.packet.payload.msg, Block)):
-            return str((self.packet.payload.msg.name, 
-                        self.packet.payload.seg_id))
-        print(0)
+    def get_seg_names(self):
+        return str((self.packet.payload))
         
-    def get_block_name(self):
-        if (isinstance(self.packet.payload, Segment) and 
-            isinstance(self.packet.payload.msg, Block)):
-            return self.packet.payload.msg.name
+    def get_block_names(self):
+        if (isinstance(self.packet.payload, list) and isinstance(self.packet.payload[0], DataSegment)):
+            return [seg.origin_block.name for seg in self.packet.payload if isinstance(seg.origin_block, Block) ]
         
     def target_id(self):
         return self.packet.target
@@ -99,10 +94,13 @@ class AdHocNetwork(Network):
     '''拓扑P2P网络'''                        
     def __init__(self, miners):
         super().__init__()
+        self.withTopology = True
+        self.withSegments = True
+
         self._miners:list[Miner] = miners
         for miner in self._miners:
             miner.join_network(self)
-
+            
         # parameters, set by set_net_param()
         self._init_mode = None
         self._ave_degree = None
@@ -111,6 +109,10 @@ class AdHocNetwork(Network):
         self._show_label = False
         self._save_routing_graph = False
 
+        self._enableLargeScaleFading = False
+        self._pathLossRate = 1
+        self._bandwidthMax = 1
+
         # 拓扑图，初始默认全不连接
         self._tp_adjacency = np.zeros((self.MINER_NUM, self.MINER_NUM))
         self._graph = nx.Graph(self._tp_adjacency)
@@ -118,14 +120,8 @@ class AdHocNetwork(Network):
         
         self._region_width = None
         self._comm_range = None
-        # self._ave_move = None
-        # self._min_move = None
-        # self._max_move= None
         
         self._node_pos = None #后面由set_node_pos生成
-        # self._aveMoveNorm = None
-        # self._minMoveNorm = None
-        # self._maxMoveNorm = None
         self._moveVariance = None
         self._commRangeNorm = None
         self._tp_changes = []
@@ -135,8 +131,6 @@ class AdHocNetwork(Network):
 
         # 维护所有的活跃链路
         self._active_links:list[Link] = []
-
-        self._maxPartitionsAllowed=False
 
         # status
         self._rcv_miners = defaultdict(list)
@@ -156,11 +150,12 @@ class AdHocNetwork(Network):
                       region_width = None,
                       comm_range = None,
                       move_variance= None,
-                    #   min_move = None,
-                    #   max_move = None,
                       outage_prob = None, 
                       stat_prop_times = None, 
-                      segment_size=None):
+                      segment_size=None,
+                      enable_large_scale_fading = None,
+                      path_loss_level = None,
+                      bandwidth_max = None):
         ''' 
         set the network parameters
 
@@ -181,15 +176,6 @@ class AdHocNetwork(Network):
         if comm_range is not None:
             self._comm_range = comm_range
             self._commRangeNorm = np.float32(comm_range/region_width)
-        # if ave_move is not None:
-        #     self._ave_move = ave_move
-        #     self._aveMoveNorm = ave_move/region_width
-        # if min_move is not None:
-        #     self.min_move = min_move
-        #     self._minMoveNorm = min_move/region_width
-        # if max_move is not None:
-        #     self._max_move = max_move
-        #     self._maxMoveNorm = max_move/region_width
         if move_variance is not None:
             self._moveVariance = move_variance/region_width
         if init_mode is not None:
@@ -201,12 +187,23 @@ class AdHocNetwork(Network):
                 self._init_mode = init_mode
                 self.edge_prob = None
                 self.network_generator(init_mode)
+        if enable_large_scale_fading is not None:
+            self._enableLargeScaleFading = enable_large_scale_fading
+        if path_loss_level is not None:
+            if path_loss_level == 'low':
+                self._pathLossRate = 1
+            if path_loss_level == 'medium':
+                self._pathLossRate = 1.5
+            if path_loss_level == 'high':
+                self._pathLossRate = 2
+        if bandwidth_max is not None:
+            self._bandwidthMax = bandwidth_max
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int,  round:int, target:int):
+    def access_network(self, new_msgs:list[Message], minerid:int,  round:int, target:int, sendTogether:bool = False):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -217,17 +214,26 @@ class AdHocNetwork(Network):
         '''
         if self.inv_handler(new_msgs):
             return
+        if len(new_msgs)>0 and sendTogether:
+            packet = AdHocPacket(new_msgs, round, minerid, target)
+            delay = 1
+            link = Link(packet, delay, self)
+            self._active_links.append(link)
+            if isinstance(new_msgs[0], DataSegment):
+                logger.info("%s access network: M%d -> M%d, round %d", new_msgs, minerid, target, round)
+            for msg in new_msgs:
+                if isinstance(msg, DataSegment):
+                    self._rcv_miners[msg.origin_block.name].append(minerid)
+
+            return
         for msg in new_msgs:
             packet = AdHocPacket(msg, round, minerid, target)
             delay = 1
             link = Link(packet, delay, self)
             self._active_links.append(link)
-            self._rcv_miners[link.get_block_name()].append(minerid)
-            # self.miners[minerid].receive(packet)
-            # 这一条防止adversary集团的代表，自己没有接收到该消息
-            if isinstance(msg, Segment):
+            if isinstance(msg, DataSegment):
                 logger.info("Seg(%s, %d) access network: M%d -> M%d, round %d", 
-                        msg.msg.name,msg.seg_id, minerid, target, round)
+                        msg.origin_block.name,msg.seg_id, minerid, target, round)
                 
     def inv_handler(self, new_msgs:list[Message]):
         """先处理inv消息"""
@@ -236,7 +242,7 @@ class AdHocNetwork(Network):
             return False
         inv = new_msgs[0]
         getDataReply = new_msgs[1]
-        getData = self._miners[inv.target].NIC.getdata(inv)
+        getData = self._miners[inv.target].NIC.reply_getdata(inv)
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
@@ -248,7 +254,7 @@ class AdHocNetwork(Network):
         self.forward_process(round)
         self.random_walk(round)
             
-    def receive_process(self,round):
+    def receive_process(self, round):
         """接收过程"""
         if len(self._active_links)==0:
             return
@@ -256,17 +262,19 @@ class AdHocNetwork(Network):
         # 传播完成，target接收数据包
         for i, link in enumerate(self._active_links):
             if link.delay > 0:
-                link.delay -= 1
                 if self.link_outage(round, link):
                     dead_links.append(i)
-                continue
-            rcv_state = link.target_miner().NIC.nic_receive(link.packet)
+                    continue
+                link.delay -= 1
+            rcv_states = link.target_miner().NIC.nic_receive(link.packet)
             link.source_miner().NIC.get_reply(
-                link.get_seg_name(), link.target_id(), None, round)
-            if rcv_state:
-                if self._rcv_miners[link.get_block_name()][-1]!=-1:
-                    self._rcv_miners[link.get_block_name()].append(link.target_id())
-                self.stat_block_propagation_times(link.packet, round)
+                link.get_seg_names(), link.target_id(), None, round)
+            if isinstance(rcv_states, dict):
+                for block_name, rcv_state in rcv_states.items():
+                    if rcv_state:
+                        if self._rcv_miners[block_name][-1]!=-1:
+                            self._rcv_miners[block_name].append(link.target_id())
+                        self.stat_block_propagation_times(link.packet, round)
             dead_links.append(i)
         # 清理传播结束的link
         if len(dead_links) == 0:
@@ -280,6 +288,25 @@ class AdHocNetwork(Network):
         for m in self._miners:
             m.NIC.nic_forward(round)
 
+    def get_number_of_segments_to_send(self, source, target):
+        """返回需要发送的分片数量"""
+        if self._enableLargeScaleFading == False:
+            return 1
+        d = self.get_distance_between_two_miners(source, target)
+        d0 = self._commRangeNorm / 100 # 最大带宽的参考距离
+        seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
+        a = seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)
+        seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
+        logger.info("M%d->M%d: distance %d, get %d segment(s) to forward", source, target, d*self._region_width, seg_num)
+        return seg_num
+
+    def get_distance_between_two_miners(self, source, target):
+        """计算两个节点之间的距离"""
+        source_pos = self._node_pos[source]
+        target_pos = self._node_pos[target]
+        distance = np.linalg.norm(source_pos - target_pos)
+        return distance
+
     def link_outage(self, round:int, link:Link):
         """每条链路都有概率中断"""
         if self._outage_prob <= 0:
@@ -291,7 +318,7 @@ class AdHocNetwork(Network):
             return outage
         # 链路中断返回ERR_OUTAGE错误
         link.source_miner().NIC.get_reply(
-            link.get_seg_name(), link.target_id(), ERR_OUTAGE, round)
+            link.get_seg_names(), link.target_id(), ERR_OUTAGE, round)
         outage = True
         return outage
     
@@ -376,12 +403,12 @@ class AdHocNetwork(Network):
         # self.draw_and_save_network(f"round{round}")
     
     def get_node_pos(self):
-        '''使用spring_layout设置节点位置'''
         if self._node_pos is None:
             self.init_node_pos()
         return self._node_pos
 
     def init_node_pos(self):
+        '''使用random_layout设置节点位置'''
         self._node_pos = nx.random_layout(self._graph, seed=50)
         # 将每个节点的位置信息向量化存储
         self._pos_matrix = np.array(list(self._node_pos.values()))
@@ -423,10 +450,10 @@ class AdHocNetwork(Network):
 
     def stat_block_propagation_times(self, packet: AdHocPacket, r):
         '''calculate the block propagation time'''
-        if not isinstance(packet.payload, Segment):
+        if not isinstance(packet.payload, DataSegment):
             return
 
-        rn = len(set(self._rcv_miners[packet.payload.msg.name]))
+        rn = len(set(self._rcv_miners[packet.payload.origin_block.name]))
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
@@ -439,12 +466,12 @@ class AdHocNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in rcv_rates:
-            if  self._rcv_miners[packet.payload.msg.name][-1] != -1:
-                self._stat_prop_times[rcv_rate] += r-packet.payload.msg.blockhead.timestamp
+            if  self._rcv_miners[packet.payload.origin_block.name][-1] != -1:
+                self._stat_prop_times[rcv_rate] += r-packet.payload.origin_block.blockhead.timestamp
                 self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
-                logger.debug(f"{packet.payload.msg.name}:{rn},{rcv_rate} at round {r}")
-            if rn == mn and self._rcv_miners[packet.payload.msg.name][-1] != -1:
-                self._rcv_miners[packet.payload.msg.name][-1] = -1
+                logger.debug(f"{packet.payload.origin_block.name}:{rn},{rcv_rate} at round {r}")
+            if rn == mn and self._rcv_miners[packet.payload.origin_block.name][-1] != -1:
+                self._rcv_miners[packet.payload.origin_block.name][-1] = -1
 
     def cal_block_propagation_times(self):
         rcv_rates = [k for k in self._stat_prop_times.keys()]
@@ -595,8 +622,7 @@ class AdHocNetwork(Network):
             print('\n')
 
     
-    
-        
+
 
     def draw_and_save_network(self, file_name = None):
         """
@@ -788,3 +814,42 @@ class AdHocNetwork(Network):
         plt.savefig(NET_RESULT_PATH / (f'routing_graph{blockname}.svg'))
         plt.close()
 
+if __name__ == '__main__':
+    # _commRangeNorm = 1  
+    # N_max = 10         
+    # alpha = 3           
+    # N_far = 1  
+    # beta_values = [1, 2, 3] 
+    # distances = np.linspace(0, _commRangeNorm, 500)
+    # alpha_values = [1, 2, 3, 5]
+    # plt.figure(figsize=(10, 6))
+    # for beta in beta_values:
+    #     data_segments = np.ceil(N_far * np.exp(beta * (1 - distances / _commRangeNorm)))
+    #     plt.plot(distances, data_segments, label=f'Alpha={beta}', linewidth=2)
+    # plt.title("Effect of Decay Factor on Data Segments vs. Distance", fontsize=14)
+    # plt.xlabel("Distance", fontsize=12)
+    # plt.ylabel("Data Segments", fontsize=12)
+    # # plt.xlim(0, _commRangeNorm)
+    # plt.ylim(0, 22)
+    # plt.grid(True, linestyle="--", alpha=0.7)
+    # plt.legend(title="Decay Factor (Alpha)", fontsize=12)
+    # plt.show()
+
+    N_near = 15  
+    N_far = 1    
+    d0 = 0.3 
+    distances = np.linspace(0, 30, 500) 
+    n_values = [1, 1.5, 2]
+    plt.figure(figsize=(10, 6))
+    for n in n_values:
+        data_segments = np.ceil(np.maximum(
+            N_far,
+            N_near - 10 * n * np.log10(np.maximum(distances, d0) / d0)
+        ))
+        plt.plot(distances, data_segments, label=f'n={n}', linewidth=2)
+    plt.title("Effect of Path Loss Exponent (n) on Data Segments", fontsize=14)
+    plt.xlabel("Distance", fontsize=12)
+    plt.ylabel("Number of Data Segments", fontsize=12)
+    plt.grid(True, linestyle="--", alpha=0.7)
+    plt.legend(title="Path Loss Rate (n)", fontsize=12)
+    plt.show()

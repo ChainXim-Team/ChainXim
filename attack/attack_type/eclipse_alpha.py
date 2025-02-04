@@ -7,7 +7,7 @@ import random
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
-from miner._consts import FLOODING, OUTER, SELF, SELFISH, SPEC_TARGETS
+from miner._consts import FLOODING, OUTER_RCV_MSG, SELF_GEN_MSG, SELFISH, SPEC_TARGETS
 
 attack_type= aa.HonestMining
 

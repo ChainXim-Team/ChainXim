@@ -5,7 +5,7 @@ import attack.attack_type.atomization_behavior as ab
 import consensus
 import miner.miner as miner
 import network
-from data import Block, Chain
+from data import Message, Chain
 
 '''
 设计攻击类型的抽象类
@@ -48,7 +48,7 @@ class AttackType(metaclass=ABCMeta):
     @abstractmethod
     def renew_stage(self,round):
         ## 1. renew stage
-        newest_block:Block
+        newest_block:Message
         mine_input:any
         return newest_block, mine_input
     

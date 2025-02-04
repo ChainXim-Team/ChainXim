@@ -18,33 +18,31 @@ class PacketPVNet(Packet):
     '''deterministic propagation网络中的数据包，包含路由相关信息'''
     def __init__(self, payload: Message, source_id: int, round: int, prop_vector:list, outnetobj):
         super().__init__(source_id, payload)
-        self.payload = payload
-        self.source = source_id
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
-        # 传播过程相关
+        # 传播过程记录
         self.received_miners:list[int] = [source_id]
-        self.trans_process_dict = {
-            f'miner {source_id}': round
-        }
+        self.trans_process = {f'miner {source_id}': round}
         # 每轮都pop第一个，记录剩余的传播向量
         self.remain_prop_vector = copy.deepcopy(prop_vector)
 
     def update_trans_process(self, minerid:int, round):
         # if a miner received the message update the trans_process
         self.received_miners.append(minerid)
-        self.trans_process_dict.update({
-            f'miner {minerid}': round
-        })
+        self.trans_process.update({f'miner {minerid}': round})
 
 class DeterPropNetwork(Network):
     """依照传播向量,在每一轮中将消息传播给固定比例的矿工"""
 
     def __init__(self, miners):
         super().__init__()
+        self.withTopology = False
+        self.withSegments = False
+
         self.miners:list[Miner] = miners
         for m in self.miners:
             m.join_network(self)
+        
         self.adv_miners:list[Miner] = [m for m in self.miners if m.isAdversary]
         self.network_tape:list[PacketPVNet] = []
         self.prop_vector:list = [0.2, 0.4, 0.6, 0.8, 1.0] # 默认值
@@ -99,7 +97,7 @@ class DeterPropNetwork(Network):
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners
 
-    def access_network(self, new_msg:list[Message], minerid:int, round:int, type:int=None):
+    def access_network(self, new_msg:list[Message], minerid:int, round:int,sendTogether:bool = False):
         """
         Package the new message and related information to network_tape.
 
@@ -166,10 +164,6 @@ class DeterPropNetwork(Network):
                             if i not in died_packets]
         died_packets = []
 
-        
-        
-
-
     
     def record_block_propagation_time(self, packet: PacketPVNet, r):
         '''calculate the block propagation time'''
@@ -212,6 +206,6 @@ class DeterPropNetwork(Network):
             with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
                 result_str = f'{packet.payload.name}:'+'\n'+'recieved miner in round'
                 print(result_str, file=f)
-                for miner_str,round in packet.trans_process_dict.items():
+                for miner_str,round in packet.trans_process.items():
                     print(' '*4, miner_str.ljust(10), ': ', round, file=f)
 

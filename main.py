@@ -135,9 +135,9 @@ def main(**args):
     # AdHocNetwork
     elif network_type == 'network.AdHocNetwork':
         net_setting = 'AdHocNetworkSettings'
-        bool_params  = []
-        float_params = ['ave_degree', 'region_width', 'comm_range',
-                        'move_variance','outage_prob','segment_size'] # 'min_move', 'max_move'
+        bool_params  = ['enable_large_scale_fading']
+        float_params = ['ave_degree', 'region_width', 'comm_range','move_variance',
+                        'outage_prob','segment_size','bandwidth_max'] # 'min_move', 'max_move'
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
                                  config.getboolean(net_setting, bparam)})
@@ -145,10 +145,9 @@ def main(**args):
             network_param.update({fparam: args.get(fparam) or 
                                   config.getfloat(net_setting, fparam)})
         network_param.update({
-            'init_mode': (args.get('init_mode') or 
-                          config.get(net_setting, 'init_mode')),
-            'stat_prop_times': (args.get('stat_prop_times') or 
-                                eval(config.get(net_setting, 'stat_prop_times')))
+            'init_mode': (args.get('init_mode') or config.get(net_setting, 'init_mode')),
+            'stat_prop_times': (args.get('stat_prop_times') or eval(config.get(net_setting, 'stat_prop_times'))),
+            'path_loss_level': (args.get('path_loss_level') or config.get(net_setting, 'path_loss_level')),
         })
         global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
 

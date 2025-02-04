@@ -1,6 +1,7 @@
+from data import Message
 from network import Packet
 
-from .._consts import OUTER, SELF
+from .._consts import FLOODING, OUTER_RCV_MSG, SELF_GEN_MSG
 from .nic_abc import NetworkInterface
 
 
@@ -16,9 +17,9 @@ class NICWithoutTp(NetworkInterface):
         return self.miner.receive(packet.payload)
 
     def nic_forward(self, round:int):
-        if len(self._forward_buffer[SELF])==0:
+        if len(self._forward_buffer[SELF_GEN_MSG])==0:
             return 
-        for msg,_,_ in self._forward_buffer[SELF]:
+        for msg,_,_ in self._forward_buffer[SELF_GEN_MSG]:
             self._network.access_network([msg], self.miner_id, round)
         self.clear_forward_buffer()
         
@@ -32,5 +33,5 @@ class NICWithoutTp(NetworkInterface):
     def add_neighbor(self, add_id:int, round):
         pass
 
-    def getdata(self):
+    def reply_getdata(self):
         pass

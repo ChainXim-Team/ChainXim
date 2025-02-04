@@ -45,6 +45,7 @@ class Block(Message):
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
+        super().__init__(blocksize_MB)
         self.name = name
         self.__blockhead = blockhead
         self.height = height
@@ -53,7 +54,6 @@ class Block(Message):
         self.next:list[Block] = []  # 子块列表
         self.parentblock:Block = None  # 母块
         self.isGenesis = isgenesis
-        super().__init__(blocksize_MB)
         # super().__init__(int(random.uniform(0.5, 2)))
         # 单位:MB 随机 0.5~1 MB
         
