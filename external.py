@@ -70,11 +70,14 @@ def common_prefix(prefix1:Block, prefix2:Block):
     #     prefix1 = prefix1.parentblock
     # return prefix1
 
-def chain_quality(blockchain:Chain, honest_miner_ids:list):
+def chain_quality(blockchain:Chain, adversary_ids:list):
     '''
     计算链质量指标
-    para:blockchain
-    return:cq_dict字典显示诚实和敌对矿工产生的块各有多少
+    paras:
+        blockchain: the blockchain to calculate chain quality
+        adversary_ids: the IDs of adversary miners
+    return:
+        cq_dict字典显示诚实和敌对矿工产生的块各有多少
         chain_quality_property诚实矿工产生的块占总区块的比值
     '''
     if not blockchain.head:
@@ -83,9 +86,9 @@ def chain_quality(blockchain:Chain, honest_miner_ids:list):
         blocktmp = blockchain.get_last_block()
         xc = []
         while blocktmp:
-            xc.append(blocktmp.blockhead.miner in honest_miner_ids)
+            xc.append(blocktmp.blockhead.miner not in adversary_ids)
             blocktmp = blocktmp.parentblock
-    adversary_block_num = xc.count(False) - 1 # 减去创世块
+    adversary_block_num = xc.count(False)
     honest_block_num = xc.count(True)
     cq_dict = {'Honest Block':honest_block_num,'Adversary Block':adversary_block_num}
     chain_quality_property = adversary_block_num/(adversary_block_num+honest_block_num)

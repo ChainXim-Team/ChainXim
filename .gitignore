@@ -26,7 +26,6 @@
 *.dll
 *.exe
 *.o
-*.so
 *.pdf
 # compression file
 *.7z

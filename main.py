@@ -64,15 +64,13 @@ def main(**args):
         if not args.get('no_compact_outputfile') else False)
     global_var.set_common_prefix_enable(
         config.getboolean('EnvironmentSettings','common_prefix_enable'))
-    global_var.set_lightweight_enable(
-        config.getboolean('EnvironmentSettings','lightweight_enable'))
     
     # 配置日志
     config_log(env_config)
     
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
-    if global_var.get_consensus_type() == 'consensus.PoW':
+    if global_var.get_consensus_type() in ['consensus.PoW', 'consensus.PoWlight', 'consensus.PoWstrict']:
         q_ave = args.get('q_ave') or float(consensus_settings['q_ave'])
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
