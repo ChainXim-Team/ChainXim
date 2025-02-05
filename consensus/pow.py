@@ -125,11 +125,11 @@ class PoW(Consensus):
         chain_vali = True
         if chain_vali and lastblock:
             blocktmp = lastblock
-            ss = blocktmp.calculate_blockhash()
+            self.valid_block(blocktmp)
+            ss = blocktmp.blockhash
             while chain_vali and blocktmp is not None:
-                hash=blocktmp.calculate_blockhash()
                 block_vali = self.valid_block(blocktmp)
-                if block_vali and hash == ss:
+                if block_vali and blocktmp.blockhash == ss:
                     ss = blocktmp.blockhead.prehash
                     blocktmp = blocktmp.parentblock
                 else:
