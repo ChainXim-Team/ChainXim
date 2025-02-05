@@ -6,7 +6,7 @@ import random
 
 import attack.attack_type as aa
 import global_var
-from data import Block
+from data import Message
 from collections import defaultdict
 import copy
 
@@ -30,13 +30,13 @@ class EclipsedDoubleSpending(aa.AttackType):
             
         }
         self._simplifylog = {}
-        self._fork_block: Block = None
+        self._fork_block: Message = None
         self._fork_height:int = 0
-        self._attackblock = defaultdict(Block)
-        self._lastattackblock: Block = None # 用于记录上传的最新的attackblock
+        self._attackblock = defaultdict(Message)
+        self._lastattackblock: Message = None # 用于记录上传的最新的attackblock
         self._attack_success_detect: bool = False
-        self._eclipse_block: Block = None # 记录 eclipse对象的newestblock状况
-        self._eclipse_block_from: Block = None # 记录 eclipse最新区块的来源
+        self._eclipse_block: Message = None # 记录 eclipse对象的newestblock状况
+        self._eclipse_block_from: Message = None # 记录 eclipse最新区块的来源
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -339,14 +339,14 @@ class EclipsedDoubleSpending(aa.AttackType):
                 }
     
 
-    def __judge_block_from(self,block:Block) -> Block:
+    def __judge_block_from(self,block:Message) -> Message:
         while block!=None and block.blockhead.miner in self.eclipsed_list_ids :
             block = block.parentblock
             if block.blockhead.miner in self.adver_list_ids:
                 break
         return block
     
-    def __judge_block_adver_valid(self,block:Block,fork_block:Block) -> bool:
+    def __judge_block_adver_valid(self,block:Message,fork_block:Message) -> bool:
         while block!=None and block.blockhash != fork_block.blockhash:
             if block.isAdversaryBlock:
                 return True

@@ -5,6 +5,7 @@ import global_var
 
 class Message(object):
     '''定义网络中传输的消息'''
+    __slots__ = ['size', 'segment_num'] # 'origin', 'creation_round', 
     def __init__(self,  size:float = 2):# origin:int, creation_round:int,
         """
         Args:

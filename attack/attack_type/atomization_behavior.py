@@ -10,7 +10,7 @@ import network
 from data import Block, Chain
 from consensus.consensus_abc import Consensus
 from external import I
-from miner._consts import OUTER, SELF,FLOODING,SELFISH,SPEC_TARGETS
+from miner._consts import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
 
 
 class AtomizationBehavior(aa.AtomizationBehavior):
@@ -85,10 +85,10 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         
         for adver_miner in miner_list:
             if adver_miner.miner_id != current_miner.miner_id:
-                adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
+                adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
             else:
                 # adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
-                adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
+                adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
             '''保证adverminer一定会收到'''
             adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)
         # upload_block: Block

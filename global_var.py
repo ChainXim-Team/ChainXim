@@ -40,7 +40,15 @@ def __init__(result_path:Path = None):
     _var_dict['COMPACT_OUTPUT'] = True
     _var_dict['ATTACK_EXECUTE_TYPE']='execute_sample0'
     _var_dict['CHECK_POINT'] = None
-    
+    _var_dict['COMMON_PREFIX_ENABLE'] = False
+
+def set_common_prefix_enable(common_prefix_enable):
+    '''设置是否启用common prefix pdf type:bool'''
+    _var_dict['COMMON_PREFIX_ENABLE'] = common_prefix_enable
+
+def get_common_prefix_enable():
+    '''是否启用common prefix pdf计算'''
+    return _var_dict['COMMON_PREFIX_ENABLE']
 
 def set_log_level(log_level):
     '''设置日志级别'''

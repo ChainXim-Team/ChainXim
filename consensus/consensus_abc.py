@@ -15,6 +15,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
 
     class BlockHead(data.BlockHead):
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
+        __slots__ = []
         def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
             '''此处的默认值为创世区块中的值'''
             prehash = preblock.blockhash if preblock else (0).to_bytes(HASH_LEN, BYTE_ORDER)
@@ -22,6 +23,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
 
     class Block(data.Block):
         '''与chain.Block功能相同但是重写初始化方法'''
+        __slots__ = []
         def __init__(self, blockhead: data.BlockHead, preblock: data.Block = None,
                      isadversary=False, blocksize_MB=2):
             '''当preblock没有指定时默认为创世区块，高度为0'''

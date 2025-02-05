@@ -41,9 +41,13 @@ class StochPropNetwork(Network):
 
     def __init__(self, miners):
         super().__init__()
+        self.withTopology = False
+        self.withSegments = False
+
         self.miners:list[Miner] = miners
         for m in self.miners:
             m.join_network(self)
+
         self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
         self.network_tape:list[PacketBDNet] = []
         self.rcvprob_start = 0.25
@@ -81,7 +85,7 @@ class StochPropNetwork(Network):
         """
         return random.uniform(0, 1) < rcvprob_th
 
-    def access_network(self, new_msg: list[Message], minerid:int, round:int):
+    def access_network(self, new_msg: list[Message], minerid:int, round:int,sendTogether:bool = False):
         """
         Package the new message and related information to network_tape.
 

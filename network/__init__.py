@@ -8,7 +8,7 @@ from .network_abc import (
     INVMsg,
     Network,
     Packet,
-    Segment,
+    DataSegment,
 )
 from .deterprop import DeterPropNetwork
 from .synchronous import SynchronousNetwork

@@ -10,8 +10,8 @@ import consensus
 import global_var
 import network
 from attack.adversary import Adversary
-from data import Block, Chain
-from external import chain_growth, chain_quality, common_prefix
+from data import Block, Chain, LocalChainTracker
+from external import chain_growth, chain_quality, common_prefix, MAX_SUFFIX
 from functions import for_name
 from miner import Miner, network_interface
 
@@ -37,21 +37,22 @@ class Environment(object):
         self.miner_num = global_var.get_miner_num()
         self.total_round = 0
         # configure extra genesis block info
-        consensus_type:consensus.Consensus = for_name(global_var.get_consensus_type())
+        consensus_type_str = global_var.get_consensus_type()
+        consensus_type:consensus.Consensus = for_name(consensus_type_str)
         consensus_type.genesis_blockheadextra = genesis_blockheadextra
         consensus_type.genesis_blockextra = genesis_blockextra
+        # Local chain tracker generation
+        self.local_chain_tracker = LocalChainTracker()
         # generate miners
         self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
-            self.miners.append(Miner(miner_id, consensus_param))
+            miner = Miner(miner_id, consensus_param)
+            if global_var.get_common_prefix_enable():
+                miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
+                # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
+            self.miners.append(miner)
         self.envir_create_global_chain()
-        # self.checkpoint = None  # Note: activated with the common prefix function
-        # evaluation
-        self.max_suffix = 10
-        # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
-        self.cp_pdf = np.zeros((1, self.max_suffix))
-        # 每轮结束时，把主链减少k个区块，是否被包含在矿工的区块链里面
-        self.cp_cdf_k = np.zeros((1, self.max_suffix))  
+
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
         
@@ -65,10 +66,15 @@ class Environment(object):
             miner_list = self.miners, 
             # eclipse = attack_param['eclipse'], 
             global_chain = self.global_chain, 
-            adver_consensus_param = consensus_param, 
+            adver_consensus_param = copy.deepcopy(consensus_param), 
             attack_arg = attack_param['attack_arg'])
-        # get adversary IDs
+        # get honest miner IDs
         adversary_ids = self.adversary.get_adver_ids()
+        self.honest_miner_ids = [miner.miner_id for miner in self.miners if miner.miner_id not in adversary_ids]
+
+        # configure oracles
+        if consensus_type_str == 'consensus.PoWstrict':
+            self.configure_oracles(consensus_param, adversary_ids)
 
         # set parameters for network
         self.network.set_net_param(**network_param)
@@ -95,6 +101,36 @@ class Environment(object):
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
 
+    def configure_oracles(self, consensus_params:dict, adversary_ids:list):
+        if consensus_params['q_distr'] == 'equal':
+            q_list = [consensus_params['q_ave'] for _ in range(self.miner_num)]
+        elif isinstance(eval(consensus_params['q_distr']), list):
+            q_list = eval(consensus_params['q_distr'])
+        else:   
+            raise ValueError("q_distr should be a list or the string 'equal'")
+
+        from consensus import RandomOracleRoot
+        self.oracle_root = RandomOracleRoot()
+        self.verifying_oracles = []
+        self.mining_oracles = []
+        attacker_oracle_verifying = self.oracle_root.get_verifying_oracle(adversary_ids)
+        adversary_q = [q_list[id] for id in adversary_ids]
+        attacker_oracle_mining = self.oracle_root.get_mining_oracle(sum(adversary_q))
+
+        for id, miner in enumerate(self.miners):
+            if id in adversary_ids:
+                verifying_oracle = attacker_oracle_verifying
+                mining_oracle = attacker_oracle_mining
+            else:
+                verifying_oracle = self.oracle_root.get_verifying_oracle([miner.miner_id])
+                mining_oracle = self.oracle_root.get_mining_oracle(q_list[miner.miner_id])
+
+            self.verifying_oracles.append(verifying_oracle)
+            self.mining_oracles.append(mining_oracle)
+            miner.consensus.set_random_oracle(mining_oracle=mining_oracle, verifying_oracle=verifying_oracle)
+
+        self.adversary.get_attack_type().adver_consensus.set_random_oracle(mining_oracle=attacker_oracle_mining,
+                                                                           verifying_oracle=attacker_oracle_verifying)
 
     def envir_create_global_chain(self):
         '''create global chain and its genesis block by copying
@@ -104,7 +140,10 @@ class Environment(object):
         # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         # self.global_chain.lastblock = self.global_chain.head
 
-
+    def on_round_start(self, round):
+        self.local_chain_tracker.update_round(round)
+        if getattr(self, 'oracle_root', None):
+            self.oracle_root.reset_counters(self.mining_oracles)
         
     def exec(self, num_rounds, max_height, process_bar_type):
 
@@ -119,6 +158,7 @@ class Environment(object):
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
         for round in range(1, num_rounds+1):
+            self.on_round_start(round)
             inputfromz = round # 生成输入
 
             adver_tmpflag = 1
@@ -145,8 +185,6 @@ class Environment(object):
                 
             # diffuse(C)
             self.network.diffuse(round)
-            self.assess_common_prefix(round)
-            #self.assess_common_prefix_k() # TODO 放到view(),评估独立于仿真过程
         
             # 全局链高度超过max_height之后就提前停止
             current_height = self.global_chain.get_height()
@@ -160,44 +198,93 @@ class Environment(object):
                 self.process_bar(current_height, max_height, t_0, 'block/s')
 
         self.total_round = self.total_round + round
-        
-    def assess_common_prefix(self, round):
-        # Common Prefix Property
-        cp = self.global_chain.get_last_block()
-        # 以全局链为标准视角 与其他矿工的链视角对比
-        # cp = self.miners[0].consensus.Blockchain.lastblock
-        for i in range(0, self.miner_num):
-            if not self.miners[i].isAdversary:
-                cp = common_prefix(cp, self.miners[i].get_local_chain())
-        len_cp = cp.height
-        for i in range(0, self.miner_num):
-            len_suffix = self.miners[i].get_local_chain().get_height() - len_cp
-            if len_suffix >= 0 and len_suffix < self.max_suffix:
-                self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
-        # logger.info("round %d: checkpoint %s", round, self.checkpoint.name)
 
-    def assess_common_prefix_k(self):
-        # 一种新的计算common prefix的方法
-        # 每轮结束后，砍掉主链后
-        cp_k = self.global_chain.get_last_block()
-        cp_stat = np.zeros((1, self.miner_num))
-        for k in range(self.max_suffix):
-            # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
-            if cp_k is None or np.sum(cp_stat) == self.miner_num-self.adversary.get_adver_num():  
-                self.cp_cdf_k[0, k] += self.miner_num-self.adversary.get_adver_num()
-                continue
-            cp_sum_k = 0
-            for i in range(self.miner_num):
-                if self.miners[i].isAdversary:
+    def assess_common_prefix(self, type:str = 'cdf'):
+        def assess_common_prefix_pdf_per_round(self:Environment, miner_local_chain_tip:list[Block], longest_honest_chain:Block):
+            # Common Prefix Property
+            # 以全局链为标准视角 与其他矿工的链视角对比
+
+            # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
+            cp_pdf = np.zeros((1, MAX_SUFFIX))
+
+            cp = longest_honest_chain
+            for i in self.honest_miner_ids:
+                cp = common_prefix(cp, miner_local_chain_tip[i])
+            len_cp = cp.get_height()
+            for i in range(0, self.miner_num):
+                len_suffix = miner_local_chain_tip[i].get_height() - len_cp
+                if len_suffix >= 0 and len_suffix < MAX_SUFFIX:
+                    cp_pdf[0, len_suffix] = cp_pdf[0, len_suffix] + 1
+            return cp_pdf
+
+        def assess_common_prefix_cdf_per_round(self:Environment, miner_local_chain_tip:list[Block], longest_honest_chain:Block):
+            # 一种新的计算common prefix的方法，更加接近Bitcoin backbone
+            # 每轮结束后，砍掉主链后
+            cp_cdf_k = np.zeros((1, MAX_SUFFIX))
+            cp_k = longest_honest_chain
+            cp_stat = np.zeros((1, self.miner_num))
+            for k in range(MAX_SUFFIX):
+                # 当所有矿工的链都达标后，后面的都不用算了，降低计算复杂度
+                if cp_k is None or np.sum(cp_stat) == len(self.honest_miner_ids):  
+                    cp_cdf_k[0, k] += self.miner_num-self.adversary.get_adver_num()
                     continue
-                if cp_stat[0, i] == 1:
-                    cp_sum_k += 1
-                    continue
-                if cp_k == common_prefix(cp_k, self.miners[i].consensus.local_chain):
-                    cp_stat[0, i] = 1
-                    cp_sum_k += 1
-            self.cp_cdf_k[0, k] += cp_sum_k
-            cp_k = cp_k.parentblock
+                cp_sum_k = 0
+                for i in self.honest_miner_ids:
+                    if cp_stat[0, i] == 1:
+                        cp_sum_k += 1
+                        continue
+                    if cp_k == common_prefix(cp_k, miner_local_chain_tip[i]):
+                        cp_stat[0, i] = 1
+                        cp_sum_k += 1
+                cp_cdf_k[0, k] += cp_sum_k
+                cp_k = cp_k.parentblock
+            return cp_cdf_k
+        
+        if type == 'pdf':
+            assess_cp_per_round = assess_common_prefix_pdf_per_round
+            cp_xdf_update = np.zeros((1, MAX_SUFFIX))
+            cp_xdf_update[0, 0] = self.miner_num
+        elif type == 'cdf':
+            assess_cp_per_round = assess_common_prefix_cdf_per_round
+            cp_xdf_update = np.ones((1, MAX_SUFFIX)) * len(self.honest_miner_ids)
+        else:
+            raise ValueError('type should be pdf or cdf')
+
+        cp_xdf = np.zeros((1, MAX_SUFFIX))
+        # 跟踪矿工本地链链尾
+        miner_local_chain_tip = [miner.get_local_chain().head for miner in self.miners]
+
+        event_collector = self.collect_until_next_round() # 收集下一个存在事件的轮次上的所有事件
+        previous_round = 0
+        while current_events := next(event_collector, None):
+            rounds_elapsed = current_events[0].switch_round - previous_round
+            previous_round = current_events[0].switch_round
+            cp_xdf += rounds_elapsed * cp_xdf_update # 重复利用上一个事件的结果
+            
+            for event in current_events:
+                miner_local_chain_tip[event.subject] = self.miners[event.subject].get_local_chain().search_block_by_hash(event.blockhash)
+            honest_chain_tip = [tip for miner, tip in enumerate(miner_local_chain_tip) if miner in self.honest_miner_ids]
+            longest_honest_chain = max(honest_chain_tip, key=lambda x: x.get_height())
+            cp_xdf_update = assess_cp_per_round(self, miner_local_chain_tip, longest_honest_chain)
+        return cp_xdf
+        
+    def collect_until_next_round(self):
+        event_iter = iter(self.local_chain_tracker.chain_switch_events)
+        current_round = self.local_chain_tracker.chain_switch_events[0].switch_round
+        events = []
+        try:
+            while True:
+                event:LocalChainTracker.ChainSwitchEvent = next(event_iter)
+                if event.switch_round > current_round:
+                    yield events
+                    current_round = event.switch_round
+                    events = []
+                elif event.switch_round < current_round:
+                    raise ValueError('Events are not stored incrementally, something is wrong')
+                events.append(event)
+        except StopIteration:
+            yield events
+            return
 
     def view(self) -> dict:
         # 展示一些仿真结果
@@ -221,13 +308,17 @@ class Environment(object):
             'average_chain_growth_in_honest_miners\'_chain': growth
         })
         # Common Prefix Property
-        stats.update({
-            'common_prefix_pdf': self.cp_pdf/self.cp_pdf.sum(),
-            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum()),
-            'common_prefix_cdf_k': self.cp_cdf_k/((self.miner_num-self.adversary.get_adver_num())*self.total_round)
-        })
+        if global_var.get_common_prefix_enable():
+            cp_pdf = self.assess_common_prefix('pdf')
+            cp_cdf_k = self.assess_common_prefix('cdf')
+            timestamp_of_last_block = self.global_chain.get_last_block().blockhead.timestamp
+            stats.update({
+                'common_prefix_pdf': cp_pdf/cp_pdf.sum(),
+                'consistency_rate':cp_pdf[0,0]/(cp_pdf.sum()),
+                'common_prefix_cdf_k': cp_cdf_k/(len(self.honest_miner_ids)*timestamp_of_last_block)
+            })
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.global_chain)
+        cq_dict, chain_quality_property = chain_quality(self.global_chain, self.adversary.get_adver_ids())
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
@@ -263,12 +354,13 @@ class Environment(object):
         print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
         print("")
         # Common Prefix Property
-        print('Common Prefix Property:')
-        print('The common prefix pdf:')
-        print(self.cp_pdf/self.cp_pdf.sum())
-        print('Consistency rate:',self.cp_pdf[0,0]/(self.cp_pdf.sum()))
-        #print('The common prefix cdf with respect to k:')
-        #print(self.cp_cdf_k / ((self.miner_num - self.max_adversary) * self.total_round))
+        if global_var.get_common_prefix_enable():
+            print('Common Prefix Property:')
+            print('The common prefix pdf:')
+            print(stats["common_prefix_pdf"])
+            print('Consistency rate:', stats["consistency_rate"])
+            print('The common prefix cdf with respect to k:')
+            print(stats["common_prefix_cdf_k"])
         print("")
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
@@ -311,6 +403,9 @@ class Environment(object):
         # save local chain for all miners
         for miner in self.miners:
             miner.consensus.local_chain.printchain2txt(f"chain_data{str(miner.miner_id)}.txt")
+        self.local_chain_tracker.dump_events(global_var.get_chain_data_path() / 'chain_dump.bin',
+                                             [miner.get_local_chain() for miner in self.miners],
+                                             self.honest_miner_ids)
 
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)

@@ -62,20 +62,27 @@ def main(**args):
     global_var.set_compact_outputfile(
         config.getboolean('EnvironmentSettings','compact_outputfile')
         if not args.get('no_compact_outputfile') else False)
+    global_var.set_common_prefix_enable(
+        config.getboolean('EnvironmentSettings','common_prefix_enable'))
     
     # 配置日志
     config_log(env_config)
     
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
-    if global_var.get_consensus_type() == 'consensus.PoW':
-        target = args.get('target') or consensus_settings['target']
-        global_var.set_PoW_target(target)
-        q_ave = args.get('q_ave') or int(consensus_settings['q_ave'])
+    if global_var.get_consensus_type() in ['consensus.PoW', 'consensus.PoWlight', 'consensus.PoWstrict']:
+        q_ave = args.get('q_ave') or float(consensus_settings['q_ave'])
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
         if q_distr == 'rand':
             q_distr = get_random_q_gaussian(miner_num,q_ave)
+        average_block_time = args.get('average_block_time') or float(consensus_settings['average_block_time'])
+        if average_block_time == 0:
+            target = args.get('target') or consensus_settings['target']
+            global_var.set_PoW_target(target)
+        else:
+            target =  f"{round(2**256/miner_num/q_ave/average_block_time):064x}"
+            global_var.set_PoW_target(target)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
     else:
         consensus_param = {}
@@ -126,9 +133,9 @@ def main(**args):
     # AdHocNetwork
     elif network_type == 'network.AdHocNetwork':
         net_setting = 'AdHocNetworkSettings'
-        bool_params  = []
-        float_params = ['ave_degree', 'region_width', 'comm_range',
-                        'move_variance','outage_prob','segment_size'] # 'min_move', 'max_move'
+        bool_params  = ['enable_large_scale_fading']
+        float_params = ['ave_degree', 'region_width', 'comm_range','move_variance',
+                        'outage_prob','segment_size','bandwidth_max'] # 'min_move', 'max_move'
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
                                  config.getboolean(net_setting, bparam)})
@@ -136,10 +143,9 @@ def main(**args):
             network_param.update({fparam: args.get(fparam) or 
                                   config.getfloat(net_setting, fparam)})
         network_param.update({
-            'init_mode': (args.get('init_mode') or 
-                          config.get(net_setting, 'init_mode')),
-            'stat_prop_times': (args.get('stat_prop_times') or 
-                                eval(config.get(net_setting, 'stat_prop_times')))
+            'init_mode': (args.get('init_mode') or config.get(net_setting, 'init_mode')),
+            'stat_prop_times': (args.get('stat_prop_times') or eval(config.get(net_setting, 'stat_prop_times'))),
+            'path_loss_level': (args.get('path_loss_level') or config.get(net_setting, 'path_loss_level')),
         })
         global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
 

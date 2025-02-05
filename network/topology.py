@@ -18,7 +18,7 @@ import scipy.sparse as sp
 
 import errors
 import global_var
-from data import Block, Message
+from data import Message, Message
 
 from .network_abc import (
     ERR_OUTAGE,
@@ -67,7 +67,7 @@ class Link(object):
         return self.packet.payload
     
     def get_block_msg_name(self):
-        if isinstance(self.packet.payload, Block):
+        if isinstance(self.packet.payload, Message):
             return self.packet.payload.name
         
     def target_id(self):
@@ -87,6 +87,9 @@ class TopologyNetwork(Network):
     '''拓扑P2P网络'''                        
     def __init__(self, miners):
         super().__init__()
+        self.withTopology = True
+        self.withSegments = False
+
         self._miners:list[Miner] = miners
         for miner in self._miners:
             miner.join_network(self)
@@ -195,7 +198,7 @@ class TopologyNetwork(Network):
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,sendTogether:bool = False):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -214,9 +217,8 @@ class TopologyNetwork(Network):
             self._rcv_miners[link.get_block_msg_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
-            if isinstance(msg, Block):
-                logger.info("%s access network: M%d -> M%d, round %d", 
-                        msg.name, minerid, target, round)
+            logger.info("%s access network: M%d -> M%d, round %d", 
+                    msg.name, minerid, target, round)
                 
     def inv_handler(self, new_msgs:list[Message]):
         """先处理inv消息"""
@@ -225,7 +227,7 @@ class TopologyNetwork(Network):
             return False
         inv = new_msgs[0]
         getDataReply = new_msgs[1]
-        getData = self._miners[inv.target].NIC.getdata(inv)
+        getData = self._miners[inv.target].NIC.reply_getdata(inv)
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
@@ -420,7 +422,7 @@ class TopologyNetwork(Network):
 
     def stat_block_propagation_times(self, packet: Packet, r):
         '''calculate the block propagation time'''
-        if not isinstance(packet.payload, Block):
+        if not isinstance(packet.payload, Message):
             return
 
         rn = len(set(self._rcv_miners[packet.payload.name]))
@@ -727,7 +729,7 @@ class TopologyNetwork(Network):
         每当一个block传播结束,将其路由结果记录在json文件中
         json文件包含origin_miner和routing_histroy两种信息
         """
-        if not isinstance(block_packet.packet, Block):
+        if not isinstance(block_packet.packet, Message):
             return
 
         bp = block_packet

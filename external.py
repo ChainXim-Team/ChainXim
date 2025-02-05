@@ -43,18 +43,41 @@ def R(blockchain:Chain):
                 q.append(i)
     return xc
 
-def common_prefix(prefix1:Block, chain2:Chain):
-    while prefix1:
-        if chain2.search_block(prefix1) is not None:
+MAX_SUFFIX = 10 # 最大链后缀回溯距离
+
+def common_prefix(prefix1:Block, prefix2:Block):
+    height1 = prefix1.get_height()
+    height2 = prefix2.get_height()
+    if height1 > height2:
+        for _ in range(height1 - height2):
+            if prefix1 is None:
+                return None
+            prefix1 = prefix1.parentblock
+    elif height1 < height2:
+        for _ in range(height2 - height1):
+            if prefix2 is None:
+                return None
+            prefix2 = prefix2.parentblock
+    while prefix1 and prefix2:
+        if prefix1.blockhash == prefix2.blockhash:
             break
         prefix1 = prefix1.parentblock
+        prefix2 = prefix2.parentblock
     return prefix1
+    # while prefix1:
+    #     if chain2.search_block(prefix1) is not None:
+    #         break
+    #     prefix1 = prefix1.parentblock
+    # return prefix1
 
-def chain_quality(blockchain:Chain):
+def chain_quality(blockchain:Chain, adversary_ids:list):
     '''
     计算链质量指标
-    para:blockchain
-    return:cq_dict字典显示诚实和敌对矿工产生的块各有多少
+    paras:
+        blockchain: the blockchain to calculate chain quality
+        adversary_ids: the IDs of adversary miners
+    return:
+        cq_dict字典显示诚实和敌对矿工产生的块各有多少
         chain_quality_property诚实矿工产生的块占总区块的比值
     '''
     if not blockchain.head:
@@ -63,16 +86,11 @@ def chain_quality(blockchain:Chain):
         blocktmp = blockchain.get_last_block()
         xc = []
         while blocktmp:
-            xc.append(blocktmp.isAdversaryBlock)
+            xc.append(blocktmp.blockhead.miner not in adversary_ids)
             blocktmp = blocktmp.parentblock
-    cq_dict = {'Honest Block':0,'Adversary Block':0}
-    for item in xc:
-        if item is True:
-            cq_dict.update({'Adversary Block':xc.count(item)})
-        else:
-            cq_dict.update({'Honest Block':xc.count(item)})
-    adversary_block_num = xc.count(True)
-    honest_block_num = xc.count(False)
+    adversary_block_num = xc.count(False)
+    honest_block_num = xc.count(True)
+    cq_dict = {'Honest Block':honest_block_num,'Adversary Block':adversary_block_num}
     chain_quality_property = adversary_block_num/(adversary_block_num+honest_block_num)
     return cq_dict, chain_quality_property
 

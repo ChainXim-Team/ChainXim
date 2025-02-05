@@ -6,13 +6,7 @@ from data import Block, Message
 from external import I
 from functions import for_name
 
-# if TYPE_CHECKING:
-from network import (
-    AdHocNetwork,
-    TopologyNetwork,
-)
-
-from ._consts import FLOODING, OUTER, SELF
+from ._consts import FLOODING, OUTER_RCV_MSG, SELF_GEN_MSG, SYNC_LOC_CHAIN
 from .network_interface import NetworkInterface, NICWithoutTp, NICWithTp
 
 logger = logging.getLogger(__name__)
@@ -46,13 +40,10 @@ class Miner(object):
 
     def join_network(self, network):
         """初始化网络接口"""
-        if (isinstance(network, TopologyNetwork) or 
-            isinstance(network, AdHocNetwork)):
+        if network.withTopology:
             self.NIC = NICWithTp(self)
         else:
             self.NIC = NICWithoutTp(self)
-        if isinstance(network, AdHocNetwork):
-            self.NIC.withSegments = True
         self.NIC.nic_join_network(network)
         
         
@@ -67,27 +58,36 @@ class Miner(object):
     def receive(self, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
         rcvSuccess = self.consensus.receive_filter(msg)
-        if rcvSuccess:
-            if (not self.isAdversary or 
-                (self.isAdversary and 
-                 'Eclipse' not in global_var.get_attack_execute_type())):
-                self.forward([msg], OUTER)
-
+        if not rcvSuccess:
+            return rcvSuccess
+        if (not self.isAdversary or (self.isAdversary and 'Eclipse' not in global_var.get_attack_execute_type())):
+            self.forward([msg], OUTER_RCV_MSG)
         return rcvSuccess
     
        
-    def forward(self, msgs, type, strategy:str=FLOODING, spec_targets:list = None):
-        if type != SELF and type != OUTER:
+    def forward(self, msgs:list[Message], msg_source_type, forward_strategy:str=FLOODING, 
+                spec_targets:list=None, syncLocalChain = False):
+        """将消息转发给其他节点
+
+        args:
+            msgs: list[Message] 需要转发的消息列表
+            msg_source_type: str 消息来源类型, SELF_GEN_MSG表示由本矿工产生, OUTER_RCV_MSG表示由网络接收
+            forward_strategy: str 消息转发策略
+            spec_targets: list[int] 如果forward_strategy为SPECIFIC, 则spec_targets为转发的目标节点列表
+            syncLocalChain: bool 是否向邻居同步本地链，尽量在产生新区块时同步
+        
+        """
+        if msg_source_type != SELF_GEN_MSG and msg_source_type != OUTER_RCV_MSG:
             raise ValueError("Message type must be SELF or OUTER")
-        logger.info("M%d: forwarding %s, type %s, strategy %s", 
-                    self.miner_id, str([msg.name for msg in msgs]), type, strategy)
+        logger.info("M%d: forwarding %s, type %s, strategy %s", self.miner_id, 
+                    str([msg.name for msg in msgs]), msg_source_type, forward_strategy)
         for msg in msgs:
-            
-            self.NIC.append_forward_buffer(msg, type, strategy, spec_targets)
+            self.NIC.append_forward_buffer(msg, msg_source_type, forward_strategy, spec_targets, syncLocalChain)
 
     
     def launch_consensus(self, input, round):
-        '''开始共识过程\n
+        '''开始共识过程
+
         return:
             new_msg 由共识类产生的新消息，没有就返回None type:list[Message]/None
             msg_available 如果有新的消息产生则为True type:Bool
@@ -95,7 +95,8 @@ class Miner(object):
         new_msgs, msg_available = self.consensus.consensus_process(
             self.isAdversary,input, round)
         if new_msgs is not None:
-            self.forward(new_msgs, SELF)
+            # new_msgs.append(Message("testMsg", 1))
+            self.forward(new_msgs, SELF_GEN_MSG, syncLocalChain = True)
         return new_msgs, msg_available  # 返回挖出的区块，
         
 

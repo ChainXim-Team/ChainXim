@@ -17,9 +17,13 @@ class SynchronousNetwork(Network):
 
     def __init__(self, miners: list):
         super().__init__()
+        self.withTopology = False
+        self.withSegments = False
+        
         self.miners:list[Miner] = miners
         for m in self.miners:
             m.join_network(self)
+
         # network_tape存储要广播的数据包和对应信息
         self.network_tape:list[PacketSyncNet] = []
         with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
@@ -28,7 +32,7 @@ class SynchronousNetwork(Network):
     def set_net_param(self):
         pass
 
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int,sendTogether:bool = False):
         """ 本轮新产生的消息添加到network_tape
 
         param
