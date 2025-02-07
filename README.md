@@ -392,6 +392,28 @@ q_ave:10
 图中，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量,其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节）。
 
 
+
+### 拓扑网络下区块链的共同前缀性质
+
+轮数：16189
+矿工数：10
+共识类型：PoW
+难度：000FFF...
+网络类型：TopologyNetwork
+网络参数：gen_net_approach=adj；gen_net_approach=adj；bandwidth_honest=0.5
+
+每轮结束时，所有节点的本地链相对共同前缀的高度差以及其对Common Prefix PDF的影响如下图所示。下方时间轴是发生链尾切换事件的轮次，上x轴是区块高度/common prefix后的区块长度（suffix length），y轴是矿工ID。图中的热度值指代的是每个矿工本地链链尾与共同前缀的距离达到Suffix Length的累积次数。图中BXX指代区块编号，代表矿工在当前轮次本地链链尾的状态，下x轴指代这些区块所在的高度。点击Play开始播放动画，可以观察到区块在共同前缀的下一高度产生，然后扩散到其他矿工，最后导致共同前缀高度+1。
+
+<iframe  
+ height=850 
+ width=100% 
+ src="doc/cp_pdf.html"  
+ frameborder=0  
+ allowfullscreen>
+ </iframe>
+
+
+
 ### 不同区块大小下的分叉率、孤块率、吞吐量与一致性
 轮数：500000
 曲线上单点重复次数：5

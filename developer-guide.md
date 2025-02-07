@@ -100,10 +100,10 @@ BlockHead用于定义区块头中的数据，data.BlockHead为抽象基类，其
 | --------- | ---- | ------------------------------------------------------------ |
 | prehash   | bytes  | 前一区块的哈希                                               |
 | timestamp | int  | 创建区块时的时间戳                                           |
-| content   | Any  | 区块中承载的数据，在实际系统中一般为交易信息或Merkle Root，但在本仿真器中为产生区块的轮次 |
+| content   | Any  | 区块中承载的数据，在实际系统中一般为交易信息或Merkle Root |
 | miner     | int  | 产生区块的矿工或攻击者的ID                                   |
 
-**注：由于本仿真器更加关心区块在网络中的传播情况，因此，对于区块链中存储的数据（交易，智能合约等），使用content属性对其进行抽象。在代码实现中，content被赋值为区块产生的轮次。**
+**注：由于本仿真器更加关心区块在网络中的传播情况，因此，对于区块链中存储的数据（交易，智能合约等），使用content属性对其进行抽象。**
 
 ### Block
 
@@ -497,12 +497,8 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | getdata         | inv:INVMsg                           |回应inv消息，索要缺失的区块。                      |
 | get_reply       | msg_name, target:int, err:str, round |消息成功发送到目标矿工，或发送失败时，原矿工获得消息发送结果。 |
 
-
-
 ## 网络 Network
 网络层的主要功能是接收环境中产生的新区块，并通过一定的传播规则传输给其他矿工，作为矿工之间连接的通道。网络层由抽象基类Network派生出不同类型的网络。目前实现了抽象概念的同步网络（SynchronousNetwork）、随机性传播网络（StochPropNetwork），确定性传播网络（DeterPropNetwork）和相对真实的拓扑P2P网络（TopologyNetwork）。
-
-
 
 ### 抽象基类 Network
 Network基类规定了三个接口，外部模块只能通过这三个接口与网络模块交互；同时也规定了输入参数，派生类不可以更改
@@ -730,6 +726,7 @@ def forward_process(self, round):
 │  │  ├─ selfish_mining.py
 │  │  └─ _atomization_behavior.py
 │  └─ _adversary.py
+
 ### _adversary.py & adversary.py
 
 _adversary.py提供Adversary抽象父类，用于adversary.py提供的Adversary继承。环境import文件adversary.py中的Adversary类，并创建对象，随后根据环境传参初始化所有Adversary设置。该Adversary对象作为攻击者全体代表的抽象，执行攻击。
@@ -806,13 +803,13 @@ mine模块的内容一般不会有大的改动，因为其主要功能就是调�
 向网络上传Adversary的区块。
 
 #### >>> 4. adopt()
-adopt用于将基准链（honset_chain）的结果更新到攻击链（adver_chain）上。攻击链可以看作攻击集团共同拥护的一条链，而不是各恶意矿工自身的链，因此还要更新每个恶意矿工的本地链。
+adopt用于将基准链（honset_chain）的结果更新到攻击链（adver_chain）上。攻击链可以看作攻击集团共同维护的一条链，而不是各恶意矿工自身的链，因此还要更新每个恶意矿工的本地链。
 
 #### >>> 5. clear()
 清除攻击者中所有矿工的输入和通信内容。设计clear的目的意在消除本回合的输入内容对下一回合的影响，因此clear应置于一系列行为之后。
 
 #### >>> 6. wait()
-wait是让攻击模块等待至下一回合再继续运行。因此并没有对wait部分设计具体行为，当攻击实例进行到这两个操作时也不会做出实际行动。
+wait是让攻击模块等待至下一回合再继续运行。因此并没有对wait部分设计具体行为，当攻击实例执行这两个操作时也不会做出实际行动。
 
 ### attack_type.py & honest_mining.py, selfish_mining.py, double_spending
 #### >>> attack_type.py中的成员变量
@@ -946,9 +943,7 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 |chain_quality|blockchain:Chain|字典cq_dict;指标chain_quality_property|统计恶意节点出块占比|
 |chain_growth|blockchain:Chain|区块链高度|获取区块链长度增长（即区块链高度）|
 
-注意，common_prefix和chain_growth均仅实现了对应性质的部分功能：common_prefix只是计算两条区块链的共同前缀，而一致性指标的统计则在每轮次结束时进行而chain_growth仅返回区块链高度，计算链增长速率则在CalculateStatistics函数中完成。**（注：后续的更新中，我们可能会完善这部分代码的形式。）**
-
-
+注意，common_prefix和chain_growth均仅实现了对应性质的部分功能：common_prefix只是计算两条区块链的共同前缀，而一致性指标根据每次仿真的日志统计出来而chain_growth仅返回区块链高度，计算链增长速率则在CalculateStatistics函数中完成。
 
 
 有关以上三个指标更加详细的含义，可以阅读：
