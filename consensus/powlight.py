@@ -9,8 +9,7 @@ class PoWlight(PoW):
         '''适用于PoW共识协议的区块头'''
         __slots__ = ['target', 'nonce']
         def __init__(self, preblock: PoW.Block = None, timestamp=0, content=0, miner_id=-1,
-                     target = 0,
-                     nonce = 0):
+                     target = 0, nonce = 0):
             # currently content is an integer equal to the round the block is generated
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # 难度目标
@@ -21,7 +20,7 @@ class PoWlight(PoW):
             return data
 
     def __init__(self,miner_id,consensus_params:dict):
-        super().__init__(miner_id=miner_id)
+        super().__init__(miner_id,consensus_params)
         self.ctr=0 #计数器
         self.target = int(consensus_params['target'],16)    
         if consensus_params['q_distr'] == 'equal':
