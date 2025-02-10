@@ -247,6 +247,7 @@ Attack Execute Type: execute_sample1
 ### AdHocNetworkSettings
 
 配置AdHocNetwork参数
+
 | system_config   | 命令行示例           | 类型        | 说明                                                         |
 | --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
 | init_mode       | `--init_mode rand`   | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
@@ -280,7 +281,9 @@ Ratio of blocks contributed by malicious players: 0.0
 Upper Bound t/(n-t): 0.0
 Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 0.6: 113.23, 0.7: 116.522, 0.8: 120.658, 0.9: 126.447, 1.0: 148.327}
 ```
+
 终端显示的仿真结果含义如下：
+
 | 输出项目 | 解释 | 
 | -------- | ------- |
 | Number of stale blocks  | 孤立区块数（不在主链中的区块数） |
@@ -300,7 +303,6 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 |Ratio of blocks contributed by malicious players|恶意节点出块比例|
 |Upper Bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |Block propagation times|区块传播时间（分布）|
-
 
 
 仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
@@ -324,7 +326,9 @@ Results/20230819-232107/
 ├── events.log
 └── parameters.txt
 ```
+
 输出的仿真结果文件含义如下：
+
 | 文件或目录 | 功能描述 | 
 | -------- | -------- |
 | Attack_log.txt  | 攻击日志 |
@@ -343,11 +347,17 @@ Results/20230819-232107/
 同步网络 横坐标矿工数目 纵坐标出块时间
 
 **参数设置如下：**
+
 * 仿真次数：200000轮*1次
+
 * 矿工数：10-80
+
 * 共识类型：PoW
+
 * 难度：0000FF...
+
 * q_ave = 10
+
 * 网络参数：SynchronousNetwork
 
 ![block_time](doc/block_time.png)
@@ -355,11 +365,17 @@ Results/20230819-232107/
 
 ### 双花攻击成功率
 **参数设置如下：**
+
 * 仿真次数：1200000轮*1次
+
 * 矿工数：40
+
 * 共识类型：PoW
+
 * 难度：000FFF...
+
 * q_ave = 1
+
 * 网络参数：四种网络参数均为默认
 
 ![double_spend_success_rate](doc/double_spend_success_rate.png)
@@ -371,13 +387,19 @@ Results/20230819-232107/
 
 
 ### 不同网络最大时延下的分叉率、孤块率、吞吐量与一致性
-轮数：100000
-矿工数：100
-共识类型：PoW
-q_ave:10
-难度：0002FF...
-网络类型：SynchronousNetwork和BoundedDelayNetwork
-网络参数：rcvprob_start=rcvprob_inc=1/最大轮数
+* 轮数：100000
+
+* 矿工数：100
+
+* 共识类型：PoW
+
+* q_ave:10
+
+* 难度：0002FF...
+
+* 网络类型：SynchronousNetwork和BoundedDelayNetwork
+
+* 网络参数：rcvprob_start=rcvprob_inc=1/最大轮数
 
 ---
 分叉率/孤块率与吞吐量随最大传播时延的变化示意图
@@ -395,12 +417,12 @@ q_ave:10
 
 ### 拓扑网络下区块链的共同前缀性质
 
-轮数：16189
-矿工数：10
-共识类型：PoW
-难度：000FFF...
-网络类型：TopologyNetwork
-网络参数：gen_net_approach=adj；gen_net_approach=adj；bandwidth_honest=0.5
+- 轮数：16189
+- 矿工数：10
+- 共识类型：PoW
+- 难度：000FFF...
+- 网络类型：TopologyNetwork
+- 网络参数：gen_net_approach=adj；gen_net_approach=adj；bandwidth_honest=0.5
 
 每轮结束时，所有节点的本地链相对共同前缀的高度差以及其对Common Prefix PDF的影响如下图所示。下方时间轴是发生链尾切换事件的轮次，上x轴是区块高度/common prefix后的区块长度（suffix length），y轴是矿工ID。图中的热度值指代的是每个矿工本地链链尾与共同前缀的距离达到Suffix Length的累积次数。图中BXX指代区块编号，代表矿工在当前轮次本地链链尾的状态，下x轴指代这些区块所在的高度。点击Play开始播放动画，可以观察到区块在共同前缀的下一高度产生，然后扩散到其他矿工，最后导致共同前缀高度+1。
 
@@ -415,14 +437,13 @@ q_ave:10
 
 
 ### 不同区块大小下的分叉率、孤块率、吞吐量与一致性
-轮数：500000
-曲线上单点重复次数：5
-矿工数：20
-共识类型：PoW
-难度：0000FF...
-网络类型：TopologyNetwork
-网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5；
-bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+- 轮数：500000
+- 曲线上单点重复次数：5
+- 矿工数：20
+- 共识类型：PoW
+- 难度：0000FF...
+- 网络类型：TopologyNetwork
+- 网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5; bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 ---
 分叉率/孤块率与吞吐量随区块大小的变化示意图
@@ -437,14 +458,14 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 图中，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量，其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节）。
 
 ### 传播时延随区块大小的变化
-轮数：100000
-矿工数：100
-共识类型：PoW
-q_ave:10
-难度：00008F...
-网络类型：TopologyNetwork
-网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5；
-bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+- 轮数：100000
+
+- 矿工数：100
+- 共识类型：PoW
+- q_ave:10
+- 难度：00008F...
+- 网络类型：TopologyNetwork
+- 网络参数：TTL=500；gen_net_approach=rand；ave_degree=8；bandwidth_honest=0.5; bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 ---
 传播时延与90%有效吞吐量随区块大小的变化示意图
@@ -464,12 +485,19 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 一次攻击成功的定义：攻击者产出区块，并被网络接受。
 
 **参数设置如下：**
+
 * 轮数：100000
+
 * 曲线上单点重复次数：20
+
 * 矿工数：40
+
 * 共识类型：PoW
+
 * 难度：000FFF...
+
 * q_ave = 1
+
 * 网络参数：四种网络参数均为默认
 
 ---
@@ -481,12 +509,13 @@ bandwidth_adv=5；block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8,
 纵坐标为链质量指标，即最终攻击者产出区块在主链中的占比。
 
 **参数设置如下：**
-* 仿真次数：100000轮*20次
-* 矿工数：40
-* 共识类型：PoW
-* 难度：000FFF...
-* q_ave = 1
-* 网络参数：四种网络参数均为默认
+
+- 仿真次数：100000轮*20次
+- 矿工数：40
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络参数：四种网络参数均为默认
 
 ---
 
@@ -505,12 +534,13 @@ $\gamma$为当网络中存在诚实链（最新的区块由诚实节点产出）
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
 
 **参数设置如下：**
-* 仿真次数：100000轮*20次
-* 矿工数：40
-* 共识类型：PoW
-* 难度：000FFF...
-* q_ave = 1
-* 网络类型：SynchronousNetwork
+
+- 仿真次数：100000轮*20次
+- 矿工数：40
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络类型：SynchronousNetwork
 
 ---
 #### 3. 双花攻击（double spending）
@@ -520,14 +550,15 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 
 ![doublespending](doc/doublespending.png)
 
-
 **参数设置如下：**
-* 仿真次数：1200000轮*1次
-* 矿工数：40
-* 共识类型：PoW
-* 难度：000FFF...
-* q_ave = 1
-* 网络参数：四种网络参数均为默认
+
+- 仿真次数：1200000轮*1次
+- 矿工数：40
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络参数：四种网络参数均为默认
+
 ---
 ##### **不同策略对双花攻击的影响与理论对比示意图**
 
@@ -544,12 +575,13 @@ $N_g$表示当攻击者落后诚实链$N_g$个区块时放弃当前攻击。
 $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 **参数设置如下：**
-* 仿真次数：3000000轮*1次
-* 矿工数：40
-* 共识类型：PoW
-* 难度：000FFF...
-* q_ave = 1
-* 网络类型：SynchronousNetwork
+
+- 仿真次数：3000000轮*1次
+- 矿工数：40
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络类型：SynchronousNetwork
 
 ---
 
@@ -565,20 +597,27 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 ![eclipse2](doc/eclipse2.png)
 
 **参数设置如下：**
-* 仿真次数：3000000轮*1次
-* 矿工数：20
-* 共识类型：PoW
-* 难度：000FFF...
-* q_ave = 1
-* 网络类型：TopologyNetwork
-* 网络参数：图中的Full connect topolog、Random connect topolog、Eclipse 10% miners 以及 Eclipse 20% miners使用固定的邻接矩阵生成拓扑网络，其邻接矩阵分别为$TP_F$、$TP_R$、$TP_1$和$TP_2$，此外设置为默认。
-  - $TP_F$矩阵为除对角线元素为0外均为1。
-  - $TP_R$矩阵为随机生成的拓扑网络。
-  - $TP_1$矩阵如下图（孤立节点为18，19）：
-    ![matrix_tp1](doc/matrix_tp1.png)
-  - $TP_2$矩阵如下图（孤立节点为16，17，18，19）：
-    ![matrix_tp2](doc/matrix_tp2.png)
+
+- 仿真次数：3000000轮*1次
+- 矿工数：20
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络类型：TopologyNetwork
+- 网络参数：图中的Full connect topolog、Random connect topolog、Eclipse 10% miners 以及 Eclipse 20% miners使用固定的邻接矩阵生成拓扑网络，其邻接矩阵分别为$TP_F$、$TP_R$、$TP_1$和$TP_2$，此外设置为默认
+    - $TP_F$矩阵为除对角线元素为0外均为1。
+    - $TP_R$矩阵为随机生成的拓扑网络。
+    - $TP_1$矩阵如图TP1（孤立节点为18，19）
+    - $TP_2$矩阵如图TP2（孤立节点为16，17，18，19）
     
+
+TP1邻接矩阵：
+
+![matrix_tp1](doc/matrix_tp1.png)
+
+TP2邻接矩阵：
+
+![matrix_tp2](doc/matrix_tp2.png)
 
 **注：在设置攻击者时请绕开孤立节点，手动设置。**
 
@@ -591,24 +630,25 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ## 贡献者 Contributors
 曹苇杭 Weihang Cao
+
 * 主要负责整体框架，共识层、评估层的代码编写，统筹项目进度   
-Project leader, overall framework, coding for the consensus layer and the evaluation layer
 
 陈炳文 Bingwen Chen
+
 * 主要负责网络层部分的代码编写  
-Coding for the network layer
 
 陈阳 Yang Chen
+
 * 主要负责攻击者部分的代码编写  
-Coding for the attack layer
 
 崔自翔 Zixiang Cui
+
 * 主要负责对共识层和基础框架进行优化   
-Optimization of the consensus layer and the underlying frameworks
 
 陈喜年 Xinian Chen
+
 * 主要负责仿真器的测试与优化   
-Testing and optimization
 
 凌昕彤 Xintong Ling
-* 指导老师 Advisor
+
+* 指导老师

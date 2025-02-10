@@ -31,11 +31,13 @@ ChainXim将时间离散化处理，抽象为“轮次”（round），以轮次�
 Environment组件是ChainXim程序运行的基石，其主要完成了仿真器系统模型的架构，以便与其它五大组件进行对接。同时也定义了仿真器中主要的一些参量，并封装了仿真器各组件中需要运用的部分函数。为便于理解该部分内容，下面将首先介绍ChainXim的模型假设。
 ### 模型假设
 ChainXim的系统模型设计主要参考了下面的论文：
+
 * J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
 
 ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全部节点（包含诚实矿工与非诚实攻击者）都将在每个轮次内进行一定数目的操作，以完成记账权的竞争与新区块的生成与传播。定义网络中矿工总数为n，其中有t个矿工隶属于非诚实的攻击者。每个轮次中，全体矿工根据各自的编号被依次唤醒，并根据自己的身份采取行动，诚实矿工将严格依照共识协议的规则产生区块；攻击者则会结合实际情况选择遵守协议或发起攻击。**注意，每个轮次中，攻击模块只会被触发一次，每次触发都会进行一次完整的攻击行为。当前版本中，攻击者每轮次中会随机在轮到某一个隶属于攻击者的矿工时触发。虽然不同矿工被唤醒的次序不同，但同一轮次内实际上不存在先后顺序。** 
 
 为模拟上述各方在现实区块链系统中的具体操作，ChainXim参考了论文中提出的两种重要方法，它们分别为随机预言（Random Oracle）和扩散（Diffuse）方法，其在ChainXim中的具体定义如下：
+
 - **随机预言（Random Oracle）**：以PoW共识为例，各矿工在每一轮次最多可执行q次行动（不同矿工的q可能为不同值），即q次进行哈希计算的机会。每个矿工都将进行q次随机查询操作，即将某一随机数输入哈希函数，验证其结果是否小于给定难度值。若矿工成功找到了低于难度值的结果，则视为其成功产生了一个区块。**同一轮次中不同矿工产生的区块视作是同时产生的。**
 - **扩散（Diffuse）**：当矿工产生了新的区块，它会将这个区块上传到网络，由网络层负责消息传播。根据网络层配置的不同，传播逻辑也会有所不同。此外，攻击者也可能选择不上传自己本轮次挖到的区块，只有上传到网络层的区块才会经由该方法进行传播。**在ChainXim的模型中，认为攻击者所控制的矿工拥有独立于区块链系统的专用通信通道，即任一隶属于攻击者的矿工一旦接收到某个区块，则攻击者麾下的所有矿工均会在下一轮次收到该区块。**
 
@@ -51,6 +53,7 @@ ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全
 
 ### 仿真器环境
 总体来说，环境组件完成了整体模型的搭建。初始化函数根据输入参数设置基础参数，调用了其它组件进行各自的初始化，设置n个矿工、选定t个攻击者、配置全局区块链、网络组件、攻击组件等，用于后续运行与评估。环境组件中的主要函数及其各自的参数如下表所示：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 |select_adversary_random|-|随机选取一定数量的矿工作为攻击者|
@@ -214,6 +217,7 @@ class PoW(Consensus):
 ### 共识类的初始化
 
 Consensus初始化时需要矿工ID作为参数，而从Consensus派生出的共识类，初始化时一般需要额外的共识参数，这些参数通过consensus_param承载，consensus_param在Environment对象构造时指定（可参考源代码），在Miner类初始化时传递给共识对象。在PoW中，consensus_param包括以下三项：
+
 |属性|类型|说明|
 |-|-|-|
 |target|str|PoW中哈希计算问题的十六进制目标值，当且仅当区块哈希值小于该目标值，区块有效。|
@@ -407,7 +411,8 @@ from .myconsensus import MyConsensus
 
 ## 网络接口 Network Interface
 在介绍网络模块之前，首先介绍网络接口，定义于`./miner/network_interface`，用于模拟网卡（NIC）的行为，作为矿工和网络之间交互的通道。在矿工初始化时并加入网络时，会根据网络类型在矿工中初始化一个NIC实例。
-```python!
+
+```python
 def join_network(self, network):
     """初始化网络接口"""
     if (isinstance(network, TopologyNetwork) or 
@@ -427,6 +432,7 @@ def join_network(self, network):
 网络接口在实现时需要使用一些常量，这些常量预定义在文件`./miner/_consts.py`中，主要分为以下几类：
 #### 1. 转发策略
 TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发策略。目前定义了三种：
+
 | 常量                         |  具体值   | 解释                           |
 | ---------------------------- | --- | ------------------------------ |
 | FLOODING        |  "flooding"    | 泛洪转发，即向所有邻居节点转发 |
@@ -435,6 +441,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 
 #### 2. 待转发消息来源
 消息的来源即该消息是自己产生的还是从外部网络中接收到的。该常量的设置主要是因为在不同网络中对不同来源的消息有不同的处理：无拓扑的抽象网络（SynchronousNetwork、StochPropNetwork、DeterPropNetwork）中仅会转发自己产生的消息；而带拓扑的拟真网络（TopologyNetwork、AdHocNetwork）两种来源的消息都会转发。
+
 | 常量                        | 具体值    | 解释                         |
 | --------------------------- | --- | ---------------------------- |
 | SELF   |  "self_generated_msg"   | 该消息是自己产生的           |
@@ -442,6 +449,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 
 #### 3. 信道状态
 在TopologyNetwork、AdHocNetwork中用于标记信道状态。
+
 | 常量           | 具体值    | 解释                 |
 | -------------- | --- | -------------------- |
 | _IDLE   |  "idle"   | 信道空闲             |
@@ -466,6 +474,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | nic_forward           | list[Packet]                                           | 抽象方法。将_forward_buffer中的消息按照规则发送到网络中。    |
 
 以下方法只有TopologyNetwork、AdHocNetwork两个网络需要实现：
+
 | 成员方法        | 输入参数                             | 解释                                                         |
 | --------------- | ------------------------------------ | ------------------------------------------------------------ |
 | remove_neighbor | remove_id:int                        | 抽象方法。移除指定的邻居。                                   |
@@ -481,6 +490,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 3. 网络将消息传递给目标矿工时，会调用目标矿工NIC的nic_receive函数，该函数负责通过矿工receive接口将消息传递给矿工，供共识层处理。
 
 对于不包含拓扑信息的网络接口NICWithoutTp，在上述过程2中，仅转发处理_forward_buffer中由自身产生的消息，即SELF消息队列中的内容。主要的成员方法如下：
+
 | 成员方法        | 输入参数                             | 解释                                                         |
 | --------------- | ------------------------------------ | ------------------------------------------------------------ |
 | nic_receive           | packet: Packet                                         | 接收网络中的数据包，并传递给矿工。                 |
@@ -488,6 +498,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 
 
 ### NICWithTp
+
 | 成员方法              | 输入参数                                               | 解释                                                         |
 | --------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
 | nic_receive           | packet: Packet                                         | 接收网络中的数据包，并传递给矿工。                 |
@@ -570,6 +581,7 @@ class PacketPVNet(Packet):
 例如，rcvprob_start=rcvprob_inc=0.2的情况下，新消息在进入网络后，所有其他矿工必定在5轮内接收到消息。
 
 **接口函数**：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | 设置rcvprob_start，rcvprob_inc    |
@@ -577,6 +589,7 @@ class PacketPVNet(Packet):
 | diffuse   | round:int     | network tape中的各个Packet以不断增加概率被各矿工接收，当前接收概率更新到PacketBDNet。在被所有矿工都接收到时，将其在network_tape中删除，并把传播过程保存在network log.txt中。<br>**注：当发送给攻击者时，其他攻击者也立即收到**|
 
 **重要函数**
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 |record_block_propagation_time|- |记录消息传播时间|
@@ -594,6 +607,7 @@ class PacketPVNet(Packet):
 
 
 **接口函数**：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | 设置prop_vector   |
@@ -601,6 +615,7 @@ class PacketPVNet(Packet):
 | diffuse   | round:int     |  依照传播向量,在每一轮中将数据包传播给固定比例的矿工<br>**注：当发送给攻击者时，其他攻击者也立即收到，此时可能出现比例不一致的情况。** |
 
 **重要函数**
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 |record_block_propagation_time|- |记录消息传播时间|
@@ -611,6 +626,7 @@ class PacketPVNet(Packet):
 通过csv文件或随机方式生成网络拓扑和各矿工间的带宽。消息通过矿工的网络接口进入网络后，在指定的来源和目标之间建立链路(Link)进行传播，每条Link的传输时间（轮次）由链路带宽与区块大小决定。同时链路可能以预设的outage_prob概率中断，此时发送方会重新发送消息。
 
 **网络参数**：
+
 | 属性                      | 说明  |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | init_mode (str)    | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
@@ -625,13 +641,16 @@ class PacketPVNet(Packet):
 | save_routing_graph (bool) | 是否保存各消息的路由传播图。建议网络规模较大时关闭                                                                                        |
 
 **接口函数**：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | 设置如上网络参数 |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int       |将新消息、矿工id和当前轮次封装成Packet，加入network_tape|
 | diffuse  | round:int    | diffuse分为**receive_process**和**forward_process**两部分|
+
 - `receive_process` 将传播完成的msg发给接收方;
-```python=
+
+```python
 def receive_process(self,round):
     """接收过程"""
     if len(self._active_links)==0:
@@ -659,14 +678,18 @@ def receive_process(self,round):
                         if i not in dead_links]
     dead_links.clear()
 ```
+
 - `forward_process` 从矿工NIC中取得将要传播的msg进入网络；
-```python=
+
+```python
 def forward_process(self, round):
     """转发过程"""
     for m in self._miners:
         m.NIC.nic_forward(round)
 ```
+
 **其他重要函数**：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 | cal_delay   |  msg:Message, sourceid:int, targetid:int    |计算两矿工间的时延，包括传输时延和处理时延两部分。同时向上取整，且最低为1轮。<br>计算公式为：`delay=trans_delay+process_delay， trans_delay=(blocksize*8)/bandwidth` |
@@ -682,6 +705,7 @@ def forward_process(self, round):
 每个消息在传输前会被分段(Segment)，每一段的传输时间都是一轮，接收方NIC只有接收到全部分段后，才会将完整的消息传递给共识层。
 
 **网络参数**：
+
 | 属性                 | 说明                                             |
 | -------------------- | ------------------------------------------------ |
 | init_mode (str)      | 网络初始化方法，目前仅支持随机生成                                 |
@@ -693,6 +717,7 @@ def forward_process(self, round):
 | outage_prob(float)   | 链路中断概率                                     |
 
 **接口函数**：
+
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | 设置如上网络参数 |
@@ -715,6 +740,7 @@ def forward_process(self, round):
 
 
 ### 攻击层代码结构(Package Tree)
+```
 ├─ attack
 │  ├─ adversary.py
 │  ├─ attack_type
@@ -726,11 +752,14 @@ def forward_process(self, round):
 │  │  ├─ selfish_mining.py
 │  │  └─ _atomization_behavior.py
 │  └─ _adversary.py
+```
 
 ### _adversary.py & adversary.py
 
 _adversary.py提供Adversary抽象父类，用于adversary.py提供的Adversary继承。环境import文件adversary.py中的Adversary类，并创建对象，随后根据环境传参初始化所有Adversary设置。该Adversary对象作为攻击者全体代表的抽象，执行攻击。
+
 #### >>> _adversary.py & adversary.py中的成员变量
+
 ##### 内部成员变量
 
 | 成员变量                | 类型               | 解释                                                                                                         |
@@ -747,7 +776,9 @@ _adversary.py提供Adversary抽象父类，用于adversary.py提供的Adversary�
 | __adver_consensus_param | dict               |以dict的形式记录了攻击者执行的共识对象需要的参数。                                                                                                              |
 | __consensus_type        | class: Consensus   |根据设置创建共识类型对象。                                                                                                              |
 | __attack_arg            | dict               |记录了攻击参数。（目前攻击中仅有DoubleSpending需要该参数。                                                                                                              |
+
 #### >>> _adversary.py & adversary.py中的成员方法
+
 ##### 内部方法
 
 |成员方法|输入参数（类型）|返回值: 类型|解释|
@@ -784,8 +815,11 @@ renew中攻击者遍历其控制的每一个矿工。所有矿工都如诚实矿
 若存在更新，则将新产生的区块更新到基准链和全局链上。前者作为攻击者攻击的参考基准（攻击者视角下最新的链），后者作为区块链维护者有义务将最新的区块记录在全局中。
 
 总结：renew至少需要以下三部分功能：
+
 * 对每个攻击者矿工进行local_state_update。
+
 * 根据更新结果更新基准链和全局链。
+
 * 根据需要将每轮的更新结果进行记录。
   
 
@@ -815,6 +849,7 @@ wait是让攻击模块等待至下一回合再继续运行。因此并没有对w
 #### >>> attack_type.py中的成员变量
 ##### 外部变量
 未说明的成员变量，其含义与前述一致。
+
 | 成员变量 | 类型 | 说明 |
 | -------- | -------- | -------- |
 | behavior | class: AtomizationBehavior | 记录AtomizationBehavior类型的方法类对象。 |
@@ -853,7 +888,8 @@ wait是让攻击模块等待至下一回合再继续运行。因此并没有对w
 #### 以HonestMining为例说明
 攻击主要分为三个阶段：renew阶段，attack阶段，和clear and record阶段。
 ##### >>> renew阶段：
-```python=
+
+```python
 def renew_stage(self,round):
         ## 1. renew stage
     newest_block, mine_input = self.behavior.renew(miner_list = self.adver_list, \
@@ -863,7 +899,7 @@ def renew_stage(self,round):
 从上面展示的renew阶段源代码可以注意到，renew阶段需要返回两个参数，一个是newest_block一个是mine_input。而renew阶段也以renew()方法为主。
 
 ##### >>> attack阶段：
-```python=
+```python
 def attack_stage(self,round,mine_input):
         ## 2. attack stage
     current_miner = random.choice(self.adver_list)       
@@ -880,8 +916,10 @@ def attack_stage(self,round,mine_input):
 ```
 attack阶段Adversary要根据条件执行adopt(), mine(), upload(), wait()。根据具体的攻击策略判断如何组合这些方法。HonestMining策略非常简单，只要挖出区块就发布，否则就等待。注意到即使是最简单的HonestMining也未必每轮都会与网络交互。
 具体到Selfish Mining和Double Spending，因为策略比较复杂，源代码也比较复杂，若需要可以直接查看源代码。
+
 ##### >>> clear and record阶段：
-```python=
+
+```python
 def clear_record_stage(self,round):
     ## 3. clear and record stage
     self.behavior.clear(miner_list = self.adver_list)# 清空
@@ -899,13 +937,19 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 ## 评估 Evaluation
 ```Environment.exec```执行完成后，将执行```Environment.view_and_write```，对仿真结果进行评估与输出。
 
+
 * view_and_write首先调用view，获取统计数据，并输出结果到命令行
+
 * view会调用global_chain中的```CalculateStatistics```函数，对全局区块链树状结构进行数据统计，并将结果更新到字典变量stat中。
+
 * 之后，将从共同前缀（common prefix）、链质量（chain quality）、链增长（chain growth）三个维度对全局区块链进行数据统计。这三部分由external.py中的对应函数实现。
+
 * 其次，调用network中的```cal_block_propagation_times```函数，获取网络相关的统计参数。
+
 * 最后，```view_and_write```将评估结果输出到文件中。
 
 以下为stat中统计参数的解释，它们和仿真器最后的输出结果相对应(详见用户手册)：
+
 |字典条目|解释/计算方式|
 |---|---|
 |num_of_generated_blocks|生成的区块总数|
@@ -930,6 +974,7 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 |block_propagation_times|区块传播时间（分布）|
 
 关于共同前缀、链质量和链增长三个指标的解释如下：
+
 |性质|解释|
 |-|-|
 |Common Prefix|当恶意节点算力不超过一定比例时，诚实矿工维护的区块链总是有很长的共同前缀（把任意两个诚实矿工的链截掉一段，剩余部分（前缀）总是相同的）|
@@ -937,6 +982,7 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 |Chain Growth|诚实矿工的链总是至少以一定速率增长|
 
 对应external.py中的函数实现如下：
+
 |函数|输入参数|输出参数|说明|
 |-|-|-|-|
 |common_prefix|prefix1:Block，prefix2:Chain|共同前缀prefix1|计算两条区块链的共同前缀|
@@ -947,4 +993,5 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 
 
 有关以上三个指标更加详细的含义，可以阅读：
+
 * J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>

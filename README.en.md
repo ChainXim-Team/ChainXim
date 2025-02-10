@@ -245,6 +245,7 @@ Configure TopologyNetwork parameters
 ### AdHocNetworkSettings
 
 Configure AdHocNetwork parameters
+
 | system_config   | Command Line Example         | Type        | Description                                                   |
 | --------------- | ---------------------------- | ----------- | ------------------------------------------------------------- |
 | init_mode       | `--init_mode rand`           | str         | Network initialization method, only 'rand' is valid for AdhocNetwork |
@@ -279,6 +280,7 @@ Upper Bound t/(n-t): 0.0
 Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 0.6: 113.23, 0.7: 116.522, 0.8: 120.658, 0.9: 126.447, 1.0: 148.327}
 ```
 The meaning of the simulation results displayed in the terminal is as follows:
+
 | Output Item                                         | Explanation                                                  |
 | --------------------------------------------------- | ------------------------------------------------------------ |
 | Number of stale blocks                              | Number of stale blocks (blocks not in the main chain)        |
@@ -322,6 +324,7 @@ Results/20230819-232107/
 └── parameters.txt
 ```
 The meaning of the output simulation result files is as follows:
+
 | File or Directory | Description | 
 | -------- | -------- |
 | Attack_log.txt  | Attack log |
@@ -340,11 +343,17 @@ The meaning of the output simulation result files is as follows:
 Synchronous Network: X-axis represents the number of miners, Y-axis represents the block time.
 
 **Parameter settings:**
+
 * Simulation rounds: 200000 rounds * 1 time
+
 * Number of miners: 10-80
+
 * Consensus type: PoW
+
 * Difficulty: 0000FF...
+
 * q_ave = 10
+
 * Network parameters: SynchronousNetwork
 
 ![block_time](https://hackmd.io/_uploads/Byi8xdRWa.png)
@@ -352,11 +361,17 @@ Synchronous Network: X-axis represents the number of miners, Y-axis represents t
 
 ### Double Spending Attack Success Rate
 **Parameter settings:**
+
 * Simulation rounds: 1200000 rounds * 1 time
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network parameters: default for all four network types
 
 ![double_spend_success_rate](https://hackmd.io/_uploads/ryuSLETbT.png)
@@ -368,13 +383,14 @@ Synchronous Network: X-axis represents the number of miners, Y-axis represents t
 
 
 ### Fork Rate, Stale Block Rate, Throughput, and Consistency under Different Maximum Delays in Various Networks
-Rounds: 100000
-Number of miners: 100
-Consensus type: PoW
-q_ave: 10
-Difficulty: 0002FF...
-Network types: SynchronousNetwork and BoundedDelayNetwork
-Network parameters: rcvprob_start=rcvprob_inc=1/maximum rounds
+
+- Rounds: 100000
+- Number of miners: 100
+- Consensus type: PoW
+- q_ave: 10
+- Difficulty: 0002FF...
+- Network types: SynchronousNetwork and BoundedDelayNetwork
+- Network parameters: rcvprob_start=rcvprob_inc=1/maximum rounds
 
 ---
 Fork rate/Stale block rate and throughput variation with maximum propagation delay
@@ -389,12 +405,12 @@ Consistency metrics variation with maximum propagation delay
 In the figure, Common Prefix[0], [1], [2] represent the first three components of the common prefix PDF, where the ordinal number represents the difference between the common prefix and the main chain length (see the "Simulator Output" section for details).
 ### Common Prefix Property of Blockchain under Topology Network
 
-Rounds: 16189
-Number of miners: 10
-Consensus type: PoW
-Difficulty: 000FFF...
-Network type: TopologyNetwork
-Network parameters: gen_net_approach=adj; bandwidth_honest=0.5
+- Rounds: 16189
+- Number of miners: 10
+- Consensus type: PoW
+- Difficulty: 000FFF...
+- Network type: TopologyNetwork
+- Network parameters: gen_net_approach=adj; bandwidth_honest=0.5
 
 At the end of each round, the height difference of the local chains of all nodes relative to the common prefix and its impact on the Common Prefix PDF are shown in the figure below. The time axis below is the round in which the chain tail switch event occurred, the upper x-axis is the block height/common prefix followed by the block length (suffix length), and the y-axis is the miner ID. The heat value in the figure indicates the cumulative number of times each miner's local chain tail reaches the suffix length relative to the common prefix. BXX in the figure refers to the block number, representing the state of the miner's local chain tail in the current round, and the lower x-axis indicates the height of these blocks. Click Play to start the animation, where you can observe the block being generated to extend the common prefix, then propagating to other miners, and finally causing the common prefix height to increase by 1.
  <iframe  
@@ -407,13 +423,14 @@ At the end of each round, the height difference of the local chains of all nodes
 
 
 ### Fork Rate, Stale Block Rate, Throughput, and Consistency under Different Block Sizes
-Rounds: 500000
-Number of repetitions per point on the curve: 5
-Number of miners: 20
-Consensus type: PoW
-Difficulty: 0000FF...
-Network type: TopologyNetwork
-Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+- Rounds: 500000
+- Number of repetitions per point on the curve: 5
+- Number of miners: 20
+- Consensus type: PoW
+- Difficulty: 0000FF...
+- Network type: TopologyNetwork
+- Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 ---
 Fork rate/Stale block rate and throughput variation with block size
@@ -425,13 +442,14 @@ Consistency metrics variation with block size
 
 In the figure, Common Prefix[0], [1], [2] represent the first three components of the common prefix PDF, where the ordinal number represents the difference between the common prefix and the main chain length (see the "Simulator Output" section for details).
 ### Variation of Propagation Delay with Block Size
-Rounds: 100000
-Number of miners: 100
-Consensus type: PoW
-q_ave: 10
-Difficulty: 00008F...
-Network type: TopologyNetwork
-Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+- Rounds: 100000
+- Number of miners: 100
+- Consensus type: PoW
+- q_ave: 10
+- Difficulty: 00008F...
+- Network type: TopologyNetwork
+- Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 ---
 Variation of propagation delay and 90% effective throughput with block size
@@ -450,12 +468,19 @@ Variation of propagation delay and 90% effective throughput with block size
 Definition of a successful attack: The attacker produces a block and is accepted by the network.
 
 **Parameter settings:**
+
 * Rounds: 100000
+
 * Repetitions per point on the curve: 20
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network parameters: default for all four network types
 
 ---
@@ -467,11 +492,17 @@ Definition of a successful attack: The attacker produces a block and is accepted
 The vertical axis represents the chain quality metric, i.e., the proportion of blocks produced by the attacker in the main chain.
 
 **Parameter settings:**
+
 * Simulation rounds: 100000 rounds * 20 times
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network parameters: default for all four network types
 
 ---
@@ -491,11 +522,17 @@ Note: The chain selection strategy is an internal test functionality and is not 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
 
 **Parameter settings:**
+
 * Simulation rounds: 100000 rounds * 20 times
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network type: SynchronousNetwork
 
 ---
@@ -506,11 +543,17 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 ![doublespending](https://hackmd.io/_uploads/r1ludP3BT.png)
 
 **Parameter settings:**
+
 * Simulation rounds: 1200000 rounds * 1 time
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network parameters: default for all four network types
 
 ---
@@ -529,11 +572,17 @@ $N_g$ indicates that the attacker abandons the current attack when it is $N_g$ b
 $\beta$ is the ratio of the attacker's hash power to that of the honest miners, $0\leqslant\beta\leqslant1$.
 
 **Parameter settings:**
+
 * Simulation rounds: 3000000 rounds * 1 time
+
 * Number of miners: 40
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network type: SynchronousNetwork
 
 ---
@@ -549,12 +598,19 @@ The green curve Theory Shift 10% is obtained by shifting the Theory curve to the
 ![eclipse2](https://hackmd.io/_uploads/SJ600Qab6.png)
 
 **Parameter settings:**
+
 * Simulation rounds: 3000000 rounds * 1 time
+
 * Number of miners: 20
+
 * Consensus type: PoW
+
 * Difficulty: 000FFF...
+
 * q_ave = 1
+
 * Network type: TopologyNetwork
+
 * Network parameters: The Full connect topology, Random connect topology, Eclipse 10% miners, and Eclipse 20% miners in the figure use fixed adjacency matrices to generate the topology network. Their adjacency matrices are $TP_F$, $TP_R$, $TP_1$, and $TP_2$, respectively, and other settings are default.
     - The $TP_F$ matrix has all elements as 1 except for the diagonal elements which are 0.
     - The $TP_R$ matrix is a randomly generated topology network.
@@ -572,19 +628,25 @@ See [developer-guide](doc/developer-guide_en.md) for more details
 
 ## Contributors
 曹苇杭 Weihang Cao
+
 * Project leader, overall framework, coding for the consensus layer and the evaluation layer
 
 陈炳文 Bingwen Chen
+
 * Coding for the network layer
 
 陈阳 Yang Chen
+
 * Coding for the attack layer
 
 崔自翔 Zixiang Cui
+
 * Optimization of the consensus layer and the underlying frameworks
 
 陈喜年 Xinian Chen
+
 * Testing and optimization
 
 凌昕彤 Xintong Ling
+
 * Advisor
