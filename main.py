@@ -147,7 +147,7 @@ def main(**args):
             'stat_prop_times': (args.get('stat_prop_times') or eval(config.get(net_setting, 'stat_prop_times'))),
             'path_loss_level': (args.get('path_loss_level') or config.get(net_setting, 'path_loss_level')),
         })
-        global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
+        # global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
 
     # 设置attack参数
     attack_setting = dict(config['AttackSettings'])

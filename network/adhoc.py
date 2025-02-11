@@ -21,7 +21,7 @@ import errors
 import global_var
 from data import Block, Message
 
-from network_abc import (
+from .network_abc import (
     ERR_OUTAGE,
     GLOBAL,
     GetDataMsg,
@@ -187,17 +187,21 @@ class AdHocNetwork(Network):
                 self._init_mode = init_mode
                 self.edge_prob = None
                 self.network_generator(init_mode)
-        if enable_large_scale_fading is not None:
+        if enable_large_scale_fading is not None and enable_large_scale_fading:
             self._enableLargeScaleFading = enable_large_scale_fading
-        if path_loss_level is not None:
-            if path_loss_level == 'low':
-                self._pathLossRate = 1
-            if path_loss_level == 'medium':
-                self._pathLossRate = 1.5
-            if path_loss_level == 'high':
-                self._pathLossRate = 2
-        if bandwidth_max is not None:
-            self._bandwidthMax = bandwidth_max
+            if path_loss_level is not None:
+                if path_loss_level == 'low':
+                    self._pathLossRate = 0.8
+                if path_loss_level == 'medium':
+                    self._pathLossRate = 1
+                if path_loss_level == 'high':
+                    self._pathLossRate = 1.2
+            if bandwidth_max is not None:
+                self._bandwidthMax = bandwidth_max
+                self._bandwidthCommRange= bandwidth_max * (0.01) ** self._pathLossRate
+                global_var.set_segmentsize(self._bandwidthCommRange)
+        else:
+            global_var.set_segmentsize(segment_size)
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -294,9 +298,10 @@ class AdHocNetwork(Network):
             return 1
         d = self.get_distance_between_two_miners(source, target)
         d0 = self._commRangeNorm / 100 # 最大带宽的参考距离
-        seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
-        a = seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)
-        seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
+        bandwidth = self._bandwidthMax * (d0 / d) ** self._pathLossRate
+        seg_num = np.ceil(bandwidth / global_var.get_segmentsize())
+        # seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
+        # seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
         logger.info("M%d->M%d: distance %d, get %d segment(s) to forward", source, target, d*self._region_width, seg_num)
         return seg_num
 
@@ -835,21 +840,48 @@ if __name__ == '__main__':
     # plt.legend(title="Decay Factor (Alpha)", fontsize=12)
     # plt.show()
 
-    N_near = 15  
-    N_far = 1    
-    d0 = 0.3 
-    distances = np.linspace(0, 30, 500) 
-    n_values = [1, 1.5, 2]
+    # N_near = 15  
+    # N_far = 1    
+    # d0 = 0.3 
+    # distances = np.linspace(0, 30, 500) 
+    # n_values = [1, 1.5, 2]
+    # plt.figure(figsize=(10, 6))
+    # for n in n_values:
+    #     data_segments = np.ceil(N_near - 10 * n * np.log10(np.maximum(distances, d0) / d0))
+    #     plt.plot(distances, data_segments, label=f'n={n}', linewidth=2)
+    # plt.title("Effect of Path Loss Exponent (n) on Data Segments", fontsize=14)
+    # plt.xlabel("Distance", fontsize=12)
+    # plt.ylabel("Number of Data Segments", fontsize=12)
+    # plt.grid(True, linestyle="--", alpha=0.7)
+    # plt.legend(title="Path Loss Rate (n)", fontsize=12)
+    # plt.show()
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Parameters
+    
+    R_max = 30      # Communication range (in meters)
+    d0 = R_max/100           # Reference distance (in meters)
+    B_d0 = 30        # Bandwidth at the reference point (in Hz)
+    n = 1           # Path loss exponent
+
+    # Step 1: Calculate bandwidth at the farthest distance (R_max)
+    B_Rmax = B_d0 * (d0 / R_max) ** n  # Bandwidth at R_max
+
+    # Step 2: Calculate bandwidth for each distance
+    distances = np.linspace(d0, R_max, 500)  # Distance range from d0 to R_max
+    B_d = B_d0 * (d0 / distances) ** n  # Bandwidth at each distance
+
+    # Step 3: Calculate data segments per second at each distance
+    N_d = np.ceil(B_d / B_Rmax)  # Data segments per second based on bandwidth
+
+    # Plotting
     plt.figure(figsize=(10, 6))
-    for n in n_values:
-        data_segments = np.ceil(np.maximum(
-            N_far,
-            N_near - 10 * n * np.log10(np.maximum(distances, d0) / d0)
-        ))
-        plt.plot(distances, data_segments, label=f'n={n}', linewidth=2)
-    plt.title("Effect of Path Loss Exponent (n) on Data Segments", fontsize=14)
-    plt.xlabel("Distance", fontsize=12)
-    plt.ylabel("Number of Data Segments", fontsize=12)
+    plt.plot(distances, N_d, label=f'n={n}', linewidth=2)
+    plt.title("Data Segments vs. Distance (Based on Bandwidth)", fontsize=14)
+    plt.xlabel("Distance (m)", fontsize=12)
+    plt.ylabel("Data Segments per Second", fontsize=12)
     plt.grid(True, linestyle="--", alpha=0.7)
-    plt.legend(title="Path Loss Rate (n)", fontsize=12)
+    plt.legend(title="Path Loss Exponent (n)", fontsize=12)
     plt.show()
