@@ -715,7 +715,9 @@ class TopologyNetwork(Network):
         file_name = "network topology" if file_name is None else file_name
 
         RESULT_PATH = global_var.get_net_result_path()
-        plt.savefig(RESULT_PATH / f'{file_name}.svg')
+        plt.box(False)
+        plt.margins(0)
+        plt.savefig(RESULT_PATH / f'{file_name}.svg', bbox_inches="tight")
         #plt.pause(1)
         plt.close()
         #plt.ioff()

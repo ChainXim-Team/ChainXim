@@ -289,9 +289,9 @@ class Environment(object):
     def view(self) -> dict:
         # 展示一些仿真结果
         print('\n')
-        print("Global Tree Structure:", "")
-        self.global_chain.ShowStructure1()
-        print("End of Global Tree", "")
+        # print("Global Tree Structure:", "")
+        # self.global_chain.ShowStructure1()
+        # print("End of Global Tree", "")
 
         # Evaluation Results
         stats = self.global_chain.CalculateStatistics(self.total_round)
