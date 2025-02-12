@@ -55,8 +55,7 @@ class PoWstrict(PoW):
     def serialize_blockhead(self, blockhead: PoW.BlockHead) -> bytes:
         '''将区块序列化为字节流'''
         return blockhead.miner.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)+ \
-                blockhead.content.to_bytes(self.INT_SIZE, self.BYTEORDER)+ \
-                blockhead.prehash + \
+                blockhead.content + blockhead.prehash + \
                 blockhead.nonce.to_bytes(self.INT_SIZE, self.BYTEORDER)
 
     def valid_chain(self, lastblock):

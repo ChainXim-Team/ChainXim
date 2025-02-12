@@ -18,7 +18,8 @@ import scipy.sparse as sp
 
 import errors
 import global_var
-from data import Message, Message
+from functions import INT_LEN
+from data import Message, Block
 
 from .network_abc import (
     ERR_OUTAGE,
@@ -146,7 +147,8 @@ class TopologyNetwork(Network):
                       stat_prop_times = None, 
                       show_label = None,
                       save_routing_graph = None,
-                      rand_mode = None):
+                      rand_mode = None,
+                      dataitem_param = None):
         ''' 
         set the network parameters
 
@@ -193,12 +195,15 @@ class TopologyNetwork(Network):
             self._edgeAddProb = edge_add_prob
         if save_routing_graph is not None:
             self._save_routing_graph = save_routing_graph
+        if dataitem_param is not None:
+            self._dataitem_param = dataitem_param
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,sendTogether:bool = False):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,
+                       sendTogether:bool = False):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -210,6 +215,11 @@ class TopologyNetwork(Network):
         if self.inv_handler(new_msgs):
             return
         for msg in new_msgs:
+            if self._dataitem_param['dataitem_enable'] and isinstance(msg, Block):
+                msg.size = self._dataitem_param['dataitem_size'] * len(msg.blockhead.content) / 2 / INT_LEN
+                if msg.size > self._dataitem_param['max_block_capacity'] * self._dataitem_param['dataitem_size']:
+                    logger.warning("The data items in block content exceeds the maximum capacity!")
+                    continue
             packet = TPPacket(msg, round, minerid, target)
             delay = self.cal_delay(msg, minerid, target)
             link = Link(packet, delay, self)
