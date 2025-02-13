@@ -1,16 +1,20 @@
 # ChainXim 用户指南 User Guide
+中文 | [English](README.en.md)
 ## 简介 Introduction
 
-ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。目前仿真器还处于内部测试阶段。  
-ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance metrics. The emulator is currently in the internal testing stage.
+ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。
+ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance metrics.
+
+## 相关工作 Related Work
+- BagChain [Source Code](https://github.com/czxdev/BagChain)
 
 ## Quick Start
 ### 下载 Download
 可以下载ChainXim的压缩包后解压，或者克隆位于Gitee上的软件仓库
 
-可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://gitee.com/geekczx/chain-xim/repository/archive/master.zip)
+可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://github.com/XinLab-SEU/ChainXim/archive/refs/heads/master.zip)
 
-git克隆命令：`git clone https://gitee.com/geekczx/chain-xim.git`
+git克隆命令：`git clone https://github.com/XinLab-SEU/ChainXim.git`
 
 ### 文件结构 File Structure
 压缩包解压后或软件仓库克隆后的文件结构如下：
