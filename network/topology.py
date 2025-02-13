@@ -147,8 +147,7 @@ class TopologyNetwork(Network):
                       stat_prop_times = None, 
                       show_label = None,
                       save_routing_graph = None,
-                      rand_mode = None,
-                      dataitem_param = None):
+                      rand_mode = None):
         ''' 
         set the network parameters
 
@@ -195,8 +194,6 @@ class TopologyNetwork(Network):
             self._edgeAddProb = edge_add_prob
         if save_routing_graph is not None:
             self._save_routing_graph = save_routing_graph
-        if dataitem_param is not None:
-            self._dataitem_param = dataitem_param
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -215,7 +212,7 @@ class TopologyNetwork(Network):
         if self.inv_handler(new_msgs):
             return
         for msg in new_msgs:
-            if self._dataitem_param['dataitem_enable'] and isinstance(msg, Block):
+            if self._dataitem_param.get('dataitem_enable') and isinstance(msg, Block):
                 msg.size = self._dataitem_param['dataitem_size'] * len(msg.blockhead.content) / 2 / INT_LEN
                 if msg.size > self._dataitem_param['max_block_capacity'] * self._dataitem_param['dataitem_size']:
                     logger.warning("The data items in block content exceeds the maximum capacity!")

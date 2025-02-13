@@ -87,8 +87,9 @@ class Environment(object):
             self.configure_oracles(consensus_param, adversary_ids)
 
         # set parameters for network
-        network_param.update({'dataitem_param': dataitem_param})
         self.network.set_net_param(**network_param)
+        if self.network.withTopology and dataitem_param['dataitem_enable']:
+            self.network._dataitem_param = dataitem_param
 
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()

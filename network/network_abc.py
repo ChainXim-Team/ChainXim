@@ -52,6 +52,7 @@ class Network(metaclass=ABCMeta):
         self.NET_RESULT_PATH = global_var.get_net_result_path()
         self.withTopology = False
         self.withSegments = False
+        self._dataitem_param = dict()
 
     @abstractmethod
     def set_net_param(self, *args, **kargs):
