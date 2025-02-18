@@ -18,6 +18,7 @@ class Chain(object):
         self.block_set = defaultdict(Block)
         self.switch_tracker_callback = None # 用于记录链尾切换事件
         # self.merge_tracker_callback = None # 用于记录区块并入事件
+        self.merge_callback = None # 用于在Environment处理区块并入事件
         '''
         默认的共识机制中会对chain添加一个创世区块
         默认情况下chain不可能为空
@@ -144,6 +145,9 @@ class Chain(object):
             cur2add.next = []            # 初始化它的子节点
             insert_point = cur2add             # 父节点设置为它
             self.block_set[cur2add.blockhash] = cur2add # 将它加入blockset中
+
+        if self.merge_callback:
+            self.merge_callback(cur2add)
 
         # if self.merge_tracker_callback:
         #     self.merge_tracker_callback(cur2add)
@@ -426,6 +430,9 @@ class Chain(object):
 
     def set_merge_tracker_callback(self, callback):
         self.merge_tracker_callback = callback
+
+    def set_merge_callback(self, callback):
+        self.merge_callback = callback
 
 class LocalChainTracker(object):
     '''记录本地链每次切换lastblock的轮次以及lastblock的信息'''

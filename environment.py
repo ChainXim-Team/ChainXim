@@ -3,8 +3,8 @@ import logging
 import math
 import random
 import time
+from array import array
 
-import rbloom
 import numpy as np
 
 import consensus
@@ -45,7 +45,11 @@ class Environment(object):
         if not dataitem_param['dataitem_enable']:
             self.dataitem_params['max_block_capacity'] = 0
         else:
-            self.dataitem_bloom_filter = rbloom.Bloom(MAX_INT//10, 0.0001)
+            self.dataitem_validator = set()
+            if dataitem_param['dataitem_input_interval'] == 0:
+                initial_dataitems = b''.join([self.generate_dataitem(1) for _ in range(dataitem_param['max_block_capacity'])])
+                self.input_dataitem = array('Q', initial_dataitems).tobytes()
+                self.new_block_this_round:list[Block] = []
         # configure extra genesis block info
         consensus_type_str = global_var.get_consensus_type()
         consensus_type:consensus.Consensus = for_name(consensus_type_str)
@@ -56,7 +60,7 @@ class Environment(object):
         # generate miners
         self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
-            miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'])
+            miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'], dataitem_param['dataitem_input_interval'] == 0)
             if global_var.get_common_prefix_enable():
                 miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
                 # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
@@ -108,7 +112,10 @@ class Environment(object):
             # parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
             parameter_str += f"  (Adversary's q: {self.adversary.get_adver_q()}) \n"
         if isinstance(self.miners[0].NIC, network_interface.NICWithTp):
-            parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
+            if self.dataitem_params['dataitem_enable']:
+                parameter_str += f'Dataitem Param: {dataitem_param} \n'
+            else:
+                parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
@@ -151,18 +158,29 @@ class Environment(object):
         self.global_chain.add_blocks(blocks=copy.deepcopy(self.miners[0].consensus.local_chain.head))
         # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         # self.global_chain.lastblock = self.global_chain.head
+        if getattr(self, 'new_block_this_round', None) is not None:
+            self.global_chain.set_merge_callback(lambda block: self.new_block_this_round.append(block))
+
+    def generate_dataitem(self, round):
+        dataitem = random.randint(1, MAX_INT).to_bytes(INT_LEN, BYTE_ORDER)
+        dataitem += round.to_bytes(INT_LEN, BYTE_ORDER)
+        self.dataitem_validator.add(dataitem)
+        return dataitem        
 
     def on_round_start(self, round):
         self.local_chain_tracker.update_round(round)
         if getattr(self, 'oracle_root', None):
             self.oracle_root.reset_counters(self.mining_oracles)
         if self.dataitem_params['dataitem_enable']:
-            if round % self.dataitem_params['dataitem_input_interval'] == 1:
-                self.input_dataitem = random.randint(1, MAX_INT).to_bytes(INT_LEN, BYTE_ORDER)
-                self.input_dataitem += round.to_bytes(INT_LEN, BYTE_ORDER)
-                self.dataitem_bloom_filter.add(self.input_dataitem)
-            else:
-                self.input_dataitem = b''
+            if self.dataitem_params['dataitem_input_interval'] > 0:
+                if round % self.dataitem_params['dataitem_input_interval'] == 1:
+                    self.input_dataitem = self.generate_dataitem(round)
+                else:
+                    self.input_dataitem = b''
+            elif len(self.new_block_this_round) > 0: # disable local dataitem queue
+                new_dataitems = b''.join([self.generate_dataitem(round) for _ in range(self.dataitem_params['max_block_capacity'])])
+                self.input_dataitem = array('Q', new_dataitems).tobytes()
+                self.new_block_this_round = []
         else:
             self.input_dataitem = round.to_bytes(INT_LEN, BYTE_ORDER)
         
@@ -369,8 +387,8 @@ class Environment(object):
             dataitems_reversed = R(self.global_chain)
             previous_item = int.from_bytes((255).to_bytes(1, 'little') * 2 * INT_LEN, BYTE_ORDER)
             for dataitem in dataitems_reversed:
-                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in self.dataitem_bloom_filter:
-                    if previous_item <= dataitem:
+                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in self.dataitem_validator:
+                    if previous_item < dataitem and self.dataitem_params['dataitem_input_interval'] > 0:
                         anomalous_item_count += 1
                         logger.warning("A dataitem is out of order: %s", dataitem)
                     else:
@@ -386,7 +404,8 @@ class Environment(object):
                 'valid_dataitem_rate': valid_item_count / (valid_item_count + anomalous_item_count),
                 'valid_dataitem_throughput': valid_item_count / self.total_round,
                 'block_average_size': (valid_item_count+anomalous_item_count) * self.dataitem_params['dataitem_size'] / stats['num_of_valid_blocks'],
-                'input_dataitem_rate': 1/self.dataitem_params['dataitem_input_interval']
+                'input_dataitem_rate': 1/self.dataitem_params['dataitem_input_interval'] \
+                    if self.dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / self.total_round
             })
 
         # Network Property

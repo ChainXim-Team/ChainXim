@@ -278,10 +278,12 @@ could be performed with attackers designed in the simulator'
     adhoc_setting.add_argument('--move_variance', help='Variance of the movement when position updates in Gaussian random walk.', type=float)
     # DataItemSettings
     dataitem_setting = parser.add_argument_group('DataItemSettings', 'Settings for DataItem')
-    dataitem_setting.add_argument('--dataitem_enable', help='Enable data item generation.', action='store_true')
-    dataitem_setting.add_argument('--max_block_capacity', help='The maximum number of data items that a block can contain.', type=int)
-    dataitem_setting.add_argument('--dataitem_size', help='The size of each data item in MB.', type=int)
-    dataitem_setting.add_argument('--dataitem_input_interval', help='The interval of data item input in rounds.', type=int)
+    dataitem_setting.add_argument('--dataitem_enable', help='Enable dataitem generation.', action='store_true')
+    dataitem_setting.add_argument('--max_block_capacity', help='''The maximum number of dataitems that a block can contain. 
+                                                                  max_block_capacity=0 will disable the dataitem mechanism.''', type=int)
+    dataitem_setting.add_argument('--dataitem_size', help='The size of each dataitem in MB.', type=int)
+    dataitem_setting.add_argument('--dataitem_input_interval', help='''The interval of dataitem input in rounds.
+                                                                       dataitem_input_interval=0 will disable the dataitem queue of each miner.''', type=int)
 
     parser.add_argument('--result_path',help='The path to output results', type=str)
 

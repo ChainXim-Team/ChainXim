@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class Miner(object):
-    def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0):
+    def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0, disable_dataitem_queue=False):
         self.miner_id = miner_id #矿工ID
         self.isAdversary = False
         #共识相关
@@ -27,7 +27,7 @@ class Miner(object):
         self.NIC:NetworkInterface =  None
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
-        if self.max_block_capacity > 0:
+        if self.max_block_capacity > 0 and not disable_dataitem_queue:
             self.dataitem_queue = array('Q')
         #保存矿工信息
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
@@ -107,7 +107,7 @@ class Miner(object):
     def BackboneProtocol(self, round):
         _, chain_update = self.consensus.local_state_update()
         input = I(round, self.input_tape)  # I function
-        if self.max_block_capacity > 0:
+        if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
             # exclude dataitems in updated blocks
             if len(chain_update) > 0:
                 dataitem_exclude = set()
@@ -125,7 +125,7 @@ class Miner(object):
 
         if msg_available:
             # remove the data items in the new block from dataitem_queue
-            if self.max_block_capacity > 0:
+            if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
                 self.dataitem_queue = self.dataitem_queue[self.max_block_capacity:]
             return new_msgs
         return None  #  如果没有更新 返回空告诉environment回合结束
