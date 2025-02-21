@@ -227,7 +227,7 @@ could be performed with attackers designed in the simulator'
     env_setting.add_argument('--miner_num', help='The total miner number in the network.', type=int)
     env_setting.add_argument('--consensus_type',help='The consensus class imported during simulation',type=str)
     env_setting.add_argument('--network_type',help='The network class imported during simulation',type=str)
-    env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=float)
+    env_setting.add_argument('--blocksize', help='The size of each block in MB. Only effective when dataitem_enable=False and network_type is TopologyNetwork or AdhocNetwork.',type=float)
     env_setting.add_argument('--show_fig', help='Show figures during simulation.',action='store_true')
     env_setting.add_argument('--no_compact_outputfile', action='store_true',
                              help='Simplify log and result outputs to reduce disk space consumption. True by default.')

@@ -32,7 +32,7 @@ The Environment component is the cornerstone of the ChainXim program, supporting
 
 ### Model Assumptions
 The system model design of ChainXim mainly refers to the following paper:
- 
+
 * J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
 
 ChainXim divides continuous time into discrete rounds, and all nodes in the network (including honest miners and dishonest attackers) will perform a certain number of operations in each round to compete for the accounting rights and generate and propagate new blocks. The total number of miners in the network is defined as $n$, among which $t$ miners belong to dishonest attackers. In each round, all miners are awakened in sequence according to their numbers and take actions based on their identities. Honest miners will strictly follow the consensus protocol to generate blocks; attackers will choose to follow the protocol or launch attacks based on the actual situation. **Note that in each round, the attack module will only be triggered once, and each trigger will perform a complete attack action. In the current version, attackers will be randomly triggered when it is the turn of an attacker in each round. Although the order of awakening different miners is different, there is no actual order within the same round.**
@@ -196,7 +196,7 @@ Consensus.BlockHead and Consensus.Block are initialized through the following in
 # consensus/consensus_abc.py
 class Consensus(metaclass=ABCMeta):
     class BlockHead(data.BlockHead):
-        def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
+        def __init__(self, preblock:data.Block=None, timestamp=0, content=b'', miner_id=-1):
     
     class Block(data.Block):
         def __init__(self, blockhead: data.BlockHead, preblock: data.Block = None, isadversary=False, blocksize_MB=2):
@@ -208,7 +208,7 @@ Taking PoW as an example, when constructing a new Block object, you need to deri
 # consensus/pow.py
 class PoW(Consensus):
     class BlockHead(Consensus.BlockHead):
-        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,target = bytes(),nonce = 0):
+        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=b'', miner_id=-1,target = bytes(),nonce = 0):
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # Difficulty target
             self.nonce = nonce  # Random number
@@ -815,11 +815,11 @@ In renew, the attacker iterates through each miner it controls. All miners perfo
 If there is an update, the newly generated block is updated to the reference chain and the global chain. The former serves as the reference for the attack (the latest chain from the attacker's perspective), and the latter is recorded in the global chain.
 
 Summary: renew requires at least the following three parts:
- 
+
 * Perform local_state_update for each attacker miner.
- 
+
 * Update the reference chain and global chain based on the update results.
- 
+
 * Record the update results of each round as needed.
 
 If developers want to develop new attack modes, they can adjust the specific content of these three parts or add other functionalities as needed, but these three parts are essential.
@@ -940,15 +940,15 @@ Eclipse attacks are different from HonestMining and other attacks, as they need 
 ## Evaluation
 After `Environment.exec` is completed, `Environment.view_and_write` will be executed to evaluate and output the simulation results.
 
- 
+
 * `view_and_write` first calls `view` to obtain statistical data and output the results to the command line.
- 
+
 * `view` will call the `CalculateStatistics` function in the `global_chain` to perform data statistics on the global blockchain tree structure and update the results to the dictionary variable `stat`.
- 
+
 * Then, the global blockchain will be statistically analyzed from three dimensions: common prefix, chain quality, and chain growth. These three parts are implemented by the corresponding functions in `external.py`.
- 
+
 * Secondly, the `cal_block_propagation_times` function in the network is called to obtain network-related statistical parameters.
- 
+
 * Finally, `view_and_write` outputs the evaluation results to a file.
 
 The following is an explanation of the statistical parameters in `stat`, which correspond to the final output results of the simulator (see the user manual for details):
@@ -996,5 +996,5 @@ Note that both `common_prefix` and `chain_growth` only implement part of the cor
 
 
 For more detailed explanations of the above three indicators, refer to:
- 
+
 * J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>

@@ -1,16 +1,15 @@
 import global_var
 import random
 from .pow import PoW
-
+from functions import HASH_LEN, BYTE_ORDER
 
 class PoWlight(PoW):
 
     class BlockHead(PoW.BlockHead):
         '''适用于PoW共识协议的区块头'''
         __slots__ = ['target', 'nonce']
-        def __init__(self, preblock: PoW.Block = None, timestamp=0, content=0, miner_id=-1,
-                     target = 0, nonce = 0):
-            # currently content is an integer equal to the round the block is generated
+        def __init__(self, preblock: PoW.Block = None, timestamp=0, content=b'', miner_id=-1,
+                     target = (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER), nonce = 0):
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # 难度目标
             self.nonce = nonce  # 随机数
@@ -31,6 +30,7 @@ class PoWlight(PoW):
                 self.q = q_distr[miner_id]
             else:
                 raise ValueError("q_distr should be a list or the string 'equal'")
+        self.target_value = 1 - (1 - self.target/2**256)**self.q
 
     def setparam(self,**consensus_params):
         '''
@@ -38,8 +38,9 @@ class PoWlight(PoW):
         '''
         self.target = int(consensus_params.get('target') or self.target, 16)            
         self.q = consensus_params.get('q') or self.q
+        self.target_value = 1 - (1 - self.target/2**256)**self.q
 
-    def mining_consensus(self, miner_id:int, isadversary, x, round):
+    def mining_consensus(self, miner_id:bytes, isadversary, x, round):
         '''计算PoW\n
         param:
             Miner_ID 该矿工的ID type:int
@@ -51,14 +52,14 @@ class PoWlight(PoW):
         '''
         pow_success = False
         #print("mine",Blockchain)
-        b_last = self.local_chain.get_last_block()#链中最后一个块
+        b_last = self.local_chain.last_block # 链中最后一个块
         
         random_float = random.random()
-        target_value = 1 - (1 - self.target/2**256)**self.q
-        if random_float < target_value:
+        if random_float < self.target_value:
             pow_success = True
             self.ctr = random_float
-            blockhead = PoWlight.BlockHead(b_last, round, x, miner_id, self.target, self.ctr)
+            blockhead = PoWlight.BlockHead(b_last, round, x, int.from_bytes(miner_id, self.BYTEORDER, signed=False),
+                                           self.target, self.ctr)
             blocknew = PoWlight.Block(blockhead, b_last, isadversary, global_var.get_blocksize())
             return (blocknew, pow_success)
         return (None, pow_success)
@@ -73,7 +74,7 @@ class PoWlight(PoW):
         '''
         btemp = block
         nonce = btemp.blockhead.calculate_blockhash()
-        if nonce >= 1 - (1 - self.target/2**256)**self.q:
+        if nonce >= self.target_value:
             return False
         else:
             return True

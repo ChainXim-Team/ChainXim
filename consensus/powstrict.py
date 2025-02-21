@@ -14,18 +14,16 @@ class PoWstrict(PoW):
 
     def __init__(self,miner_id,consensus_params:dict):
         super().__init__(miner_id,consensus_params)
-        from .random_oracle import RandomOracleMining, RandomOracleVerifying, get_int_size, get_byteorder
+        from .random_oracle import RandomOracleMining, RandomOracleVerifying
         self.mining_oracle:RandomOracleMining = None
         self.verifying_oracle:RandomOracleVerifying = None
-        self.INT_SIZE = get_int_size()
-        self.BYTEORDER = get_byteorder()
 
     def set_random_oracle(self, mining_oracle, verifying_oracle):
         '''设置Random Oracle'''
         self.mining_oracle = mining_oracle
         self.verifying_oracle = verifying_oracle
 
-    def mining_consensus(self, miner_id:int, isadversary, x, round):
+    def mining_consensus(self, miner_id:bytes, isadversary, x, round):
         '''计算PoW\n
         param:
             Miner_ID 该矿工的ID type:int
@@ -35,15 +33,16 @@ class PoWstrict(PoW):
             newblock 挖出的新块 type:None(未挖出)/Block
             pow_success POW成功标识 type:Bool
         '''
-        b_last = self.local_chain.get_last_block() #链中最后一个块
-        blockhead = self.BlockHead(preblock=b_last, timestamp=round, content=x,
-                                   miner_id=miner_id, target=self.target, nonce=self.ctr)
+        b_last = self.local_chain.last_block # 链中最后一个块
+        
+        blockhead_bytes = miner_id + x + b_last.blockhash
         while self.mining_oracle.get_current_calls() < self.q:
-            blockhead.nonce = self.ctr
-            blockhash = self.mining_oracle.hash(self.serialize_blockhead(blockhead))
+            blockhash = self.mining_oracle.hash(blockhead_bytes + self.ctr.to_bytes(self.INT_SIZE, self.BYTEORDER))
             if blockhash is None: # Mining oracle is used up
                 return None, False
             if blockhash < self.target:
+                blockhead = self.BlockHead(preblock=b_last, timestamp=round, content=x,
+                                           miner_id=int.from_bytes(miner_id, self.BYTEORDER, signed=True), target=self.target, nonce=self.ctr)
                 newblock = PoW.Block(blockhead, b_last, isadversary, global_var.get_blocksize())
                 newblock.blockhash = blockhash
                 self.ctr = 0

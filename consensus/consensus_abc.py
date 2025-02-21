@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import data
 import global_var
-from functions import BYTE_ORDER, HASH_LEN
+from functions import BYTE_ORDER, HASH_LEN, INT_LEN
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             setattr(chain.head,k,v)
 
     def __init__(self,miner_id):
+        self.INT_SIZE = INT_LEN
+        self.BYTEORDER = BYTE_ORDER
         self.miner_id = miner_id
+        self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
         self.local_chain = data.Chain(miner_id)   # 维护的区块链
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
@@ -107,7 +110,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             msg_list 包含挖出的新区块的列表，无新区块则为None type:list[Block]/None
             msg_available 如果有新的消息产生则为True type:Bool
         '''
-        newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
+        newblock, success = self.mining_consensus(self.miner_id_bytes, isadversary, x, round)
         if success is False:
             return None, False
         newblock = self.local_chain.add_blocks(blocks=newblock)

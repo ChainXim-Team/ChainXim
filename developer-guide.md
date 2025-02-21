@@ -192,7 +192,7 @@ Consensus.BlockHead与Consensus.Block通过如下接口初始化。
 # consensus/consensus_abc.py
 class Consensus(metaclass=ABCMeta):
     class BlockHead(data.BlockHead):
-        def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
+        def __init__(self, preblock:data.Block=None, timestamp=0, content=b'', miner_id=-1):
     
     class Block(data.Block):
         def __init__(self, blockhead: data.BlockHead, preblock: data.Block = None, isadversary=False, blocksize_MB=2):
@@ -204,7 +204,7 @@ class Consensus(metaclass=ABCMeta):
 # consensus/pow.py
 class PoW(Consensus):
     class BlockHead(Consensus.BlockHead):
-        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,target = bytes(),nonce = 0):
+        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=b'', miner_id=-1,target = bytes(),nonce = 0):
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # 难度目标
             self.nonce = nonce  # 随机数

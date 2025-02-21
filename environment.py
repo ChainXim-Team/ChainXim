@@ -183,23 +183,7 @@ class Environment(object):
                 self.new_block_this_round = []
         else:
             self.input_dataitem = round.to_bytes(INT_LEN, BYTE_ORDER)
-        
-        # if round == 1:
-        #     tracemalloc.start()
-        # if round == 2:
-        #     self.snapshot = tracemalloc.take_snapshot()
 
-        # if round == 2000:
-        #     snapshot2 = tracemalloc.take_snapshot()
-        #     top_stats = snapshot2.compare_to(self.snapshot, 'lineno')
-        #     print("[ Top 20 differences ]")
-        #     for stat in top_stats[:20]:
-        #         print(stat)
-        # if round == 1500:
-        #     print(gc.garbage)
-
-        #     input("Press Enter to continue...")
-        
     def exec(self, num_rounds, max_height, process_bar_type):
 
         '''
