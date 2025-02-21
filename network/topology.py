@@ -212,11 +212,8 @@ class TopologyNetwork(Network):
         if self.inv_handler(new_msgs):
             return
         for msg in new_msgs:
-            if self._dataitem_param.get('dataitem_enable') and isinstance(msg, Block):
-                msg.size = self._dataitem_param['dataitem_size'] * len(msg.blockhead.content) / 2 / INT_LEN
-                if msg.size > self._dataitem_param['max_block_capacity'] * self._dataitem_param['dataitem_size']:
-                    logger.warning("The data items in block content exceeds the maximum capacity!")
-                    continue
+            if not self.message_preprocessing(msg):
+                continue
             packet = TPPacket(msg, round, minerid, target)
             delay = self.cal_delay(msg, minerid, target)
             link = Link(packet, delay, self)

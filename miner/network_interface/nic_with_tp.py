@@ -120,6 +120,7 @@ class NICWithTp(NetworkInterface):
                 self._output_queues[target].extend(out_msgs)
 
     def seg_blocks(self, block:Block):
+        self._network.message_preprocessing(block)
         segids = list(range(block.segment_num))
         random.shuffle(segids)
         return [DataSegment(block, sid) for sid in segids]

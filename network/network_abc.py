@@ -1,8 +1,11 @@
+import math
+import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 
 import global_var
 from data import Block, Message
+from functions import INT_LEN
 
 # packet type
 DIRECT = "direct"
@@ -11,6 +14,7 @@ GLOBAL = "global"
 # link errors
 ERR_OUTAGE = "err_outage"
 
+logger = logging.getLogger(__name__)
 
 class DataSegment(object):
     def __init__(self, origin_msg:Block, seg_id:int):
@@ -53,6 +57,16 @@ class Network(metaclass=ABCMeta):
         self.withTopology = False
         self.withSegments = False
         self._dataitem_param = dict()
+
+    def message_preprocessing(self, msg:Message):
+        if self._dataitem_param.get('dataitem_enable') and isinstance(msg, Block):
+            msg.size = self._dataitem_param['dataitem_size'] * len(msg.blockhead.content) / 2 / INT_LEN
+            if msg.size > self._dataitem_param['max_block_capacity'] * self._dataitem_param['dataitem_size']:
+                logger.warning("The data items in block content exceeds the maximum capacity!")
+                return False
+            if global_var.get_segmentsize() > 0 and msg.size > 0:
+                msg.segment_num = math.ceil(msg.size/global_var.get_segmentsize())
+        return True
 
     @abstractmethod
     def set_net_param(self, *args, **kargs):
