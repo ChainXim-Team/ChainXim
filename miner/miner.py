@@ -41,6 +41,8 @@ class Miner(object):
     def in_local_chain(self, block:Block):
         return self.consensus.in_local_chain(block)
 
+    def has_received(self, block:Message):
+        return self.consensus.has_received(block)
 
     def join_network(self, network):
         """初始化网络接口"""

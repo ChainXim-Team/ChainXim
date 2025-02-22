@@ -29,18 +29,16 @@ class Packet(object):
         self.source = source
         self.payload = payload
         
-class INVMsg(Message):
+class INVMsg(object):
     def __init__(self, source:int, target:int, block:Block,isFullChain:bool=False):
-        super().__init__(size=0)
         self.source = source
         self.target = target
         self.block_or_seg:Block = block
         self.isFullChain = isFullChain
 
-class GetDataMsg(Message):
+class GetDataMsg(object):
     def __init__(self, source:int=None, target:int=None, 
                  req_blocks:list[Block]=None, require:bool=None):
-        super().__init__(size=0)
         self.source = source
         self.target:int = target
         self.req_blocks:list[Block] = req_blocks

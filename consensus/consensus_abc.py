@@ -62,6 +62,18 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             return False
         return True
 
+    def has_received(self,msg:data.Message):
+        if isinstance(msg, data.Block):
+            if msg in self._receive_tape:
+                return False
+            if block_list := self._block_buffer.get(msg.blockhead.prehash, None):
+                for block in block_list:
+                    if block.blockhash == msg.blockhash:
+                        return False
+            if self.in_local_chain(msg):
+                return True
+        return False
+
     def receive_block(self,rcvblock:Block):
         '''Interface between network and miner. 
         Append the rcvblock(have not received before) to receive_tape, 
@@ -69,13 +81,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if rcvblock in self._receive_tape:
-            return False
-        if block_list := self._block_buffer.get(rcvblock.blockhead.prehash, None):
-            for block in block_list:
-                if block.blockhash == rcvblock.blockhash:
-                    return False
-        if self.in_local_chain(rcvblock):
+        if self.has_received(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
