@@ -55,7 +55,11 @@ class NICWithTp(NetworkInterface):
             return
         self._neighbors = [n for n in self._neighbors if n != remove_id]
         if self._channel_states[remove_id] != _IDLE:
-            self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
+            disrupted_msgs = self._channel_states[remove_id]
+            if self._network.withSegments:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
+            else:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id][0])
         if len(self._output_queues[remove_id]) == 0:
             self._output_queues.pop(remove_id, None)
         self._channel_states.pop(remove_id, None)
