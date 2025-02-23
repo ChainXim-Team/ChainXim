@@ -10,10 +10,7 @@ import network
 from data import Block, Chain
 from consensus.consensus_abc import Consensus
 from external import I
-from functions import INT_LEN
 from miner._consts import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
-
-ATTACKER_INPUT = b'\0' * 2 * INT_LEN
 
 class AtomizationBehavior(aa.AtomizationBehavior):
 
@@ -33,10 +30,11 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                 for k,block in remove_block.items():
                     imcoming_block_from_eclipse[block.blockhash] = block
                     temp_miner.consensus._receive_tape.remove(block)
-            
+        
+        input_tape = []
         for temp_miner in miner_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
-            mine_input = I(round, temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
+            input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             # 如果存在更新将更新的区块添加到基准链上   
             chain_update:Chain
             if chain_update.get_height()>=newest_block.get_height():
@@ -44,7 +42,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         newest_block = honest_chain._add_block_forcibly(block=newest_block)
         for temp_miner in miner_list:
             temp_miner.consensus.local_chain._add_block_forcibly(block=newest_block)
-        mine_input:any
+        mine_input:bytes = I(round, input_tape)
         if eclipse_list_ids is not None:
             return newest_block, mine_input,imcoming_block_from_eclipse
         else:
@@ -105,7 +103,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 特别提醒： Miner_ID 和 isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
         #self.atlog['current_miner'] = self.current_miner.Miner_ID
         adm_newblock, mine_success = consensus.mining_consensus(
-                miner_id = current_miner.miner_id, isadversary=True, x=ATTACKER_INPUT, round=round)
+                miner_id = current_miner.consensus.miner_id_bytes, isadversary=True, x=miner_input, round=round)
         attack_mine: bool = False
         if adm_newblock:
             #self.atlog['block_content'] = adm_newblock.blockhead.content

@@ -92,8 +92,10 @@ class Environment(object):
 
         # set parameters for network
         self.network.set_net_param(**network_param)
-        if self.network.withTopology and dataitem_param['dataitem_enable']:
+        if dataitem_param['dataitem_enable']:
             self.network._dataitem_param = dataitem_param
+        else:
+            self.adversary.get_attack_type().behavior.ATTACKER_INPUT = None
 
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()

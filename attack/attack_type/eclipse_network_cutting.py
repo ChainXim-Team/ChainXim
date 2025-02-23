@@ -32,6 +32,7 @@ class EclipseNetworkCutting(aa.AttackType):
     
     def attack_stage(self,round,mine_input):
         ## 2. attack stage
+        mine_input = self.behavior.ATTACKER_INPUT or mine_input
         current_miner = random.choice(self.adver_list)
         if self.honest_chain.get_height() > self.adver_chain.get_height():       
             self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)

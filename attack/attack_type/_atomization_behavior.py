@@ -4,9 +4,11 @@ _atomization_behavior.py
 '''
 
 from abc import ABCMeta, abstractmethod
+from functions import INT_LEN
 
 
 class AtomizationBehavior(metaclass=ABCMeta): 
+    ATTACKER_INPUT = b'\0' * 2 * INT_LEN
     @abstractmethod
     def renew(self):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )

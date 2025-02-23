@@ -31,6 +31,7 @@ class SelfishMining(aa.AttackType):
 
     def attack_stage(self, round, mine_input):
         ## 2. attack stage
+        mine_input = self.behavior.ATTACKER_INPUT or mine_input
         bh = self.behavior
         honest_height = self.honest_chain.last_block.get_height()
         adver_height = self.adver_chain.last_block.get_height()
