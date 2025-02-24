@@ -80,7 +80,7 @@ class Miner(object):
         if msg_source_type != SELF_GEN_MSG and msg_source_type != OUTER_RCV_MSG:
             raise ValueError("Message type must be SELF or OUTER")
         logger.info("M%d: forwarding %s, type %s, strategy %s", self.miner_id, 
-                    str([msg.name for msg in msgs]), msg_source_type, forward_strategy)
+                    str([msg.name for msg in msgs] if len(msgs)>0 else [""]), msg_source_type, forward_strategy)
         for msg in msgs:
             self.NIC.append_forward_buffer(msg, msg_source_type, forward_strategy, spec_targets, syncLocalChain)
 
