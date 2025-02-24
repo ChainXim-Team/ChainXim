@@ -67,7 +67,7 @@ class AttackType(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def info_getter(self):
+    def info_getter(self, miner_num):
         pass
 
 

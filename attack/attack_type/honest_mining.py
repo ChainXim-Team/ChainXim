@@ -68,7 +68,7 @@ class HonestMining(aa.AttackType):
         self.clear_record_stage(round)
         
         
-    def info_getter(self):
+    def info_getter(self, miner_num):
         
 
         return None
