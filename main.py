@@ -147,7 +147,7 @@ def main(**args):
             'stat_prop_times': (args.get('stat_prop_times') or eval(config.get(net_setting, 'stat_prop_times'))),
             'path_loss_level': (args.get('path_loss_level') or config.get(net_setting, 'path_loss_level')),
         })
-        global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
+        # global_var.set_segmentsize(config.getfloat(net_setting, "segment_size"))
 
     # 设置attack参数
     attack_setting = dict(config['AttackSettings'])
@@ -164,13 +164,24 @@ def main(**args):
                           else eval(attack_setting.get('adver_lists') or 'None')),
     }
 
+    # 设置dataitem相关的配置
+    dataitem_setting = dict(config['DataItemSettings'])
+    dataitem_param = {
+        'dataitem_enable': config.getboolean('DataItemSettings','dataitem_enable'),
+        'max_block_capacity': (args.get('max_block_capacity') or 
+                               int(dataitem_setting['max_block_capacity'])),
+        'dataitem_size': (args.get('dataitem_size') or 
+                          int(dataitem_setting['dataitem_size'])),
+        'dataitem_input_interval': (args.get('dataitem_input_interval') or 
+                                    int(dataitem_setting['dataitem_input_interval'])),
+    }
 
     # 生成环境
     genesis_blockheadextra = {}
     genesis_blockextra = {}
 
     Z = Environment(attack_param, consensus_param, network_param,
-                    genesis_blockheadextra, genesis_blockextra)
+                    genesis_blockheadextra, genesis_blockextra, dataitem_param)
     total_round = args.get('total_round') or int(env_config['total_round'])
     max_height = (args.get('total_height') or 
                   int(env_config.get('total_height') or 2**31 - 2))
@@ -216,7 +227,7 @@ could be performed with attackers designed in the simulator'
     env_setting.add_argument('--miner_num', help='The total miner number in the network.', type=int)
     env_setting.add_argument('--consensus_type',help='The consensus class imported during simulation',type=str)
     env_setting.add_argument('--network_type',help='The network class imported during simulation',type=str)
-    env_setting.add_argument('--blocksize', help='The size of each block in MB.',type=float)
+    env_setting.add_argument('--blocksize', help='The size of each block in MB. Only effective when dataitem_enable=False and network_type is TopologyNetwork or AdhocNetwork.',type=float)
     env_setting.add_argument('--show_fig', help='Show figures during simulation.',action='store_true')
     env_setting.add_argument('--no_compact_outputfile', action='store_true',
                              help='Simplify log and result outputs to reduce disk space consumption. True by default.')
@@ -265,7 +276,15 @@ could be performed with attackers designed in the simulator'
     adhoc_setting.add_argument('--region_width', help='Width of the region for the network.', type=float)
     adhoc_setting.add_argument('--comm_range', help='Communication range.', type=float)
     adhoc_setting.add_argument('--move_variance', help='Variance of the movement when position updates in Gaussian random walk.', type=float)
-        
+    # DataItemSettings
+    dataitem_setting = parser.add_argument_group('DataItemSettings', 'Settings for DataItem')
+    dataitem_setting.add_argument('--dataitem_enable', help='Enable dataitem generation.', action='store_true')
+    dataitem_setting.add_argument('--max_block_capacity', help='''The maximum number of dataitems that a block can contain. 
+                                                                  max_block_capacity=0 will disable the dataitem mechanism.''', type=int)
+    dataitem_setting.add_argument('--dataitem_size', help='The size of each dataitem in MB.', type=int)
+    dataitem_setting.add_argument('--dataitem_input_interval', help='''The interval of dataitem input in rounds.
+                                                                       dataitem_input_interval=0 will disable the dataitem queue of each miner.''', type=int)
+
     parser.add_argument('--result_path',help='The path to output results', type=str)
 
     args = vars(parser.parse_args())

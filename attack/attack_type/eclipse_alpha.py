@@ -73,6 +73,7 @@ class Eclipse(aa.AttackType):
     
     def attack_stage(self,round,mine_input,newest_block:Block):
         ## 2. attack stage
+        mine_input = self.behavior.ATTACKER_INPUT or mine_input
         current_miner = random.choice(self.adver_list)
 
 

@@ -128,6 +128,7 @@ class AdHocNetwork(Network):
         self._node_pairs = [(int(i), int(j)) for i in self._graph.nodes 
                       for j in self._graph.nodes if i < j]
         self._pos_matrix = None
+        self._dist_matrix = None
 
         # 维护所有的活跃链路
         self._active_links:list[Link] = []
@@ -172,10 +173,11 @@ class AdHocNetwork(Network):
         if outage_prob is not None:
             self._outage_prob = outage_prob
         if region_width is not None:
-            self._region_width = region_width
+            self._region_width = np.float32(region_width)
         if comm_range is not None:
             self._comm_range = comm_range
             self._commRangeNorm = np.float32(comm_range/region_width)
+            self._d0 = self._commRangeNorm / 100 # 最大带宽的参考距离
         if move_variance is not None:
             self._moveVariance = move_variance/region_width
         if init_mode is not None:
@@ -187,17 +189,21 @@ class AdHocNetwork(Network):
                 self._init_mode = init_mode
                 self.edge_prob = None
                 self.network_generator(init_mode)
-        if enable_large_scale_fading is not None:
+        if enable_large_scale_fading is not None and enable_large_scale_fading:
             self._enableLargeScaleFading = enable_large_scale_fading
-        if path_loss_level is not None:
-            if path_loss_level == 'low':
-                self._pathLossRate = 1
-            if path_loss_level == 'medium':
-                self._pathLossRate = 1.5
-            if path_loss_level == 'high':
-                self._pathLossRate = 2
-        if bandwidth_max is not None:
-            self._bandwidthMax = bandwidth_max
+            if path_loss_level is not None:
+                if path_loss_level == 'low':
+                    self._pathLossRate = 0.8
+                if path_loss_level == 'medium':
+                    self._pathLossRate = 1
+                if path_loss_level == 'high':
+                    self._pathLossRate = 1.2
+            if bandwidth_max is not None:
+                self._bandwidthMax = bandwidth_max
+                self._bandwidthCommRange= bandwidth_max * (0.01) ** self._pathLossRate
+                global_var.set_segmentsize(self._bandwidthCommRange)
+        else:
+            global_var.set_segmentsize(segment_size)
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -292,20 +298,13 @@ class AdHocNetwork(Network):
         """返回需要发送的分片数量"""
         if self._enableLargeScaleFading == False:
             return 1
-        d = self.get_distance_between_two_miners(source, target)
-        d0 = self._commRangeNorm / 100 # 最大带宽的参考距离
-        seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
-        a = seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)
-        seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
+        d = self._dist_matrix[source, target]
+        bandwidth = self._bandwidthMax * (self._d0 / d) ** self._pathLossRate
+        seg_num = np.ceil(bandwidth / global_var.get_segmentsize())
+        # seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
+        # seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
         logger.info("M%d->M%d: distance %d, get %d segment(s) to forward", source, target, d*self._region_width, seg_num)
         return seg_num
-
-    def get_distance_between_two_miners(self, source, target):
-        """计算两个节点之间的距离"""
-        source_pos = self._node_pos[source]
-        target_pos = self._node_pos[target]
-        distance = np.linalg.norm(source_pos - target_pos)
-        return distance
 
     def link_outage(self, round:int, link:Link):
         """每条链路都有概率中断"""
@@ -354,12 +353,11 @@ class AdHocNetwork(Network):
     
     def update_edges(self,  change_op:dict=None, round:int = 0):
         # 利用numpy向量化特性优化欧几里得距离计算
-
-        dist_matrix = np.sqrt(np.sum((self._pos_matrix[:, np.newaxis, :] - self._pos_matrix[np.newaxis, :, :]) ** 2,
-                                     axis=-1))
+        np.sum((self._pos_matrix[:, np.newaxis, :] - self._pos_matrix[np.newaxis, :, :]) ** 2, axis=-1, out=self._dist_matrix)
+        np.sqrt(self._dist_matrix, out=self._dist_matrix)
 
         disconnected_node_pairs = [list() for _ in range(self.MINER_NUM)]
-        within_range_matrix = dist_matrix < self._commRangeNorm
+        within_range_matrix = self._dist_matrix < self._commRangeNorm
         for i, node_pair in enumerate(self._node_pairs):
             # 计算两节点间的欧几里得距离
             #dist_array = self._node_pos[node1] - self._node_pos[node2]
@@ -412,6 +410,8 @@ class AdHocNetwork(Network):
         self._node_pos = nx.random_layout(self._graph, seed=50)
         # 将每个节点的位置信息向量化存储
         self._pos_matrix = np.array(list(self._node_pos.values()))
+        self._dist_matrix = np.zeros((self._graph.number_of_nodes(), self._graph.number_of_nodes()),
+                                     dtype=np.float32)
         for i in self._node_pos:
             # _pos_matrix的变动与_node_pos同步
             self._node_pos[i] = self._pos_matrix[i,:]
@@ -835,21 +835,48 @@ if __name__ == '__main__':
     # plt.legend(title="Decay Factor (Alpha)", fontsize=12)
     # plt.show()
 
-    N_near = 15  
-    N_far = 1    
-    d0 = 0.3 
-    distances = np.linspace(0, 30, 500) 
-    n_values = [1, 1.5, 2]
+    # N_near = 15  
+    # N_far = 1    
+    # d0 = 0.3 
+    # distances = np.linspace(0, 30, 500) 
+    # n_values = [1, 1.5, 2]
+    # plt.figure(figsize=(10, 6))
+    # for n in n_values:
+    #     data_segments = np.ceil(N_near - 10 * n * np.log10(np.maximum(distances, d0) / d0))
+    #     plt.plot(distances, data_segments, label=f'n={n}', linewidth=2)
+    # plt.title("Effect of Path Loss Exponent (n) on Data Segments", fontsize=14)
+    # plt.xlabel("Distance", fontsize=12)
+    # plt.ylabel("Number of Data Segments", fontsize=12)
+    # plt.grid(True, linestyle="--", alpha=0.7)
+    # plt.legend(title="Path Loss Rate (n)", fontsize=12)
+    # plt.show()
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Parameters
+    
+    R_max = 30      # Communication range (in meters)
+    d0 = R_max/100           # Reference distance (in meters)
+    B_d0 = 30        # Bandwidth at the reference point (in Hz)
+    n = 1           # Path loss exponent
+
+    # Step 1: Calculate bandwidth at the farthest distance (R_max)
+    B_Rmax = B_d0 * (d0 / R_max) ** n  # Bandwidth at R_max
+
+    # Step 2: Calculate bandwidth for each distance
+    distances = np.linspace(d0, R_max, 500)  # Distance range from d0 to R_max
+    B_d = B_d0 * (d0 / distances) ** n  # Bandwidth at each distance
+
+    # Step 3: Calculate data segments per second at each distance
+    N_d = np.ceil(B_d / B_Rmax)  # Data segments per second based on bandwidth
+
+    # Plotting
     plt.figure(figsize=(10, 6))
-    for n in n_values:
-        data_segments = np.ceil(np.maximum(
-            N_far,
-            N_near - 10 * n * np.log10(np.maximum(distances, d0) / d0)
-        ))
-        plt.plot(distances, data_segments, label=f'n={n}', linewidth=2)
-    plt.title("Effect of Path Loss Exponent (n) on Data Segments", fontsize=14)
-    plt.xlabel("Distance", fontsize=12)
-    plt.ylabel("Number of Data Segments", fontsize=12)
+    plt.plot(distances, N_d, label=f'n={n}', linewidth=2)
+    plt.title("Data Segments vs. Distance (Based on Bandwidth)", fontsize=14)
+    plt.xlabel("Distance (m)", fontsize=12)
+    plt.ylabel("Data Segments per Second", fontsize=12)
     plt.grid(True, linestyle="--", alpha=0.7)
-    plt.legend(title="Path Loss Rate (n)", fontsize=12)
+    plt.legend(title="Path Loss Exponent (n)", fontsize=12)
     plt.show()

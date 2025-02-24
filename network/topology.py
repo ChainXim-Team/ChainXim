@@ -18,7 +18,8 @@ import scipy.sparse as sp
 
 import errors
 import global_var
-from data import Message, Message
+from functions import INT_LEN
+from data import Message, Block
 
 from .network_abc import (
     ERR_OUTAGE,
@@ -198,7 +199,8 @@ class TopologyNetwork(Network):
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,sendTogether:bool = False):
+    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,
+                       sendTogether:bool = False):
         '''本轮新产生的消息添加到network_tape.
 
         param
@@ -210,6 +212,8 @@ class TopologyNetwork(Network):
         if self.inv_handler(new_msgs):
             return
         for msg in new_msgs:
+            if not self.message_preprocessing(msg):
+                continue
             packet = TPPacket(msg, round, minerid, target)
             delay = self.cal_delay(msg, minerid, target)
             link = Link(packet, delay, self)
@@ -715,7 +719,9 @@ class TopologyNetwork(Network):
         file_name = "network topology" if file_name is None else file_name
 
         RESULT_PATH = global_var.get_net_result_path()
-        plt.savefig(RESULT_PATH / f'{file_name}.svg')
+        plt.box(False)
+        plt.margins(0)
+        plt.savefig(RESULT_PATH / f'{file_name}.svg', bbox_inches="tight")
         #plt.pause(1)
         plt.close()
         #plt.ioff()

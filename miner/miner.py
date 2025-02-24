@@ -1,4 +1,5 @@
 import logging
+from array import array
 
 import global_var
 from consensus import Consensus
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class Miner(object):
-    def __init__(self, miner_id, consensus_params:dict):
+    def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0, disable_dataitem_queue=False):
         self.miner_id = miner_id #矿工ID
         self.isAdversary = False
         #共识相关
@@ -24,7 +25,10 @@ class Miner(object):
         self.round = -1
         #网络接口
         self.NIC:NetworkInterface =  None
-        
+        # maximum data items in a block
+        self.max_block_capacity = max_block_capacity
+        if self.max_block_capacity > 0 and not disable_dataitem_queue:
+            self.dataitem_queue = array('Q')
         #保存矿工信息
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         with open(CHAIN_DATA_PATH / f'chain_data{str(self.miner_id)}.txt','a') as f:
@@ -37,6 +41,8 @@ class Miner(object):
     def in_local_chain(self, block:Block):
         return self.consensus.in_local_chain(block)
 
+    def has_received(self, block:Message):
+        return self.consensus.has_received(block)
 
     def join_network(self, network):
         """初始化网络接口"""
@@ -101,10 +107,28 @@ class Miner(object):
         
 
     def BackboneProtocol(self, round):
-        chain_update, update_index = self.consensus.local_state_update()
+        _, chain_update = self.consensus.local_state_update()
         input = I(round, self.input_tape)  # I function
+        if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
+            # exclude dataitems in updated blocks
+            if len(chain_update) > 0:
+                dataitem_exclude = set()
+                for block in chain_update:
+                    block:Consensus.Block
+                    dataitem_exclude.update(array('Q', block.blockhead.content))
+                self.dataitem_queue = array('Q', [x for x in self.dataitem_queue if x not in dataitem_exclude])
+            self.dataitem_queue.frombytes(input)
+            if len(self.dataitem_queue) > 10 * self.max_block_capacity:
+                # drop the oldest data items if the queue is longer than 2 * max_block_capacity
+                self.dataitem_queue.pop(0)
+            input = self.dataitem_queue[:self.max_block_capacity].tobytes()
+
         new_msgs, msg_available = self.launch_consensus(input, round)
-        if update_index or msg_available:
+
+        if msg_available:
+            # remove the data items in the new block from dataitem_queue
+            if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
+                self.dataitem_queue = self.dataitem_queue[self.max_block_capacity:]
             return new_msgs
         return None  #  如果没有更新 返回空告诉environment回合结束
         

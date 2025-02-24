@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import data
 import global_var
-from functions import BYTE_ORDER, HASH_LEN
+from functions import BYTE_ORDER, HASH_LEN, INT_LEN
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
     class BlockHead(data.BlockHead):
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         __slots__ = []
-        def __init__(self, preblock:data.Block=None, timestamp=0, content=0, miner_id=-1):
+        def __init__(self, preblock:data.Block=None, timestamp=0, content=b'', miner_id=-1):
             '''此处的默认值为创世区块中的值'''
             prehash = preblock.blockhash if preblock else (0).to_bytes(HASH_LEN, BYTE_ORDER)
             super().__init__(prehash, timestamp, content, miner_id)
@@ -44,7 +44,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             setattr(chain.head,k,v)
 
     def __init__(self,miner_id):
+        self.INT_SIZE = INT_LEN
+        self.BYTEORDER = BYTE_ORDER
         self.miner_id = miner_id
+        self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
         self.local_chain = data.Chain(miner_id)   # 维护的区块链
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self._receive_tape:list[data.Message] = [] # 接收到的消息
@@ -59,6 +62,18 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             return False
         return True
 
+    def has_received(self,msg:data.Message):
+        if isinstance(msg, data.Block):
+            if msg in self._receive_tape:
+                return False
+            if block_list := self._block_buffer.get(msg.blockhead.prehash, None):
+                for block in block_list:
+                    if block.blockhash == msg.blockhash:
+                        return False
+            if self.in_local_chain(msg):
+                return True
+        return False
+
     def receive_block(self,rcvblock:Block):
         '''Interface between network and miner. 
         Append the rcvblock(have not received before) to receive_tape, 
@@ -66,13 +81,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         :param rcvblock: The block received from network. (Block)
         :return: If the rcvblock not in local chain or receive_tape, return True.
         '''
-        if rcvblock in self._receive_tape:
-            return False
-        if block_list := self._block_buffer.get(rcvblock.blockhead.prehash, None):
-            for block in block_list:
-                if block.blockhash == rcvblock.blockhash:
-                    return False
-        if self.in_local_chain(rcvblock):
+        if self.has_received(rcvblock):
             return False
         self._receive_tape.append(rcvblock)
         random.shuffle(self._receive_tape)
@@ -107,7 +116,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             msg_list 包含挖出的新区块的列表，无新区块则为None type:list[Block]/None
             msg_available 如果有新的消息产生则为True type:Bool
         '''
-        newblock, success = self.mining_consensus(self.miner_id , isadversary, x, round)
+        newblock, success = self.mining_consensus(self.miner_id_bytes, isadversary, x, round)
         if success is False:
             return None, False
         newblock = self.local_chain.add_blocks(blocks=newblock)

@@ -26,10 +26,13 @@ class NICWithTp(NetworkInterface):
         super().__init__(miner)
         self._neighbors:list[int] = []
         # 暂存本轮收到的数据包
-        self._segment_buffer = defaultdict(list[Message])
+        self._segment_buffer:dict[set] = dict()
         # 输出队列(拓扑网络)
         self._output_queues = defaultdict(list[Message])
         self._channel_states = {}
+
+    def has_received(self, block_name:str):
+        return block_name in self._segment_buffer and len(self._segment_buffer[block_name]) == 0
 
     def nic_join_network(self, network):
         self._network = network
@@ -52,7 +55,11 @@ class NICWithTp(NetworkInterface):
             return
         self._neighbors = [n for n in self._neighbors if n != remove_id]
         if self._channel_states[remove_id] != _IDLE:
-            self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
+            disrupted_msgs = self._channel_states[remove_id]
+            if self._network.withSegments:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
+            else:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id][0])
         if len(self._output_queues[remove_id]) == 0:
             self._output_queues.pop(remove_id, None)
         self._channel_states.pop(remove_id, None)
@@ -94,22 +101,18 @@ class NICWithTp(NetworkInterface):
                 raise TypeError("Segment not contains a block!")
             block_name = seg.origin_block.name
             # 如果这个段中的区块已经收到过了，就不再处理
-            if self.miner.in_local_chain(seg.origin_block):
+            if self.has_received(block_name):
+                update_rcv_states(block_name, False)
+                continue
+            self._segment_buffer[block_name].discard(seg.seg_id)
+            if len(self._segment_buffer[block_name]) != 0:
                 update_rcv_states(seg.origin_block.name, False)
                 continue
-            self._segment_buffer[block_name].append(seg.seg_id)
-            if len(set(self._segment_buffer[block_name])) != seg.origin_block.segment_num:
-                update_rcv_states(seg.origin_block.name, False)
-                continue
-            self._segment_buffer.pop(block_name)
+            #self._segment_buffer.pop(block_name)
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
             update_rcv_states(seg.origin_block.name, self.miner.receive(seg.origin_block))
         return rcv_states
-
-    def _get_segids_not_rcv(self, block:Block):
-        seg_ids = self._segment_buffer[block.name]
-        return [sid for sid in list(range(block.segment_num)) if sid not in seg_ids]
     
     def forward_buffer_to_output_queue(self, msg_source_type):
         for [msg, strategy, spec_tgts] in self._forward_buffer[msg_source_type]:
@@ -120,6 +123,7 @@ class NICWithTp(NetworkInterface):
                 self._output_queues[target].extend(out_msgs)
 
     def seg_blocks(self, block:Block):
+        self._network.message_preprocessing(block)
         segids = list(range(block.segment_num))
         random.shuffle(segids)
         return [DataSegment(block, sid) for sid in segids]
@@ -221,6 +225,7 @@ class NICWithTp(NetworkInterface):
             return
         # 将需要的分段加入输出队列
         for (req_b, segids) in getDataReply.req_segs:
+            segids = list(segids)
             random.shuffle(segids)
             for sid in segids:
                 self._output_queues[inv.target].append(DataSegment(req_b, sid))
@@ -239,16 +244,17 @@ class NICWithTp(NetworkInterface):
 
         if isinstance(inv.block_or_seg, DataSegment):
             req_b = inv.block_or_seg.origin_block
-            if req_b.name in self._segment_buffer.keys():
-                s = self._get_segids_not_rcv(req_b)
-                getData.isRequired = inv.block_or_seg.seg_id in s
+            if req_b.name in self._segment_buffer:
+                getData.isRequired = inv.block_or_seg.seg_id in self._segment_buffer[req_b.name]
             else:
-                getData.isRequired =  not self.miner.in_local_chain(req_b)
+                getData.isRequired =  not self.has_received(req_b.name)
+                if getData.isRequired:
+                    self._segment_buffer[req_b.name] = set(range(req_b.segment_num))
             if not getData.isRequired:
-                logger.info("M%d->M%d: %d, %s %s", inv.source, self.miner_id, req_b.segment_num, self._segment_buffer[req_b.name], self._get_segids_not_rcv(req_b))
+                logger.info("M%d->M%d: %d, %s", inv.source, self.miner_id, req_b.segment_num, self._segment_buffer.get(req_b.name))
             return getData
 
-        getData.isRequired = not self.miner.in_local_chain(inv.block_or_seg)
+        getData.isRequired = not self.miner.has_received(inv.block_or_seg)
 
         if not inv.isFullChain:
             return getData
@@ -273,9 +279,9 @@ class NICWithTp(NetworkInterface):
         getData.req_blocks = []
         req_b = inv.block_or_seg
         while req_b is not None and not loc_chain.search_block(req_b):
-            if self._network.withSegments and req_b.name in self._segment_buffer.keys():
+            if self._network.withSegments and req_b.name in self._segment_buffer:
                 # 已经收到部分分段，请求需要的分段
-                sids_notrcv = self._get_segids_not_rcv(req_b)
+                sids_notrcv = self._segment_buffer[req_b.name]
                 getData.req_segs.append((req_b, sids_notrcv))
             else:
                 getData.req_blocks.append(req_b)

@@ -103,6 +103,7 @@ class EclipsedDoubleSpending(aa.AttackType):
     
 
     def attack_stage(self, round, mine_input):
+        mine_input = self.behavior.ATTACKER_INPUT or mine_input
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']

@@ -12,23 +12,23 @@ class PoW(Consensus):
     class BlockHead(Consensus.BlockHead):
         '''适用于PoW共识协议的区块头'''
         __slots__ = ['target', 'nonce']
-        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=0, miner_id=-1,
-                     target = (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER),
-                     nonce = 0):
-            # currently content is an integer equal to the round the block is generated
+        def __init__(self, preblock: Consensus.Block = None, timestamp=0, content=b'', miner_id=-1,
+                     target = (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER), nonce = 0):
             super().__init__(preblock, timestamp, content, miner_id)
             self.target = target  # 难度目标
             self.nonce = nonce  # 随机数
 
         def calculate_blockhash(self) -> bytes:
             data = self.miner.to_bytes(INT_LEN, BYTE_ORDER, signed=True)+ \
-                    self.content.to_bytes(INT_LEN, BYTE_ORDER)+ \
-                    self.prehash + \
+                    self.content+ self.prehash + \
                     self.nonce.to_bytes(INT_LEN, BYTE_ORDER)
             return hash_bytes(data).digest()
 
     def __init__(self,miner_id,consensus_params:dict):
         super().__init__(miner_id=miner_id)
+        self.INT_SIZE = INT_LEN
+        self.BYTEORDER = BYTE_ORDER
+        self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
         self.ctr=0 #计数器
         self.target = bytes.fromhex(consensus_params['target'])
         if consensus_params['q_distr'] == 'equal':
@@ -47,7 +47,7 @@ class PoW(Consensus):
         self.target = bytes.fromhex(consensus_params.get('target') or self.target)
         self.q = consensus_params.get('q') or self.q
 
-    def mining_consensus(self, miner_id:int, isadversary, x, round):
+    def mining_consensus(self, miner_id:bytes, isadversary, x, round):
         '''计算PoW\n
         param:
             Miner_ID 该矿工的ID type:int
@@ -59,12 +59,10 @@ class PoW(Consensus):
         '''
         pow_success = False
         #print("mine",Blockchain)
-        b_last = self.local_chain.get_last_block()#链中最后一个块
+        b_last = self.local_chain.last_block # 链中最后一个块
         prehash = b_last.blockhash
 
-        intermediate_hasher = hash_bytes(
-            miner_id.to_bytes(INT_LEN, BYTE_ORDER, signed=True) + 
-            x.to_bytes(INT_LEN, BYTE_ORDER) + prehash)
+        intermediate_hasher = hash_bytes(miner_id + x + prehash)
         
         i = 0
         while i < self.q:
@@ -76,8 +74,9 @@ class PoW(Consensus):
                 pow_success = True
                 # blockhead = PoW.BlockHead(b_last,time.time_ns(),x,miner_id,self.target,self.ctr)
                 # Use round instead as real world timestamp is meaningless in chainxim
-                blockhead = PoW.BlockHead(b_last,round,x,miner_id,self.target,self.ctr)
-                blocknew = PoW.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
+                blockhead = self.BlockHead(b_last,round,x,int.from_bytes(miner_id, BYTE_ORDER, signed=True),
+                                           self.target,self.ctr)
+                blocknew = self.Block(blockhead,b_last,isadversary,global_var.get_blocksize())
                 self.ctr = 0
                 return (blocknew, pow_success)
             else:
@@ -89,7 +88,7 @@ class PoW(Consensus):
         # output:
         #   lastblock 最长链的最新一个区块
         new_update = False  # 有没有更新
-        #touched_hash_list = []
+        chain_update = []
         for incoming_block in self._receive_tape:
             if not isinstance(incoming_block, Consensus.Block):
                 continue
@@ -97,21 +96,24 @@ class PoW(Consensus):
                 prehash = incoming_block.blockhead.prehash
                 if insert_point := self.local_chain.search_block_by_hash(prehash):
                     conj_block = self.local_chain.add_blocks(blocks=[incoming_block], insert_point=insert_point)
-                    fork_tip, _ = self.synthesize_fork(conj_block)
-                    #for block in touched_block:
-                    #    touched_hash_list.append(block.blockhash)
+                    fork_tip, touched_blocks = self.synthesize_fork(conj_block)
+                    chain_update.extend(touched_blocks)
                     depthself = self.local_chain.get_height()
                     depth_incoming_block = fork_tip.get_height()
                     if depthself < depth_incoming_block:
                         self.local_chain.set_last_block(fork_tip)
+                        original_last_block = self.local_chain.last_block
                         new_update = True
                 else:
                     self._block_buffer.setdefault(prehash, [])
                     self._block_buffer[prehash].append(incoming_block)
-        
-        #self._block_buffer = {k: v for k, v in self._block_buffer.items() if k not in touched_hash_list}
 
-        return self.local_chain, new_update
+        if new_update:
+            blocktmp = self.local_chain.get_last_block()
+            while blocktmp.blockhash != original_last_block.blockhash:
+                chain_update.insert(0, blocktmp)
+                blocktmp = blocktmp.parentblock
+        return self.local_chain, chain_update
 
     def valid_chain(self, lastblock: Consensus.Block):
         '''验证区块链是否PoW合法\n
@@ -125,11 +127,11 @@ class PoW(Consensus):
         chain_vali = True
         if chain_vali and lastblock:
             blocktmp = lastblock
-            ss = blocktmp.calculate_blockhash()
+            self.valid_block(blocktmp)
+            ss = blocktmp.blockhash
             while chain_vali and blocktmp is not None:
-                hash=blocktmp.calculate_blockhash()
                 block_vali = self.valid_block(blocktmp)
-                if block_vali and hash == ss:
+                if block_vali and blocktmp.blockhash == ss:
                     ss = blocktmp.blockhead.prehash
                     blocktmp = blocktmp.parentblock
                 else:

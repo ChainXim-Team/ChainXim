@@ -11,11 +11,11 @@ class BlockHead(metaclass=ABCMeta):
     __slots__ = ['prehash', 'timestamp', 'content', 'miner']
     __omit_keys = {} # The items to omit when printing the object
     
-    def __init__(self, prehash=None, timestamp=None, content = None, Miner=None):
-        self.prehash = prehash  # 前一个区块的hash
-        self.timestamp = timestamp  # 时间戳
-        self.content = content
-        self.miner = Miner  # 矿工
+    def __init__(self, prehash=b'', timestamp=0, content = b'', Miner = -1):
+        self.prehash:bytes = prehash  # 前一个区块的hash
+        self.timestamp:int = timestamp  # 时间戳
+        self.content:bytes = content
+        self.miner:int = Miner  # 矿工
     
     @abstractmethod
     def calculate_blockhash(self) -> bytes:

@@ -1,4 +1,5 @@
 ''' external functions (V,I,R, etc)'''
+from array import array
 from data import Block, Chain
 
 
@@ -29,18 +30,13 @@ def R(blockchain:Chain):
     # 作用：把链的信息读取出来变成一个向量
     # 如果这是个树，就按照前序遍历读取（这是不对的后面可能要修改，但目前对程序无影响）
     if blockchain is None:
-        xc = []
+        xc = array('Q')
     else:
-        q = [blockchain.head]
-        xc = []
-        while q:
-            block = q.pop(0)
-            if block is None:
-                print("block is None!")
-                return
-            xc.append(block.blockhead.content)
-            for i in block.next:
-                q.append(i)
+        xc = array('Q')
+        block = blockchain.get_last_block()
+        while block:
+            xc.extend(reversed(array('Q', block.blockhead.content)))
+            block = block.parentblock
     return xc
 
 MAX_SUFFIX = 10 # 最大链后缀回溯距离

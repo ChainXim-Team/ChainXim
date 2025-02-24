@@ -1,6 +1,3 @@
-def get_int_size() -> int: ...
-def get_byteorder() -> str: ...
-
 class RandomOracleRoot:
     DIGEST_LENGTH: int
 

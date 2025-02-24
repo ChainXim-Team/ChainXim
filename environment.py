@@ -3,6 +3,7 @@ import logging
 import math
 import random
 import time
+from array import array
 
 import numpy as np
 
@@ -11,17 +12,20 @@ import global_var
 import network
 from attack.adversary import Adversary
 from data import Block, Chain, LocalChainTracker
-from external import chain_growth, chain_quality, common_prefix, MAX_SUFFIX
-from functions import for_name
+from external import chain_growth, chain_quality, common_prefix, R, MAX_SUFFIX
+from functions import for_name, INT_LEN, BYTE_ORDER
 from miner import Miner, network_interface
 
 logger = logging.getLogger(__name__)
+
+MAX_INT = 2**32-1
 
 class Environment(object):
 
     def __init__(self,  attack_param: dict = None,
                  consensus_param:dict = None, network_param:dict = None, 
-                 genesis_blockheadextra:dict = None, genesis_blockextra:dict = None):
+                 genesis_blockheadextra:dict = None, genesis_blockextra:dict = None,
+                 dataitem_param:dict = None):
         '''initiate the running environment
 
         Param
@@ -31,11 +35,21 @@ class Environment(object):
         network_param: network parameters (dict)
         genesis_blockheadextra: initialize variables in the head of genesis block (dict)
         genesis_blockextra: initialize variables in the genesis block (dict)
-        
+        dataitem_param: data item parameters (dict) 
         '''
         #environment parameters
         self.miner_num = global_var.get_miner_num()
         self.total_round = 0
+        # load data item settings
+        self.dataitem_params = dataitem_param
+        if not dataitem_param['dataitem_enable']:
+            self.dataitem_params['max_block_capacity'] = 0
+        else:
+            self.dataitem_validator = set()
+            if dataitem_param['dataitem_input_interval'] == 0:
+                initial_dataitems = b''.join([self.generate_dataitem(1) for _ in range(dataitem_param['max_block_capacity'])])
+                self.input_dataitem = array('Q', initial_dataitems).tobytes()
+                self.new_block_this_round:list[Block] = []
         # configure extra genesis block info
         consensus_type_str = global_var.get_consensus_type()
         consensus_type:consensus.Consensus = for_name(consensus_type_str)
@@ -46,7 +60,7 @@ class Environment(object):
         # generate miners
         self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
-            miner = Miner(miner_id, consensus_param)
+            miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'], dataitem_param['dataitem_input_interval'] == 0)
             if global_var.get_common_prefix_enable():
                 miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
                 # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
@@ -55,7 +69,7 @@ class Environment(object):
 
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)
-        
+
         # generate adversary
         self.adversary = Adversary(
             adver_num = attack_param['adver_num'], 
@@ -78,6 +92,10 @@ class Environment(object):
 
         # set parameters for network
         self.network.set_net_param(**network_param)
+        if dataitem_param['dataitem_enable']:
+            self.network._dataitem_param = dataitem_param
+        else:
+            self.adversary.get_attack_type().behavior.ATTACKER_INPUT = None
 
         # add a line in chain data to distinguish adversaries from non-adversaries
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
@@ -96,7 +114,10 @@ class Environment(object):
             # parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
             parameter_str += f"  (Adversary's q: {self.adversary.get_adver_q()}) \n"
         if isinstance(self.miners[0].NIC, network_interface.NICWithTp):
-            parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
+            if self.dataitem_params['dataitem_enable']:
+                parameter_str += f'Dataitem Param: {dataitem_param} \n'
+            else:
+                parameter_str += f'Block Size: {global_var.get_blocksize()} \n'
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
@@ -139,12 +160,32 @@ class Environment(object):
         self.global_chain.add_blocks(blocks=copy.deepcopy(self.miners[0].consensus.local_chain.head))
         # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         # self.global_chain.lastblock = self.global_chain.head
+        if getattr(self, 'new_block_this_round', None) is not None:
+            self.global_chain.set_merge_callback(lambda block: self.new_block_this_round.append(block))
+
+    def generate_dataitem(self, round):
+        dataitem = random.randint(1, MAX_INT).to_bytes(INT_LEN, BYTE_ORDER)
+        dataitem += round.to_bytes(INT_LEN, BYTE_ORDER)
+        self.dataitem_validator.add(dataitem)
+        return dataitem        
 
     def on_round_start(self, round):
         self.local_chain_tracker.update_round(round)
         if getattr(self, 'oracle_root', None):
             self.oracle_root.reset_counters(self.mining_oracles)
-        
+        if self.dataitem_params['dataitem_enable']:
+            if self.dataitem_params['dataitem_input_interval'] > 0:
+                if round % self.dataitem_params['dataitem_input_interval'] == 1:
+                    self.input_dataitem = self.generate_dataitem(round)
+                else:
+                    self.input_dataitem = b''
+            elif len(self.new_block_this_round) > 0: # disable local dataitem queue
+                new_dataitems = b''.join([self.generate_dataitem(round) for _ in range(self.dataitem_params['max_block_capacity'])])
+                self.input_dataitem = array('Q', new_dataitems).tobytes()
+                self.new_block_this_round = []
+        else:
+            self.input_dataitem = round.to_bytes(INT_LEN, BYTE_ORDER)
+
     def exec(self, num_rounds, max_height, process_bar_type):
 
         '''
@@ -159,7 +200,7 @@ class Environment(object):
         cached_height = self.global_chain.get_height()
         for round in range(1, num_rounds+1):
             self.on_round_start(round)
-            inputfromz = round # 生成输入
+            inputfromz = self.input_dataitem # 生成输入
 
             adver_tmpflag = 1
             if self.adversary.get_adver_num() != 0:
@@ -289,9 +330,9 @@ class Environment(object):
     def view(self) -> dict:
         # 展示一些仿真结果
         print('\n')
-        print("Global Tree Structure:", "")
-        self.global_chain.ShowStructure1()
-        print("End of Global Tree", "")
+        # print("Global Tree Structure:", "")
+        # self.global_chain.ShowStructure1()
+        # print("End of Global Tree", "")
 
         # Evaluation Results
         stats = self.global_chain.CalculateStatistics(self.total_round)
@@ -324,6 +365,35 @@ class Environment(object):
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
             'upper_bound t/(n-t)': round(self.adversary.get_adver_num() / (self.miner_num - self.adversary.get_adver_num()), 5)
         })
+        # Check the dataitems in the global chain
+        valid_item_count = 0
+        anomalous_item_count = 0
+        if self.dataitem_params['dataitem_enable']:
+            dataitem_set = set()
+            dataitems_reversed = R(self.global_chain)
+            previous_item = int.from_bytes((255).to_bytes(1, 'little') * 2 * INT_LEN, BYTE_ORDER)
+            for dataitem in dataitems_reversed:
+                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in self.dataitem_validator:
+                    if previous_item < dataitem and self.dataitem_params['dataitem_input_interval'] > 0:
+                        anomalous_item_count += 1
+                        logger.warning("A dataitem is out of order: %s", dataitem)
+                    else:
+                        valid_item_count += 1
+                        previous_item = dataitem
+                        if dataitem not in dataitem_set:
+                            dataitem_set.add(dataitem)
+                        else:
+                            logger.warning("A dataitem duplicates")
+                else:
+                    anomalous_item_count += 1
+            stats.update({
+                'valid_dataitem_rate': valid_item_count / (valid_item_count + anomalous_item_count),
+                'valid_dataitem_throughput': valid_item_count / self.total_round,
+                'block_average_size': (valid_item_count+anomalous_item_count) * self.dataitem_params['dataitem_size'] / stats['num_of_valid_blocks'],
+                'input_dataitem_rate': 1/self.dataitem_params['dataitem_input_interval'] \
+                    if self.dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / self.total_round
+            })
+
         # Network Property
         stats.update({'block_propagation_times': {} })
         if not isinstance(self.network,network.SynchronousNetwork):
@@ -347,12 +417,18 @@ class Environment(object):
         print("Fork rate:", stats["fork_rate"])
         print("Stale rate:", stats["stale_rate"])
         print("Average block time (main chain):", stats["average_block_time_main"], "rounds/block")
-        print("Block throughput (main chain):", stats["block_throughput_main"], "blocks/round")
-        print("Throughput in MB (main chain):", stats["throughput_main_MB"], "MB/round")
         print("Average block time (total):", stats["average_block_time_total"], "rounds/block")
-        print("Block throughput (total):", stats["block_throughput_total"], "blocks/round")
-        print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
-        print("")
+        print("Block throughput (main chain):", stats["block_throughput_main"], "blocks/round")
+        if self.dataitem_params['dataitem_enable']:
+            print("Throughput of valid dataitems:", stats['valid_dataitem_throughput'], "items/round")
+            print("Throughput of valid dataitems in MB:", 
+                stats['valid_dataitem_throughput']*self.dataitem_params['dataitem_size'], "MB/round")
+            print("Input dataitem rate:", stats["input_dataitem_rate"], "items/round")
+            print("Average dataitems per block:", stats["block_average_size"], "items/block")
+        else:
+            print("Throughput in MB (main chain):", stats["throughput_main_MB"], "MB/round")
+            print("Block throughput (total):", stats["block_throughput_total"], "blocks/round")
+            print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
         # Common Prefix Property
         if global_var.get_common_prefix_enable():
             print('Common Prefix Property:')
@@ -365,6 +441,8 @@ class Environment(object):
         # Chain Quality Property
         print('Chain_Quality Property:', cq_dict)
         print('Ratio of blocks contributed by malicious players:', chain_quality_property)
+        if self.dataitem_params['dataitem_enable']:
+            print('Ratio of dataitems contributed by malicious players:', 1 - stats["valid_dataitem_rate"])
         # Attack Property
         if self.adversary.get_info():
             print('The simulation data of', self.adversary.get_attack_type_name() , 'is as follows', ':\n', self.adversary.get_info())
