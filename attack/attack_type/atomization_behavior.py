@@ -31,6 +31,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     imcoming_block_from_eclipse[block.blockhash] = block
                     temp_miner.consensus._receive_tape.remove(block)
             
+        input_tape = []
         for temp_miner in adver_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
