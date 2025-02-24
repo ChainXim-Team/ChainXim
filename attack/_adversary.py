@@ -8,6 +8,7 @@ from attack import attack_type as at
 from data import Chain
 from functions import for_name
 import global_var
+import copy
 
 
 class Adversary(metaclass=ABCMeta): 
@@ -92,10 +93,13 @@ class Adversary(metaclass=ABCMeta):
 
 
     def __attack_type_init(self):
-        self.__attack_type.set_init(global_chain = self.__global_chain, 
-                                    miner_list = self.__miner_list, 
+        self.honest_chain: Chain = copy.deepcopy(self.__global_chain)
+        self.honest_chain.add_blocks(blocks=[self.__global_chain.get_last_block()])
+        '''
+        拷贝全局链初始状态作为adver的初始诚实链
+        '''
+        self.__attack_type.set_init(honest_chain = self.honest_chain, 
                                     adver_list = self.__adver_list,
-                                    network_type = self.__network_type, 
                                     adver_consensus = self.__consensus_type, 
                                     attack_arg = self.__attack_arg,
                                     eclipsed_list = self.__eclipsed_list)
@@ -134,13 +138,15 @@ class Adversary(metaclass=ABCMeta):
         Adversary的核心功能 每轮执行一次attack
         '''
         self.__excute_attack.excute_this_attack_per_round(round)
+        self.__global_chain._add_block_forcibly(self.__attack_type.adver_chain.last_block)
+        
 
     def get_info(self):
         '''
         调用attack中的各种参数计算
         '''
         if len(self.__adver_list) != 0:
-            return self.__attack_type.info_getter()
+            return self.__attack_type.info_getter(miner_num = len(self.__miner_list))
         else:
             return None
 

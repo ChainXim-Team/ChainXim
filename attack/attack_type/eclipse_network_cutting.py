@@ -25,7 +25,7 @@ class EclipseNetworkCutting(aa.AttackType):
 
     def renew_stage(self,round):
         ## 1. renew stage
-        newest_block, mine_input,incoming_block_from_eclipse = self.behavior.renew(miner_list = self.adver_list, 
+        newest_block, mine_input,incoming_block_from_eclipse = self.behavior.renew(adver_list = self.adver_list, 
                                     honest_chain = self.honest_chain,round = round,
                                     eclipse_list_ids = self.eclipsed_list_ids)
         return newest_block, mine_input

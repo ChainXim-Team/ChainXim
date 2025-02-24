@@ -25,7 +25,7 @@ class SelfishMining(aa.AttackType):
     def renew_stage(self, round):
         ## 1. renew stage
         bh = self.behavior
-        newest_block, mine_input = bh.renew(miner_list = self.adver_list,
+        newest_block, mine_input = bh.renew(adver_list = self.adver_list,
                                  honest_chain = self.honest_chain,round = round)
         return newest_block, mine_input
 
@@ -41,11 +41,10 @@ class SelfishMining(aa.AttackType):
                                          honest_chain = self.honest_chain)
             # 攻击者接受诚实链，诚实链为主链，诚实矿池获得收益，
             # 收益块数为从adver_chain与base_chain产生分歧的块数开始。
-            attack_mine,block = bh.mine(miner_list = self.adver_list,
+            attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
-                                         adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
+                                         adver_chain = self.adver_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
             if attack_mine:
@@ -65,11 +64,10 @@ class SelfishMining(aa.AttackType):
                 # 此时攻击链与诚实链等高
                 if self.honest_chain.last_block.blockhash == self.adver_chain.last_block.blockhash:
                     # 同高位置的区块相同，因此为0状态，攻击者尝试挖矿，挖出与否都不公布
-                    attack_mine,block = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
                     # 如果挖出区块则进入1状态，否则停留在0状态
@@ -80,20 +78,18 @@ class SelfishMining(aa.AttackType):
                         self._log['state']='0'
                 else:
                     # 同高位置的区块不相同，因此为0'状态，攻击者依然尝试挖矿
-                    attack_mine,block = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
                     if attack_mine:
                         # 0'状态下攻击者若挖矿成功，以alpha概率进入0状态
-                        block = bh.upload(network = self.network, 
-                                 adver_chain = self.adver_chain,
+                        block = bh.upload(adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list,
+                                 adver_list = self.adver_list,
                                  fork_block= self._fork_block)
                         self._log['state']='0'
                     else:
@@ -101,11 +97,10 @@ class SelfishMining(aa.AttackType):
                         '''
                         此时局面应是一部分诚实矿工本地连为攻击链，一部分为诚实链。攻击者本地全部为攻击链。
                         '''
-                        block = bh.upload(network = self.network, 
-                                 adver_chain = self.adver_chain,
+                        block = bh.upload(adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list,
+                                 adver_list = self.adver_list,
                                  fork_block= self._fork_block) 
                         # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
                         bh.wait()
@@ -119,38 +114,34 @@ class SelfishMining(aa.AttackType):
                     # 此时，攻击链和诚实链处于分叉了很久的状态。
                     if adver_height - honest_height >=2:
                         # 如果攻击链比诚实链高大于等于2，则说明处于lead大于等于2的状态，只用挖矿就行
-                        attack_mine,block = bh.mine(miner_list = self.adver_list,
+                        attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
                         self._log['state']=str(adver_height - honest_height+1) if attack_mine else str(adver_height - honest_height)
                     else:
                         # 否则，攻击链仅比诚实链高1，受到威胁，攻击者必须立马公布当前区块，再挖矿，挖矿结果不影响
                         if self._log['state'] !='1':
-                            block = bh.upload(network = self.network, 
-                                 adver_chain = self.adver_chain,
+                            block = bh.upload(adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
-                                 miner_list = self.adver_list,
+                                 adver_list = self.adver_list,
                                  fork_block= self._fork_block)
-                        attack_mine,block = bh.mine(miner_list = self.adver_list,
+                        attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
-                                         adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
+                                         adver_chain = self.adver_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
                         self._log['state']='2' if attack_mine else '1'
                 else:
                     # 此时，攻击链从主链挖出若干隐形块，不需要担心受到威胁
-                    attack_mine,block = bh.mine(miner_list = self.adver_list,
+                    attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,
                                          adver_chain = self.adver_chain,
-                                         global_chain = self.global_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
                     bh.wait()
@@ -159,7 +150,7 @@ class SelfishMining(aa.AttackType):
     def clear_record_stage(self, round):
         # 3. clear and record stage
         bh = self.behavior
-        bh.clear(miner_list = self.adver_list)# 清空
+        bh.clear(adver_list = self.adver_list)# 清空
         self._log['honest_chain'] = self.honest_chain.last_block.name + ' Height:' + str(self.honest_chain.last_block.height)
         self._log['adver_chain'] = self.adver_chain.last_block.name + ' Height:' + str(self.adver_chain.last_block.height)
         self.resultlog2txt(round)
@@ -178,23 +169,16 @@ class SelfishMining(aa.AttackType):
         # 3. clear and record stage
         self.clear_record_stage(round)
         
-    def info_getter(self):
-        loop_block = self.global_chain.last_block
-        main_chain_height = loop_block.height
-        adver_block_num = 0
-        while(loop_block):
-            if loop_block.isAdversaryBlock:
-                adver_block_num += 1
-            loop_block = loop_block.parentblock
-        return {'The proportion of adversary block in the main chain': '{:.4f}'.format(adver_block_num/ main_chain_height),
-                'Theory region in SynchronousNetwork': self.__theory_propotion()}
+    def info_getter(self,miner_num):
+        return {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]',
+                'Theory region in SynchronousNetwork': self.__theory_propotion(miner_num)}
     
 
-    def __theory_propotion(self):
+    def __theory_propotion(self,miner_num):
         def revenue(a,gama):
             R = (a*(1-a)**2*(4*a+gama*(1-2*a))-a**3)/(1-a*(1+(2-a)*a))
             return R
-        thryRegion = ['%.4f'% revenue(len(self.adver_list)/len(self.miner_list),0), '%.4f'% revenue(len(self.adver_list)/len(self.miner_list),1)]
+        thryRegion = ['%.4f'% revenue(len(self.adver_list)/miner_num,0), '%.4f'% revenue(len(self.adver_list)/miner_num,1)]
 
         return thryRegion
 
