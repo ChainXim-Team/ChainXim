@@ -21,7 +21,7 @@ import errors
 import global_var
 from data import Block, Message
 
-from network_abc import (
+from network.network_abc import (
     ERR_OUTAGE,
     GLOBAL,
     GetDataMsg,
