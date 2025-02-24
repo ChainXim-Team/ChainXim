@@ -1,8 +1,9 @@
+import sys
 import hashlib
 import importlib
 from typing import Union
 
-BYTE_ORDER = 'little'
+BYTE_ORDER = sys.byteorder
 HASH_LEN = 32
 INT_LEN = 4
 

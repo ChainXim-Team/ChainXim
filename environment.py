@@ -179,9 +179,19 @@ class Environment(object):
                     self.input_dataitem = self.generate_dataitem(round)
                 else:
                     self.input_dataitem = b''
-            elif len(self.new_block_this_round) > 0: # disable local dataitem queue
-                new_dataitems = b''.join([self.generate_dataitem(round) for _ in range(self.dataitem_params['max_block_capacity'])])
-                self.input_dataitem = array('Q', new_dataitems).tobytes()
+            elif len(self.new_block_this_round) > 0: # update global dataitem queue
+                dataitems_exclude = set()
+                for block in self.new_block_this_round:
+                    dataitems_exclude.update(array('Q', block.blockhead.content))
+                original_dataitems = array('Q', self.input_dataitem)
+                new_dataitems = []
+                for item in original_dataitems:
+                    if item not in dataitems_exclude:
+                        new_dataitems.append(item)
+                generate_num = self.dataitem_params['max_block_capacity'] - len(new_dataitems)
+                new_dataitems = [array('Q', new_dataitems).tobytes()]
+                new_dataitems.extend([self.generate_dataitem(round) for _ in range(generate_num)])
+                self.input_dataitem = b''.join(new_dataitems)
                 self.new_block_this_round = []
         else:
             self.input_dataitem = round.to_bytes(INT_LEN, BYTE_ORDER)
@@ -371,7 +381,7 @@ class Environment(object):
         if self.dataitem_params['dataitem_enable']:
             dataitem_set = set()
             dataitems_reversed = R(self.global_chain)
-            previous_item = int.from_bytes((255).to_bytes(1, 'little') * 2 * INT_LEN, BYTE_ORDER)
+            previous_item = int.from_bytes((255).to_bytes(1, BYTE_ORDER) * 2 * INT_LEN, BYTE_ORDER)
             for dataitem in dataitems_reversed:
                 if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in self.dataitem_validator:
                     if previous_item < dataitem and self.dataitem_params['dataitem_input_interval'] > 0:
