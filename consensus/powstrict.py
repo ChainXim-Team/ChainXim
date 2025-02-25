@@ -1,8 +1,10 @@
+import logging
 import global_var
 
 from .pow import PoW
 from functions import HASH_LEN, BYTE_ORDER
 
+logger = logging.getLogger(__name__)
 
 class PoWstrict(PoW):
     '''严格限制哈希率的PoW实现'''
@@ -98,6 +100,9 @@ class PoWstrict(PoW):
     def valid_block(self, block:PoW.Block):
         # Update blockhash first
         block.blockhash = self.verifying_oracle.hash(self.serialize_blockhead(block.blockhead))
+        if block.blockhash is None:
+            logger.error("Miner %d somehow verifying its own block: %s", block.blockhead.miner, str(block))
+            return False
         if block.blockhash < self.target:
             return True
         return False
