@@ -273,8 +273,7 @@ class AdHocNetwork(Network):
                     continue
                 link.delay -= 1
             rcv_states = link.target_miner().NIC.nic_receive(link.packet)
-            link.source_miner().NIC.get_reply(
-                link.get_seg_names(), link.target_id(), None, round)
+            link.source_miner().NIC.get_reply(round, link.get_seg_names(), link.target_id(), None)
             if isinstance(rcv_states, dict):
                 for block_name, rcv_state in rcv_states.items():
                     if rcv_state:
@@ -316,8 +315,7 @@ class AdHocNetwork(Network):
         if random.uniform(0, 1) > self._outage_prob:
             return outage
         # 链路中断返回ERR_OUTAGE错误
-        link.source_miner().NIC.get_reply(
-            link.get_seg_names(), link.target_id(), ERR_OUTAGE, round)
+        link.source_miner().NIC.get_reply(round, link.get_seg_names(), link.target_id(), ERR_OUTAGE)
         outage = True
         return outage
     

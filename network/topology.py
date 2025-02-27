@@ -139,6 +139,7 @@ class TopologyNetwork(Network):
                       bandwidth_honest = None, 
                       bandwidth_adv = None,
                       outage_prob = None, 
+                      enable_resume_transfer = None,
                       dynamic = None, 
                       max_allowed_partitions = None,
                       avg_tp_change_interval = None, 
@@ -178,6 +179,8 @@ class TopologyNetwork(Network):
                 self.network_generator(init_mode)
         if outage_prob is not None:
             self._outage_prob = outage_prob
+        if enable_resume_transfer is not None:
+            self._enableResumeTransfer = enable_resume_transfer
         if dynamic is not None:
             self._dynamic = dynamic
         if max_allowed_partitions is not None:
@@ -199,7 +202,7 @@ class TopologyNetwork(Network):
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int, target:int,
+    def access_network(self, new_msgs:list[Message|tuple[Message, int]], minerid:int, round:int, target:int,
                        sendTogether:bool = False):
         '''本轮新产生的消息添加到network_tape.
 
@@ -211,11 +214,15 @@ class TopologyNetwork(Network):
         ''' 
         if self.inv_handler(new_msgs):
             return
-        for msg in new_msgs:
+        for new_msg in new_msgs:
+            rest_delay = new_msg[1] if isinstance(new_msg, tuple) else None
+            msg = new_msg[0] if isinstance(new_msg, tuple) else new_msg
             if not self.message_preprocessing(msg):
                 continue
             packet = TPPacket(msg, round, minerid, target)
-            delay = self.cal_delay(msg, minerid, target)
+            delay = self.cal_delay(msg, minerid, target) if rest_delay is None else rest_delay
+            if rest_delay is not None:
+                logger.info("round %d, M%d -> M%d, %s resume transfer delay %d", round, minerid, target, msg.name, rest_delay)
             link = Link(packet, delay, self)
             self._active_links.append(link)
             self._rcv_miners[link.get_block_msg_name()].append(minerid)
@@ -269,8 +276,7 @@ class TopologyNetwork(Network):
             if link.delay > 0:
                 continue
             link.target_miner().NIC.nic_receive(link.packet)
-            link.source_miner().NIC.get_reply(
-                link.get_block_msg_name(),link.target_id(), None, round)
+            link.source_miner().NIC.get_reply(round,link.get_block_msg_name(),link.target_id(), None)
             if self._rcv_miners[link.get_block_msg_name()][-1]!=-1:
                 self._rcv_miners[link.get_block_msg_name()].append(link.target_id())
                 self._routing_proc[link.get_block_msg_name()].append(
@@ -300,9 +306,9 @@ class TopologyNetwork(Network):
         if random.uniform(0, 1) > self._outage_prob:
             return outage
         # 链路中断返回ERR_OUTAGE错误
-        link.source_miner().NIC.get_reply(
-            link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, round)
-        outage = True
+        rest_delay = link.delay if self._enableResumeTransfer else None
+        link.source_miner().NIC.get_reply(round, link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, rest_delay)
+        outage = True   
         return outage
 
     

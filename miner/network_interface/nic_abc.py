@@ -60,7 +60,7 @@ class NetworkInterface(metaclass=ABCMeta):
 
     """下面只有nic_with_tp要实现"""
     @abstractmethod
-    def get_reply(self, msg_name, target:int, err:str, round):
+    def get_reply(self, cur_round:int, msg_name:str, target:int, err:str, rest_delay:int):
         ...
     @abstractmethod
     def remove_neighbor(self, remove_id:int):

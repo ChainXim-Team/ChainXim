@@ -112,7 +112,7 @@ def main(**args):
     # TopologyNetwork
     elif network_type == 'network.TopologyNetwork':
         net_setting = 'TopologyNetworkSettings'
-        bool_params  = ['show_label', 'save_routing_graph', 'dynamic']
+        bool_params  = ['show_label', 'save_routing_graph', 'dynamic', 'enable_resume_transfer']
         float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv',
                         'outage_prob','avg_tp_change_interval','edge_add_prob',
                         'edge_remove_prob','max_allowed_partitions']

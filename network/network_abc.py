@@ -71,7 +71,7 @@ class Network(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def access_network(self, new_msgs:list[Message], minerid:int, round:int, 
+    def access_network(self, new_msgs:list[Message|tuple[Message, int]], minerid:int, round:int, 
                        target:int = None, sendTogether:bool = False):
         pass
 

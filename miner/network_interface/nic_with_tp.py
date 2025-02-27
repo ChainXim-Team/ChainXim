@@ -1,18 +1,15 @@
 import logging
 import random
 from collections import defaultdict
+import global_var
 
 from data import Block, Message
 from network import (
     ERR_OUTAGE,
-    AdHocNetwork,
     GetDataMsg,
     INVMsg,
-    Network,
     Packet,
     DataSegment,
-    TopologyNetwork,
-    TPPacket,
 )
 
 from .._consts import _IDLE, FLOODING, OUTER_RCV_MSG, SELF_GEN_MSG, SELFISH, SPEC_TARGETS, SYNC_LOC_CHAIN
@@ -28,7 +25,7 @@ class NICWithTp(NetworkInterface):
         # 暂存本轮收到的数据包
         self._segment_buffer:dict[set] = dict()
         # 输出队列(拓扑网络)
-        self._output_queues = defaultdict(list[Message])
+        self._output_queues = defaultdict(list[Message | tuple[Message, int]])
         self._channel_states = {}
 
     def has_received(self, block_name:str):
@@ -134,27 +131,20 @@ class NICWithTp(NetworkInterface):
             len(self._forward_buffer[OUTER_RCV_MSG]) != 0):
             self.forward_buffer_to_output_queue(SELF_GEN_MSG)
             self.forward_buffer_to_output_queue(OUTER_RCV_MSG)
-            logger.info(
-                "round %d, M%d, neighbors %s, outputqueue %s", 
-                round, self.miner_id, str(self._neighbors), 
-                {k:[msg.name if isinstance(msg, Message) else msg for msg in v] 
-                 for k,v in self._output_queues.items()}
-            )
+            logger.info("round %d, M%d, neighbors %s, outputqueue %s", round, self.miner_id, str(self._neighbors), 
+                {k:[msg.name if isinstance(msg, Block) else msg for msg in v] for k,v in self._output_queues.items()})
+        
         # 向邻居节点发送 output_queue 中的消息
         for neighbor in self._neighbors:
             if self._channel_states[neighbor] != _IDLE:
                 continue
-            que = self._output_queues[neighbor]
-            if len(que) == 0:
-                continue
-            
+            if len(self._output_queues[neighbor]) == 0:
+                continue    
             while len(self._output_queues[neighbor]) > 0:
-                msg = que.pop(0)
-                msg_name = (msg.name if isinstance(msg, Block) 
-                    else  str((msg.origin_block.name, msg.seg_id)) 
-                    if isinstance(msg, DataSegment)  else "other msg")
-                logger.info("round %d, M%d->M%d, try to send %s", 
-                            round, self.miner_id, neighbor, msg_name)
+                msg = self._output_queues[neighbor].pop(0)
+                msg_name = (msg.name if isinstance(msg, Block) else str((msg.origin_block.name, msg.seg_id)) 
+                    if isinstance(msg, DataSegment)  else msg[0].name if isinstance(msg, tuple) else "other msg")
+                logger.info("round %d, M%d->M%d, try to send %s", round, self.miner_id, neighbor, msg_name)
                 if msg == SYNC_LOC_CHAIN:
                     self.gossip_full_chain(neighbor, round)
                     while (len(self._output_queues[neighbor]) != 0 and 
@@ -163,8 +153,9 @@ class NICWithTp(NetworkInterface):
                     if len(self._output_queues[neighbor]) == 0:
                         break
                     msg = self._output_queues[neighbor].pop(0)
-                
-                isMsgRequired = self.gossip_single_msg(neighbor, msg, round)
+
+                gossip_msg, rest_delay = msg if isinstance(msg, tuple) else (msg, None)
+                isMsgRequired = self.gossip_single_msg(neighbor, gossip_msg, round)
                 if not isMsgRequired:
                     continue
 
@@ -203,7 +194,7 @@ class NICWithTp(NetworkInterface):
         inv = INVMsg(self.miner_id, target, msg, isFullChain=False)
         getDataReply  = self.send_inv(inv, round)
         logger.info("round%d, M%d->M%d: %s require: %s", round, 
-                    self.miner_id, target, msg, getDataReply.isRequired)
+                    self.miner_id, target, msg.name, getDataReply.isRequired)
         return getDataReply.isRequired
     
     def gossip_full_chain(self, target:int, round:int):
@@ -288,7 +279,7 @@ class NICWithTp(NetworkInterface):
             req_b = req_b.parentblock
         return getData
     
-    def send_data(self, msgs:list[Message], target:int,round:int, sendTogether:bool=False):
+    def send_data(self, msgs:list[Message|tuple[Message, int]], target:int,round:int, sendTogether:bool=False):
         """
         inv没问题后发送数据
         """
@@ -340,23 +331,26 @@ class NICWithTp(NetworkInterface):
         return targets
 
     
-    def get_reply(self, msg_name, target:int, err:str, round):
+    def get_reply(self, cur_round, msg_name, target:int, err:str, rest_delay:int = None):
         """
         消息发送完成后，用于接收是否发送成功的回复
         """
         # 传输成功即将信道状态置为空闲
         if err is None:
             logger.info("round %d, M%d -> M%d: Forward  %s success!", 
-                    round, self.miner_id, target, msg_name)
+                    cur_round, self.miner_id, target, msg_name)
             self._channel_states[target]=_IDLE
             return
         # 信道中断将msg重新放回队列，等待下轮重新发送
         if err == ERR_OUTAGE:
             logger.info("round %d, M%d -> M%d: Forward  %s failed: link outage", 
-                    round, self.miner_id, target, msg_name)
+                    cur_round, self.miner_id, target, msg_name)
             sending_msgs = self._channel_states[target] 
             self._channel_states[target] = _IDLE
             for msg in sending_msgs:
-                self._output_queues[target].insert(0, msg)
-            # self._output_queues[target].insert(0, sending_msgs)
+                if isinstance(msg, tuple):
+                    resent_msg = (msg[0], rest_delay)
+                else:
+                    resent_msg = msg if rest_delay is None else (msg, rest_delay)
+                self._output_queues[target].insert(0, resent_msg)
             return
