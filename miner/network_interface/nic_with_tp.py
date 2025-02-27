@@ -194,7 +194,7 @@ class NICWithTp(NetworkInterface):
         inv = INVMsg(self.miner_id, target, msg, isFullChain=False)
         getDataReply  = self.send_inv(inv, round)
         logger.info("round%d, M%d->M%d: %s require: %s", round, 
-                    self.miner_id, target, msg.name, getDataReply.isRequired)
+                    self.miner_id, target, msg.name if isinstance(msg, Block) else msg, getDataReply.isRequired)
         return getDataReply.isRequired
     
     def gossip_full_chain(self, target:int, round:int):
