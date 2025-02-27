@@ -23,6 +23,10 @@ class NetworkInterface(metaclass=ABCMeta):
         self._network:Network = None
         self._receive_buffer:list[Packet]  = []
         self._forward_buffer:dict[str, list[Block]] = {OUTER_RCV_MSG:[],SELF_GEN_MSG:[]}
+
+        self.inv_count = 0
+        self.sync_full_chain_count = 0
+        self.send_data_count = 0
     
     def clear_forward_buffer(self):
         self._forward_buffer[OUTER_RCV_MSG].clear()

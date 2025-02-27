@@ -412,6 +412,18 @@ class Environment(object):
             stats.update({
                 'block_propagation_times': ave_block_propagation_times
             })
+        inv_count = 0
+        sync_full_chain_count = 0
+        send_data_count = 0
+        for miner in self.miners:
+            inv_count += miner.NIC.inv_count
+            sync_full_chain_count += miner.NIC.sync_full_chain_count
+            send_data_count += miner.NIC.send_data_count
+        stats.update({
+            'inv_count': inv_count,
+            'sync_full_chain_count': sync_full_chain_count,
+            'send_data_count': send_data_count
+        })
         
         for k,v in stats.items():
             if type(v) is float:
@@ -460,7 +472,10 @@ class Environment(object):
         # Network Property
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)
-
+        if isinstance(self.network,network.TopologyNetwork) or isinstance(self.network,network.AdHocNetwork):
+            print('Count of INV interactions:', inv_count)
+            print('Count of full chain synchronization:', sync_full_chain_count)
+            print('Count of data sending:', send_data_count)
         return stats
 
     def view_and_write(self):

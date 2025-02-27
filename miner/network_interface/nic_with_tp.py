@@ -146,6 +146,8 @@ class NICWithTp(NetworkInterface):
                     if isinstance(msg, DataSegment)  else msg[0].name if isinstance(msg, tuple) else "other msg")
                 logger.info("round %d, M%d->M%d, try to send %s", round, self.miner_id, neighbor, msg_name)
                 if msg == SYNC_LOC_CHAIN:
+                    self.inv_count += 1
+                    self.sync_full_chain_count += 1
                     self.gossip_full_chain(neighbor, round)
                     while (len(self._output_queues[neighbor]) != 0 and 
                            self._output_queues[neighbor][0] == SYNC_LOC_CHAIN):
@@ -155,6 +157,7 @@ class NICWithTp(NetworkInterface):
                     msg = self._output_queues[neighbor].pop(0)
 
                 gossip_msg, rest_delay = msg if isinstance(msg, tuple) else (msg, None)
+                self.inv_count += 1
                 isMsgRequired = self.gossip_single_msg(neighbor, gossip_msg, round)
                 if not isMsgRequired:
                     continue
@@ -163,6 +166,7 @@ class NICWithTp(NetworkInterface):
                 
                 if isinstance(msg, DataSegment):
                     seg_nums = self.get_number_of_segments_to_send(self.miner_id, neighbor) - 1
+                    self.inv_count += 1
                     while (seg_nums > 0 and len(self._output_queues[neighbor]) > 0 and 
                            isinstance(self._output_queues[neighbor][0], DataSegment)):
                         send_msg = self._output_queues[neighbor].pop(0)
@@ -190,7 +194,6 @@ class NICWithTp(NetworkInterface):
         if not isinstance(msg, Block) and not isinstance(msg, DataSegment):
             return True
         # 通过inv询问对方是否需要该区块
-        
         inv = INVMsg(self.miner_id, target, msg, isFullChain=False)
         getDataReply  = self.send_inv(inv, round)
         logger.info("round%d, M%d->M%d: %s require: %s", round, 
@@ -283,6 +286,7 @@ class NICWithTp(NetworkInterface):
         """
         inv没问题后发送数据
         """
+        self.send_data_count += 1
         self._network.access_network(msgs, self.miner_id, round, target, sendTogether)
             
     def select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:list=None):
