@@ -299,7 +299,7 @@ class AdHocNetwork(Network):
         if self._enableLargeScaleFading == False:
             return 1
         d = self._dist_matrix[source, target]
-        bandwidth = self._bandwidthMax * (self._d0 / d) ** self._pathLossRate
+        bandwidth = self._bandwidthMax if d ==0 else self._bandwidthMax * (self._d0 / d) ** self._pathLossRate
         seg_num = np.ceil(bandwidth / global_var.get_segmentsize())
         # seg_num_max = self._bandwidthMax / global_var.get_segmentsize()
         # seg_num = np.ceil(np.maximum(1,seg_num_max - 10 * self._pathLossRate * np.log10(np.maximum(d, d0)/d0)))
