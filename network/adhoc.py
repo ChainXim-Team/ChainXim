@@ -405,7 +405,7 @@ class AdHocNetwork(Network):
 
     def init_node_pos(self):
         '''使用random_layout设置节点位置'''
-        self._node_pos = nx.random_layout(self._graph, seed=50)
+        self._node_pos = nx.random_layout(self._graph)
         # 将每个节点的位置信息向量化存储
         self._pos_matrix = np.array(list(self._node_pos.values()))
         self._dist_matrix = np.zeros((self._graph.number_of_nodes(), self._graph.number_of_nodes()),
