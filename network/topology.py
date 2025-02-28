@@ -228,8 +228,7 @@ class TopologyNetwork(Network):
             self._rcv_miners[link.get_block_msg_name()].append(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
-            logger.info("%s access network: M%d -> M%d, round %d", 
-                    msg.name, minerid, target, round)
+            logger.info("%s access network: M%d -> M%d, round %d", msg.name, minerid, target, round)
                 
     def inv_handler(self, new_msgs:list[Message]):
         """先处理inv消息"""
@@ -306,7 +305,7 @@ class TopologyNetwork(Network):
         if random.uniform(0, 1) > self._outage_prob:
             return outage
         # 链路中断返回ERR_OUTAGE错误
-        rest_delay = link.delay if self._enableResumeTransfer else None
+        rest_delay = link.delay + 1 if self._enableResumeTransfer else None # 加1表示本轮失败重传
         link.source_miner().NIC.get_reply(round, link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, rest_delay)
         outage = True   
         return outage
