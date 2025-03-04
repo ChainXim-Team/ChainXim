@@ -13,6 +13,9 @@ ChainXim is a blockchain simulator developed by XinLab to simulate and verify bl
 
 ## Quick Start
 ### 下载 Download
+
+
+
 可以下载ChainXim的压缩包后解压，或者克隆位于Gitee上的软件仓库
 
 可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://github.com/XinLab-SEU/ChainXim/archive/refs/heads/master.zip)
@@ -318,7 +321,7 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 | Throughput in MB (total) | =总区块吞吐量\*区块大小 |
 | Throughput of valid dataitems | 有效DataItem吞吐量 |
 | Throughput of valid dataitems in MB | 以MB计的有效DataItem吞吐量 |
-| Average dataitems per block | 每个区块的平均大小（平均DataItem数量*每个DataItem大小） |
+| Average dataitems per block | 每个区块的平均大小（平均DataItem数量\*每个DataItem大小） |
 | Input dataitem rate | DataItem的输入速率 |
 |common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）|
 |Consistency rate|一致性指标=common_prefix_pdf[0]|
@@ -450,14 +453,20 @@ Results/20230819-232107/
 
 每轮结束时，所有节点的本地链相对共同前缀的高度差以及其对Common Prefix PDF的影响如下图所示。下方时间轴是发生链尾切换事件的轮次，上x轴是区块高度/common prefix后的区块长度（suffix length），y轴是矿工ID。图中的热度值指代的是每个矿工本地链链尾与共同前缀的距离达到Suffix Length的累积次数。图中BXX指代区块编号，代表矿工在当前轮次本地链链尾的状态，下x轴指代这些区块所在的高度。点击Play开始播放动画，可以观察到区块在共同前缀的下一高度产生，然后扩散到其他矿工，最后导致共同前缀高度+1。
 
-<iframe  
- height=850 
- width=100% 
- src="doc/cp_pdf.html"  
- frameborder=0  
- allowfullscreen>
- </iframe>
+<style>
+	.iframe-body-sty{position: relative;overflow: hidden;height:850px;width: 850px;background-color: white;
+    transform: scale(0.8); transform-origin:0 0; margin-bottom: -170px}
+</style>
 
+<div class="iframe-body-sty">
+<iframe
+ height=850px
+ width=850px
+ src="doc/cp_pdf.html"  
+ frameborder=0 
+ display:block>
+ </iframe>
+</div>
 
 
 ### 不同区块大小下的分叉率、孤块率、吞吐量与一致性
