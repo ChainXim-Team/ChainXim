@@ -6,7 +6,7 @@ from functions import HASH_LEN, BYTE_ORDER
 
 logger = logging.getLogger(__name__)
 
-class PoWstrict(PoW):
+class SolidPoW(PoW):
     '''严格限制哈希率的PoW实现'''
     class BlockHead(PoW.BlockHead):
         '''适用于PoW共识协议的区块头'''

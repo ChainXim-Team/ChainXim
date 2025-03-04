@@ -87,7 +87,7 @@ class Environment(object):
         self.honest_miner_ids = [miner.miner_id for miner in self.miners if miner.miner_id not in adversary_ids]
 
         # configure oracles
-        if consensus_type_str == 'consensus.PoWstrict':
+        if consensus_type_str == 'consensus.SolidPoW':
             self.configure_oracles(consensus_param, adversary_ids)
 
         # set parameters for network
