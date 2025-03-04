@@ -9,9 +9,11 @@ ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockch
 
 目前已实现的共识协议（目前consensus_type配置的所有可选项）：
 
-| 共识类(派生自Consensus) | 说明           |
-| ----------------------- | -------------- |
-| consensus.PoW           | 工作量证明机制 |
+| 共识类(派生自Consensus) | 说明                                     |
+| ----------------------- | ---------------------------------------- |
+| consensus.PoW           | 工作量证明机制                           |
+| consensus.VirtualPoW    | 通过均匀分布随机数和出块概率模拟的工作量证明机制   |
+| consensus.SolidPoW      | 严格约束每轮哈希计算次数的工作量证明机制 |
 
 目前已实现的网络模型（目前network_type配置的所有可选项）：
 
@@ -70,6 +72,18 @@ ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全
 上表中，envir_create_global_chain初始化生成了一条全局区块链。此后，该链将作为上帝视角下的全局区块链树与全局最长合法链。
 主程序根据仿真参数初始化Environment对象，调用`exec`启动仿真循环，实现了论文中所述的随机预言方法与扩散方法,对于攻击者则需通过`attack_excute`调用相应接口。仿真结束后调用`view_and_write`统计并输出仿真结果。
 
+### DataItem机制
+
+DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 随机数。
+
+在system_config.ini中设置dataitem_enable=True之后，将启用DataItem机制。此时ChainXim将具备以下特性：
+
+1. TopologyNetwork和AdhocNetwork两大模型在仿真时将会按照区块中存储的DataItem数量计算区块大小以及相应的区块传播延迟。
+2. 评估阶段按照主链上所有区块的数据项数计算吞吐量
+3. 评估阶段可按照链上非法DataItem的比例评估攻击者的攻击效果（仅Environment中产生的DataItem合法，其余均为非法）
+
+目前的Environment中将在每个轮次为每个矿工提供`max_block_capacity`个DataItem，矿工需要在挖矿时将这些DataItem打包到区块中。一旦矿工产生了新区块，Environment将在下个轮次开始前生成新的DataItem供矿工使用，确保DataItem足以填满区块。
+
 
 ## 矿工 Miner
 Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其中定义的函数如下表所示：
@@ -103,7 +117,7 @@ BlockHead用于定义区块头中的数据，data.BlockHead为抽象基类，其
 | --------- | ---- | ------------------------------------------------------------ |
 | prehash   | bytes  | 前一区块的哈希                                               |
 | timestamp | int  | 创建区块时的时间戳                                           |
-| content   | Any  | 区块中承载的数据，在实际系统中一般为交易信息或Merkle Root |
+| content   | bytes | 区块中承载的数据，如果DataItem启用即为DataItem序列，如果DataItem禁用则默认为区块生成轮次 |
 | miner     | int  | 产生区块的矿工或攻击者的ID                                   |
 
 **注：由于本仿真器更加关心区块在网络中的传播情况，因此，对于区块链中存储的数据（交易，智能合约等），使用content属性对其进行抽象。**
@@ -964,11 +978,15 @@ eclipse与HonestMining等攻击不同，其需要依托前面这三种攻击，�
 |average_block_time_total|总平均出块时间=总轮数/生成的区块总数|
 |block_throughput_total|总区块吞吐量=生成的区块总数/总轮数|
 |throughput_total_MB|=总区块吞吐量\*区块大小|
+|valid_dataitem_throughput|有效DataItem吞吐量|
+|block_average_size|每个区块的平均大小（平均DataItem数量*每个DataItem大小）|
+|input_dataitem_rate|DataItem的输入速率|
 |total_round|运行总轮数|
 |common_prefix_pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）|
 |consistency_rate|一致性指标=common_prefix_pdf[0]|
 |average_chain_growth_in_honest_miners'_chain|诚实矿工链长的平均增加值|
 |chain_quality_property|链质量字典，记录诚实节点和恶意节点的出块数目|
+|valid_dataitem_rate|有效的DataItem占全部链上DataItem的比例|
 |ratio_of_blocks_contributed_by_malicious_players|恶意节点出块占比|
 |upper_bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |block_propagation_times|区块传播时间（分布）|

@@ -12,6 +12,8 @@ Currently implemented consensus protocols (all options available for the consens
 | Consensus Class (Derived from Consensus) | Description       |
 | ---------------------------------------- | ----------------- |
 | consensus.PoW                            | Proof of Work     |
+| consensus.VirtualPoW                     | Proof of Work simulated by uniformly distributed random numbers and block generation probability |
+| consensus.SolidPoW                       | Proof of Work with strictly constrained hash calculations per round |
 
 Currently implemented network models (all options available for the network_type configuration):
 
@@ -72,6 +74,18 @@ Overall, the Environment component completes the construction of the overall mod
 In the table above, envir_create_global_chain initializes and generates a global blockchain. After that, this chain will serve as the global blockchain tree and the global longest valid chain from a global view.
 The main program initializes the Environment object according to the simulation parameters, calls `exec` to start the simulation loop, and implements the random oracle method and diffusion method described in the paper. For attackers, the corresponding attacking operations needs to be executed through `attack_excute`. After the simulation ends, `view_and_write` is called to collect and output the simulation results.
 
+### DataItem Mechanism
+
+DataItem is an abstraction of on-chain data, with a data structure of 4 bytes for generation round + 4 bytes for a random number.
+
+When `dataitem_enable=True` is set in `system_config.ini`, the DataItem mechanism will be enabled with the following features:
+
+1. The TopologyNetwork and AdhocNetwork models will calculate block size and corresponding block propagation delay based on the number of DataItems stored in the block during simulation.
+2. During the evaluation stage, throughput will be calculated based on the number of DataItems in all blocks in the main chain.
+3. During the evaluation stage, the attack efficacy of attackers can be assessed based on the proportion of invalid DataItems on the chain (only DataItems generated in the Environment are valid, all others are invalid).
+
+In the current Environment implementation, each miner will be provided with `max_block_capacity` DataItems in each round, and miners need to package these DataItems into blocks during mining. Once a miner generates a new block, the Environment will generate new DataItems for miners to use before the start of the next round, ensuring that DataItems are sufficient to fill the block.
+
 
 ## Miner
 
@@ -106,7 +120,7 @@ BlockHead is used to define the data in the block header. data.BlockHead is an a
 | --------- | ----- | ------------------------------------------------------------ |
 | prehash   | bytes | Hash of the previous block                                   |
 | timestamp | int   | Timestamp when the block was created                         |
-| content   | Any   | Data carried in the block, generally transaction information or Merkle Root in actual systems |
+| content   | bytes | The data carried in the block. If DataItem is enabled, it is a sequence of DataItems; if DataItem is disabled, it defaults to the block generation round |
 | miner     | int   | ID of the miner or attacker who generated the block          |
 
 **Note: Since this simulator focuses more on the propagation of blocks in the network, the data stored in the blockchain (transactions, smart contracts, etc.) is abstracted using the content attribute.**
@@ -959,11 +973,14 @@ The following is an explanation of the statistical parameters in `stat`, which c
 | num_of_valid_blocks | Total number of blocks in the main chain (main chain length) |
 | num_of_stale_blocks | Number of stale blocks (blocks not in the main chain) |
 | stale_rate | Stale block rate = number of stale blocks / total number of blocks |
-| num_of_forks | Number of forks (on the main chain) |
-| fork_rate | Fork rate = number of heights with forks on the main chain / main chain height |
-| average_block_time_main | Average block time on the main chain = total rounds / main chain length |
-| block_throughput_main | Block throughput on the main chain = main chain length / total rounds |
-| throughput_main_MB | = block throughput on the main chain * block size |
+| num_of_forks | Number of forks (in the main chain) |
+| fork_rate | Fork rate = number of heights with forks in the main chain / main chain height |
+| average_block_time_main | Average block time in the main chain = total rounds / main chain length |
+| block_throughput_main | Block throughput in the main chain = main chain length / total rounds |
+| throughput_main_MB | = block throughput in the main chain * block size |
+| valid_dataitem_throughput | Throughput of valid data items = valid DataItems in the main chain / total rounds |
+| block_average_size | Average size per block (average number of data items * size of each data item) |
+| input_dataitem_rate | Input rate of data items |
 | average_block_time_total | Total average block time = total rounds / total number of generated blocks |
 | block_throughput_total | Total block throughput = total number of generated blocks / total rounds |
 | throughput_total_MB | = total block throughput * block size |
@@ -972,6 +989,7 @@ The following is an explanation of the statistical parameters in `stat`, which c
 | consistency_rate | Consistency index = common_prefix_pdf[0] |
 | average_chain_growth_in_honest_miners'_chain | Average increase in the length of the chains of honest miners |
 | chain_quality_property | Chain quality dictionary, recording the number of blocks produced by honest nodes and malicious nodes |
+| valid_dataitem_rate | Ratio of dataitems contributed by malicious players = valid DataItems in the main chain / total number of DataItems in the main chain |
 | ratio_of_blocks_contributed_by_malicious_players | Proportion of blocks produced by malicious nodes |
 | upper_bound t/(n-t) | Upper bound of the proportion of blocks produced by malicious nodes (n is the total number of miners, t is the number of malicious miners) |
 | block_propagation_times | Block propagation time (distribution) |

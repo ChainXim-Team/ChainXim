@@ -266,8 +266,20 @@ Attack Execute Type: execute_sample1
 | outage_prob     | `--outage_prob 0.1`  | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
 | stat_prop_times | 无                   | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
 
+### DataItemSettings
+
+配置DataItem机制的参数
+
+| system_config           | 命令行示例                    | 类型 | 说明                                                         |
+| ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
+| dataitem_enable         | `--dataitem_enable=False`     | bool | 如果为True，将生成并包含在块中数据项。                       |
+| max_block_capacity      | `--max_block_capacity=10`     | int  | 块中可以包含的最大数据项数。max_block_capacity=0将禁用数据项机制。 |
+| dataitem_size           | `--dataitem_size=1`           | int  | 每个数据项的大小（以MB为单位）。                             |
+| dataitem_input_interval | `--dataitem_input_interval=0` | int  | 数据项输入的时间间隔（以轮次为单位）。dataitem_input_interval=0将启用全局数据项队列。 |
+
 
 ## 仿真器输出 Output
+
 仿真结束后会在终端打印仿真过程中全局链的统计数据。例：
 ```
 162 blocks are generated in 26682 rounds, in which 61 are stale blocks.
@@ -291,7 +303,7 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 
 终端显示的仿真结果含义如下：
 
-| 输出项目 | 解释 | 
+| 输出项目 | 解释 |
 | -------- | ------- |
 | Number of stale blocks  | 孤立区块数（不在主链中的区块数） |
 | Average chain growth in honest miners' chain | 诚实节点平均链长增长 |
@@ -304,9 +316,14 @@ Block propagation times: {0.1: 60.553, 0.2: 77.534, 0.4: 105.994, 0.5: 109.826, 
 | Average block time (total) | 总平均出块时间=总轮数/生成的区块总数 |
 | Block throughput (total) | 总区块吞吐量=生成的区块总数/总轮数 |
 | Throughput in MB (total) | =总区块吞吐量\*区块大小 |
+| Throughput of valid dataitems | 有效DataItem吞吐量 |
+| Throughput of valid dataitems in MB | 以MB计的有效DataItem吞吐量 |
+| Average dataitems per block | 每个区块的平均大小（平均DataItem数量*每个DataItem大小） |
+| Input dataitem rate | DataItem的输入速率 |
 |common prefix pdf|统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布）|
 |Consistency rate|一致性指标=common_prefix_pdf[0]|
 |Chain_Quality Property|诚实矿工和恶意矿工的出块总数|
+|Ratio of dataitems contributed by malicious players|= 主链上有效DataItem数量 / 主链上总DataItem数量 |
 |Ratio of blocks contributed by malicious players|恶意节点出块比例|
 |Upper Bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |Block propagation times|区块传播时间（分布）|
