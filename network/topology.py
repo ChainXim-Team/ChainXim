@@ -255,8 +255,8 @@ class TopologyNetwork(Network):
     
     def diffuse(self, round):
         '''传播过程分为接收和转发两个过程'''
-        self.receive_process(round)
         self.forward_process(round)
+        self.receive_process(round)
         if self._dynamic:
             self.topology_changing(round)
             
