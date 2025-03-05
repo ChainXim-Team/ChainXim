@@ -53,8 +53,6 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 清除矿工的input tape和communication tape
         for temp_miner in adver_list:
             temp_miner.clear_tapes()
-            # temp_miner.input_tape = []  # clear the input tape
-            # temp_miner._consensus._receive_tape = []  # clear the communication tape
 
     def adopt(self, honest_chain: Chain, adver_chain: Chain) -> Block:
         # Adversary adopts the newest chain based on tthe adver's chains
@@ -69,7 +67,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
 
     def upload(self,  adver_chain: Chain,
                current_miner: miner.Miner, round, adver_list: list[miner.Miner], fork_block: Block = None,
-               strategy = FLOODING, forward_target:list[miner.Miner] = None) -> Block:
+               strategy = FLOODING, forward_target:list = None, syncLocalChain = False) -> Block:
         # acceess to network
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
         upload_block_list = [adver_chain.get_last_block()]
@@ -94,13 +92,13 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                 adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)
         elif strategy == "SPEC_TARGETS":
             strategy = SPEC_TARGETS
-            forward_target = [miner.miner_id for miner in forward_target]
+            # forward_target = [miner.miner_id for miner in forward_target]
             for adver_miner in adver_list:
                 if adver_miner.miner_id != current_miner.miner_id:
-                    adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
+                    adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target,syncLocalChain=syncLocalChain)
                 else:
                     # adver_miner.forward(upload_block_list, SELF, strategy =strategy, spec_targets=forward_target)
-                    adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
+                    adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target,syncLocalChain=syncLocalChain)
                 
                 '''保证adverminer一定会收到'''
                 adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)

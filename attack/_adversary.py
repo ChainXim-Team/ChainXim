@@ -24,16 +24,6 @@ class Adversary(metaclass=ABCMeta):
         '''
         Adversary对象 成员变量初始化
         '''
-        '''
-        attackParam:dict={
-                'adver_num': 0,
-                'attack_type': 'HonestMining',
-                'adversaryIds': [0],
-                'network_type': network.TopologyNetwork,
-                'consensus_type': consensus.PoW,
-                'miner_list':[miner.Miner],
-            }
-            '''
         self.__adver_num: int = (args.get('adver_num') if args.get('adver_num') is not None \
                 else 0)
         
@@ -44,8 +34,6 @@ class Adversary(metaclass=ABCMeta):
         
         self.__adver_ids: list = list(args.get('adversary_ids')) if args.get('adversary_ids') is not None \
                 else []
-        
-        self.__network_type: network.Network = args.get('network_type')
 
         self.__miner_list: list[miner.Miner] = args.get('miner_list')
 
@@ -77,7 +65,7 @@ class Adversary(metaclass=ABCMeta):
                     adversary.set_adversary(True)
                     self.__adver_ids.append(adversary.miner_id)
         if 'Eclipse' in global_var.get_attack_execute_type():
-            self.__eclipsed_list: list[miner.Miner] = [self.__miner_list[i] for i in list(self.__attack_arg.get('eclipse_target'))]
+            self.__eclipsed_list = [self.__miner_list[i].miner_id for i in list(self.__attack_arg.get('eclipse_target'))]
         else:
             self.__eclipsed_list = None
         self.__adver_num = len(self.__adver_list)
@@ -85,10 +73,6 @@ class Adversary(metaclass=ABCMeta):
     
     def __consensus_q_init(self):
         # 初始化Adversary的共识
-        '''
-        adver_consensus_param = {'q_ave': self.q_adver, 'q_distr':'equal', 
-                                 'target': temp_miner.consensus.target}
-        '''
         self.__consensus_type.q = sum([attacker.consensus.q for attacker in self.__adver_list])
 
 
@@ -126,7 +110,7 @@ class Adversary(metaclass=ABCMeta):
     
     def get_eclipsed_ids(self):
         if self.__eclipsed_list:
-            return [m.miner_id for m in self.__eclipsed_list]
+            return [id for id in self.__eclipsed_list]
         else:
             return None
     '''
