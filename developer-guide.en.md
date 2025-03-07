@@ -656,6 +656,7 @@ Generate network topology and bandwidth between miners through a CSV file or ran
 | ave_degree (int)          | When the network generation method is 'rand', set the average degree of the topology                                                                                                    |
 | bandwidth_adv (float)    | Bandwidth between attackers, in MB/round                                                                                                            |
 | save_routing_graph (bool) | Whether to save the routing propagation graph of each message. It is recommended to turn it off when the network scale is large                                                                                        |
+|enable_resume_transfer (bool)|Whether to enable link interruption recovery. When enable_resume_transfer=True, after a link interruption, the sender will resend only the remaining messages; otherwise, it will resend the entire message. When a link is disconnected due to dynamic topology changes, if it recovers later, the entire message will be resent|
 
 **Interface Functions**:
 
@@ -740,6 +741,36 @@ Each message will be segmented before transmission, and each segment's transmiss
 | set_net_param   | \*args, \*\*kargs      | Set the above network parameters |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int       | Encapsulate new messages, miner id, and current round into Packet and add them to network_tape |
 | diffuse  | round:int    | Diffuse is divided into **receive_process** and **forward_process** |
+
+### Large-Scale Fading
+
+#### Fading Model
+
+In AdHoc networks, a large-scale fading model can be enabled to simulate path loss in real wireless networks. When enable_large_scale_fading=True, the system will calculate actual bandwidth based on the distance between nodes.
+
+The path loss model uses a logarithmic distance model:
+
+$L(d) = L(d_0)+10nlg(d/d_0)$
+
+Where d is the distance between nodes, d0 is the reference distance set to 1% of the communication range, and n is the path loss factor that can be set via path_loss_level (low: n=0.8, medium: n=1.0, high: n=1.2)
+
+Based on the path loss model, the actual bandwidth between nodes is calculated as:
+
+$B\left(d\right) = B\left(d_0\right)·10^{\left(L(d_0)-L(d)\right)/10} = B\left(d_0\right)·\left(d_0/d\right)^n$
+
+Where B(d0) is the bandwidth at reference distance d0 specified by bandwidth_max parameter, and B(d) is the actual bandwidth at distance d
+
+The segment_size is determined by bandwidth_max and communication range, set to communication_range/100*bandwidth_max. The number of segments that can be transmitted per round is calculated by rounding up the actual bandwidth divided by segment_size. When channel interruption occurs, all segments being transmitted will be interrupted.
+
+Large-scale fading performance reference:
+Comm_range = 30   (Reference distance: d0 = Comm_range/100)
+bandwidth_max = 30   (Bandwidth at the reference point)
+path_loss_level = low (n=0.8)
+<img src="doc/fading_08.png" alt="large_scale_fading" width="600" />
+path_loss_level = medium (n=1)
+<img src="doc/fading_10.png" alt="large_scale_fading" width="600" />
+path_loss_level = high (n=1.2)
+<img src="doc/fading_12.png" alt="large_scale_fading" width="600" />
 
 ## Attack
 Attackers perceive the environment, judge the current situation, and make attack decisions to execute the optimal attack strategy. Currently, the attacker part has not yet implemented dynamic decision-making, and the parameters in system_config.ini need to be modified before running the simulator to set different attack strategies. (Content will be updated after the eclipse attack is fully implemented)

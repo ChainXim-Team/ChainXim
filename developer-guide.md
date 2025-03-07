@@ -653,6 +653,7 @@ class PacketPVNet(Packet):
 | ave_degree (int)          | 网络生成方式为'rand'时，设置拓扑平均度                                                                                                    |
 | bandwidth_adv（float）    | 攻击者之间的带宽，单位MB/round                                                                                                            |
 | save_routing_graph (bool) | 是否保存各消息的路由传播图。建议网络规模较大时关闭                                                                                        |
+|enable_resume_transfer (bool)|是否开启链路中断恢复,当enable_resume_transfer=True时,链路发生中断后,发送方会重新发送剩余消息,否则会重新发送整个消息；而在链路因动态拓扑而断开时，若后续恢复仍然会重新发送整个消息|
 
 **接口函数**：
 
@@ -729,6 +730,9 @@ def forward_process(self, round):
 | comm_range(int)      | 节点通信距离，在通信距离内的两节点自动建立连接   |
 | move_variance(float) | 节点进行高斯随机游走时，指定xy坐标移动距离的方差 |
 | outage_prob(float)   | 链路中断概率                                     |
+| enable_large_scale_fading(bool) | 是否开启大尺度衰落，当开启时，segment_size将由衰落模型和bandwidth_max来确定 |
+| path_loss_level(str) | low/medium/high分别对应衰落系数为0.8/1/1.2 |
+| bandwidth_max(float) | MB/round；comm_range/100范围之内的带宽，即能达到的最大带宽 |
 
 **接口函数**：
 
@@ -738,7 +742,38 @@ def forward_process(self, round):
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int       |将新消息、矿工id和当前轮次封装成Packet，加入network_tape|
 | diffuse  | round:int    | diffuse分为**receive_process**和**forward_process**|
 
+### 大尺度衰落
+
+#### 衰落模型
+
+在AdHoc网络中，可以开启大尺度衰落模型来模拟真实无线网络中的路径损耗。当enable_large_scale_fading=True时,系统将根据节点间距离计算实际带宽。
+
+路径损耗模型采用对数距离模型:
+
+$L(d) = L(d_0)+10nlg(d/d_0)$
+
+其中，d为节点间距离，d0为参考距离,设为通信范围的1%，n为路径损耗因子,可通过path_loss_level设置（low: n=0.8, medium: n=1.0, high: n=1.2）
+
+基于路径损耗模型,节点间实际带宽计算公式为:
+
+$B\left(d\right) = B\left(d_0\right)·10^{\left(L(d_0)-L(d)\right)/10} = B\left(d_0\right)·\left(d_0/d\right)^n$
+
+其中，B(d0)为参考距离d0处的带宽,由bandwidth_max参数指定，B(d)为距离d处的实际带宽
+
+segment_size由bandwidth_max和通信距离决定，为通信距离/100*bandwidth_max。每轮可传输的分段数由实际带宽除以segment_size向上取整得到。当发生信道中断时,将中断当前传输的所有分段。
+
+大尺度衰落性能参考：
+Comm_range = 30   (Reference distance: d0 = Comm_range/100)
+bandwidth_max = 30   (Bandwidth at the reference point)
+path_loss_level = low (n=0.8)
+<img src="doc/fading_08.png" alt="large_scale_fading" width="600" />
+path_loss_level = medium (n=1)
+<img src="doc/fading_10.png" alt="large_scale_fading" width="600" />
+path_loss_level = high (n=1.2)
+<img src="doc/fading_12.png" alt="large_scale_fading" width="600" />
+
 ## 攻击层 Attack
+
 攻击者通过感知环境，判断当前形势并作出攻击行为判决，执行当前较优的攻击决策。目前，攻击者部分还未实现动态决策，需要在仿真器运行前修改system_config.ini中的参数以设置不同的攻击策略。（内容等日蚀攻击全部完善之后再继续更新）
 
 ### 攻击层与整体的交互逻辑
