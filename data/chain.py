@@ -380,7 +380,7 @@ class Chain(object):
                     q.append(i)
 
 
-    def CalculateStatistics(self, rounds):
+    def CalculateStatistics(self, rounds, honest_miner_ids: list[int]):
         # 统计一些数据
         stats = {
             "num_of_generated_blocks": -1,
@@ -396,7 +396,7 @@ class Chain(object):
             "average_block_time_total": 0,
             "block_throughput_total": 0,
             "throughput_total_MB": 0,
-            "double_spending_success_times": 0 # 添加的内容
+            "double_spending_success_times": 0
         }
         q = [self.head]
         while q:
@@ -408,10 +408,10 @@ class Chain(object):
             q.extend(nextlist)
 
 
-        mainchain_block = []
+        mainchain_block = set()
         current_block = self.last_block
         while current_block:
-            mainchain_block.append(current_block.name)
+            mainchain_block.add(current_block.name)
             current_block = current_block.parentblock
 
 
@@ -421,7 +421,7 @@ class Chain(object):
             stats["num_of_heights_with_fork"] += (len(last_block.next) > 1)
             if len(last_block.next) > 1:
                 for block in last_block.next:
-                    if block.isAdversaryBlock and block.name in mainchain_block:
+                    if block.blockhead.miner not in honest_miner_ids and block.name in mainchain_block:
                         stats["double_spending_success_times"] += 1
                         break
             last_block = last_block.parentblock

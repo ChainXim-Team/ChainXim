@@ -345,7 +345,7 @@ class Environment(object):
         # print("End of Global Tree", "")
 
         # Evaluation Results
-        stats = self.global_chain.CalculateStatistics(self.total_round)
+        stats = self.global_chain.CalculateStatistics(self.total_round, self.honest_miner_ids)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
