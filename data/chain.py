@@ -395,7 +395,8 @@ class Chain(object):
             "throughput_main_MB": 0,
             "average_block_time_total": 0,
             "block_throughput_total": 0,
-            "throughput_total_MB": 0
+            "throughput_total_MB": 0,
+            "double_spending_success_times": 0 # 添加的内容
         }
         q = [self.head]
         while q:
@@ -406,10 +407,23 @@ class Chain(object):
             nextlist = blocktmp.next
             q.extend(nextlist)
 
+
+        mainchain_block = []
+        current_block = self.last_block
+        while current_block:
+            mainchain_block.append(current_block.name)
+            current_block = current_block.parentblock
+
+
         last_block = self.last_block.parentblock
         while last_block:
             stats["num_of_forks"] += len(last_block.next) - 1
             stats["num_of_heights_with_fork"] += (len(last_block.next) > 1)
+            if len(last_block.next) > 1:
+                for block in last_block.next:
+                    if block.isAdversaryBlock and block.name in mainchain_block:
+                        stats["double_spending_success_times"] += 1
+                        break
             last_block = last_block.parentblock
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
