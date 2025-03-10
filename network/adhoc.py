@@ -139,11 +139,11 @@ class AdHocNetwork(Network):
         self._stat_prop_times = {}
         self._block_num_bpt = []
         # 结果保存路径
-        NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
-            f.write('[')
-            json.dump({"B0": {}}, f, indent=4)
-            f.write(']')
+        # NET_RESULT_PATH = global_var.get_net_result_path()
+        # with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
+        #     f.write('[')
+        #     json.dump({"B0": {}}, f, indent=4)
+        #     f.write(']')
 
 
     def set_net_param(self, init_mode = None, 
@@ -528,7 +528,7 @@ class AdHocNetwork(Network):
                 self._graph.add_edge(m1, m2)
         # 将攻击者集团的各个矿工相连
         for m1,m2 in itertools.combinations(range(self.MINER_NUM), 2):
-            if self._miners[m1].isAdversary and self._miners[m2].isAdversary:
+            if self._miners[m1]._isAdversary and self._miners[m2]._isAdversary:
                 if not self._graph.has_edge(m1, m2):
                     self._graph.add_edge(m1, m2)
         self.tp_adjacency_matrix = nx.adjacency_matrix(self._graph).todense()
@@ -633,7 +633,7 @@ class AdHocNetwork(Network):
         line_width = 3/self.MINER_NUM**0.5
         #nx.draw(self.network_graph, self.draw_pos, with_labels=True,
         #  node_size=node_size,font_size=30/(self.MINER_NUM)^0.5,width=3/self.MINER_NUM)
-        node_colors = ["red" if self._miners[n].isAdversary else '#1f78b4'  
+        node_colors = ["red" if self._miners[n]._isAdversary else '#1f78b4'  
                             for n,d in self._graph.nodes(data=True)]
         nx.draw_networkx_nodes(self._graph, pos = node_pos, 
                                 node_color = node_colors, node_size=node_size)
@@ -711,7 +711,7 @@ class AdHocNetwork(Network):
         # 处理节点颜色
         node_colors = []
         for n, d in route_graph.nodes(data=True):
-            if self._miners[n].isAdversary and n != origin_miner:
+            if self._miners[n]._isAdversary and n != origin_miner:
                 node_colors.append("red")
             elif n == origin_miner:
                 node_colors.append("green")

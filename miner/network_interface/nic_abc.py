@@ -44,7 +44,7 @@ class NetworkInterface(metaclass=ABCMeta):
                 msg = SYNC_LOC_CHAIN
             self._forward_buffer[SELF_GEN_MSG].append([msg, forward_strategy, spec_target])
             if (not self._network.withTopology and len(self._forward_buffer[SELF_GEN_MSG]) > 1 
-                and not self.miner.isAdversary):
+                and not self.miner._isAdversary):
                 raise ValueError("Each round, a miner can only put one message into the network.")
         elif msg_source_type == OUTER_RCV_MSG:
             self._forward_buffer[OUTER_RCV_MSG].append([msg, forward_strategy, spec_target])

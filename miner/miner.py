@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class Miner(object):
     def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0, disable_dataitem_queue=False):
         self.miner_id = miner_id #矿工ID
-        self.isAdversary = False
+        self._isAdversary = False
         #共识相关
         self.consensus:Consensus = for_name(
             global_var.get_consensus_type())(miner_id, consensus_params)# 共识
@@ -53,12 +53,12 @@ class Miner(object):
         self.NIC.nic_join_network(network)
         
         
-    def set_adversary(self, isAdversary:bool):
+    def set_adversary(self, _isAdversary:bool):
         '''
         设置是否为对手节点
-        isAdversary=True为对手节点
+        _isAdversary=True为对手节点
         '''
-        self.isAdversary = isAdversary
+        self._isAdversary = _isAdversary
     
     
     def receive(self, msg: Message):
@@ -66,7 +66,7 @@ class Miner(object):
         rcvSuccess = self.consensus.receive_filter(msg)
         if not rcvSuccess:
             return rcvSuccess
-        if (not self.isAdversary or (self.isAdversary and 'Eclipse' not in global_var.get_attack_execute_type())):
+        if (not self._isAdversary or (self._isAdversary and 'Eclipse' not in global_var.get_attack_execute_type())):
             self.forward([msg], OUTER_RCV_MSG)
         return rcvSuccess
     
@@ -99,7 +99,7 @@ class Miner(object):
             msg_available 如果有新的消息产生则为True type:Bool
         '''
         new_msgs, msg_available = self.consensus.consensus_process(
-            self.isAdversary,input, round)
+            self._isAdversary,input, round)
         if new_msgs is not None:
             # new_msgs.append(Message("testMsg", 1))
             self.forward(new_msgs, SELF_GEN_MSG, syncLocalChain = True)

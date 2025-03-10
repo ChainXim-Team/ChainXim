@@ -10,11 +10,11 @@ import numpy as np
 import consensus
 import global_var
 import network
-from attack.adversary import Adversary
 from data import Block, Chain, LocalChainTracker
 from external import chain_growth, chain_quality, common_prefix, R, MAX_SUFFIX
 from functions import for_name, INT_LEN, BYTE_ORDER
 from miner import Miner, network_interface
+from attack.adversary import Adversary
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class Environment(object):
         CHAIN_DATA_PATH=global_var.get_chain_data_path()
         for miner in self.miners:
             with open(CHAIN_DATA_PATH / f'chain_data{str(miner.miner_id)}.txt','a') as f:
-                print(f"isAdversary: {miner.isAdversary}\n", file=f)
+                print(f"_isAdversary: {miner._isAdversary}\n", file=f)
         parameter_str = ('Parameters:\n' + 
             f'Miner Number: {self.miner_num} \n' + 
             f'Consensus Protocol: {consensus_type.__name__} \n' + 
@@ -220,7 +220,7 @@ class Environment(object):
                 miner.input_tape.append(("INSERT", inputfromz))
                 
                 # 攻击者
-                if miner.isAdversary:
+                if miner._isAdversary:
                     if adver_tmpflag == adverflag:
                         self.adversary.excute_per_round(round = round)
                     adver_tmpflag = adver_tmpflag + 1
@@ -351,7 +351,7 @@ class Environment(object):
         growth = 0
         num_honest = 0
         for i in range(self.miner_num):
-            if not self.miners[i].isAdversary:
+            if not self.miners[i]._isAdversary:
                 growth = growth + chain_growth(self.miners[i].consensus.local_chain)
                 num_honest = num_honest + 1
         growth = growth / num_honest

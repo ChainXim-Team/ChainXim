@@ -103,6 +103,7 @@ class TopologyNetwork(Network):
         self._outage_prob = 0
         self._show_label = False
         self._save_routing_graph = False
+        self._save_routing_history = False
 
         # 拓扑图，初始默认全不连接
         self._tp_adjacency = np.zeros((self.MINER_NUM, self.MINER_NUM))
@@ -148,6 +149,7 @@ class TopologyNetwork(Network):
                       stat_prop_times = None, 
                       show_label = None,
                       save_routing_graph = None,
+                      save_routing_history = None,
                       rand_mode = None):
         ''' 
         set the network parameters
@@ -197,6 +199,8 @@ class TopologyNetwork(Network):
             self._edgeAddProb = edge_add_prob
         if save_routing_graph is not None:
             self._save_routing_graph = save_routing_graph
+        if save_routing_history is not None:
+            self._save_routing_history = save_routing_history
         for rcv_rate in stat_prop_times:
             self._stat_prop_times.update({rcv_rate:0})
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -372,7 +376,7 @@ class TopologyNetwork(Network):
     
     def try_remove_edge(self,node1:int, node2:int, change_op:dict):
         removed = False
-        if self._miners[node1].isAdversary and self._miners[node2].isAdversary:
+        if self._miners[node1]._isAdversary and self._miners[node2]._isAdversary:
             return removed
         if random.uniform(0, 1) > self._edgeRemoveProb:
             return removed
@@ -409,7 +413,7 @@ class TopologyNetwork(Network):
                 
     def try_add_edge(self,node1:int, node2:int, change_op:dict, round):
         added = False
-        if self._miners[node1].isAdversary and self._miners[node2].isAdversary:
+        if self._miners[node1]._isAdversary and self._miners[node2]._isAdversary:
             return added
         if random.uniform(0, 1) > self._edgeAddProb:
             return added
@@ -457,11 +461,12 @@ class TopologyNetwork(Network):
                 self.save_specific_routing_process(packet.payload.name)
     
     def save_specific_routing_process(self, block_name:str):
-        with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', 
-                  encoding = 'utf-8') as f:
-            json.dump({block_name: self._routing_proc[block_name]},f)
-            self._routing_proc.pop(block_name)
-            f.write('\n')
+        if self._save_routing_history:
+            with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', 
+                    encoding = 'utf-8') as f:
+                json.dump({block_name: self._routing_proc[block_name]},f)
+                self._routing_proc.pop(block_name)
+                f.write('\n')
     
     def save_rest_routing_process(self):
         with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+', 
@@ -579,14 +584,14 @@ class TopologyNetwork(Network):
                 self._graph.add_edge(m1, m2)
         # 将攻击者集团的各个矿工相连
         for m1,m2 in itertools.combinations(range(self.MINER_NUM), 2):
-            if self._miners[m1].isAdversary and self._miners[m2].isAdversary:
+            if self._miners[m1]._isAdversary and self._miners[m2]._isAdversary:
                 if not self._graph.has_edge(m1, m2):
                     self._graph.add_edge(m1, m2)
         # 设置带宽（MB/round）
         bw_honest = self._bandwidth_honest
         bw_adv = self._bandwidth_adv
-        bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
-                      and self._miners[v].isAdversary else bw_honest)
+        bandwidths = {(u,v):(bw_adv if self._miners[u]._isAdversary
+                      and self._miners[v]._isAdversary else bw_honest)
                       for u,v in self._graph.edges}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
         self.tp_adjacency_matrix = nx.adjacency_matrix(self._graph).todense()
@@ -611,8 +616,8 @@ class TopologyNetwork(Network):
         # 设置带宽（MB/round）
         bw_honest = self._bandwidth_honest
         bw_adv = self._bandwidth_adv
-        bandwidths = {(u,v):(bw_adv if self._miners[u].isAdversary
-                      and self._miners[v].isAdversary else bw_honest)
+        bandwidths = {(u,v):(bw_adv if self._miners[u]._isAdversary
+                      and self._miners[v]._isAdversary else bw_honest)
                       for u,v in self._graph.edges}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
                     
@@ -704,7 +709,7 @@ class TopologyNetwork(Network):
         line_width = 3/self.MINER_NUM**0.5
         #nx.draw(self.network_graph, self.draw_pos, with_labels=True,
         #  node_size=node_size,font_size=30/(self.MINER_NUM)^0.5,width=3/self.MINER_NUM)
-        node_colors = ["red" if self._miners[n].isAdversary else '#1f78b4'  
+        node_colors = ["red" if self._miners[n]._isAdversary else '#1f78b4'  
                             for n,d in self._graph.nodes(data=True)]
         nx.draw_networkx_nodes(self._graph, pos = node_pos, 
                                 node_color = node_colors, node_size=node_size)
@@ -793,7 +798,7 @@ class TopologyNetwork(Network):
         # 处理节点颜色
         node_colors = []
         for n, d in route_graph.nodes(data=True):
-            if self._miners[n].isAdversary and n != origin_miner:
+            if self._miners[n]._isAdversary and n != origin_miner:
                 node_colors.append("red")
             elif n == origin_miner:
                 node_colors.append("green")

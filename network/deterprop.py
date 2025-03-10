@@ -21,14 +21,14 @@ class PacketPVNet(Packet):
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程记录
-        self.received_miners:list[int] = [source_id]
+        self.received_miners:set[int] = set([source_id])
         self.trans_process = {f'miner {source_id}': round}
         # 每轮都pop第一个，记录剩余的传播向量
         self.remain_prop_vector = copy.deepcopy(prop_vector)
 
     def update_trans_process(self, minerid:int, round):
         # if a miner received the message update the trans_process
-        self.received_miners.append(minerid)
+        self.received_miners.add(minerid)
         self.trans_process.update({f'miner {minerid}': round})
 
 class DeterPropNetwork(Network):
@@ -43,7 +43,7 @@ class DeterPropNetwork(Network):
         for m in self.miners:
             m.join_network(self)
         
-        self.adv_miners:list[Miner] = [m for m in self.miners if m.isAdversary]
+        self.adv_miners:list[Miner] = None
         self.network_tape:list[PacketPVNet] = []
         self.prop_vector:list = [0.2, 0.4, 0.6, 0.8, 1.0] # 默认值
 
@@ -66,6 +66,7 @@ class DeterPropNetwork(Network):
         if prop_vector is  not None and prop_vector[len(prop_vector)-1] == 1:
             self.prop_vector = prop_vector
             self.target_percents = prop_vector
+        self.adv_miners:list[Miner] = [m for m in self.miners if m._isAdversary]
         for rcv_rate in prop_vector:
             self.ave_block_propagation_times.update({rcv_rate:0})
             self.block_num_bpt = [0 for _ in range(len(prop_vector))]
@@ -109,12 +110,12 @@ class DeterPropNetwork(Network):
 
         """
         for msg in new_msg:
-            if not self.miners[minerid].isAdversary:
+            if not self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
                 self.network_tape.append(packet)
         
             # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
-            if self.miners[minerid].isAdversary:
+            if self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
@@ -147,7 +148,7 @@ class DeterPropNetwork(Network):
                 packet.update_trans_process(miner.miner_id, round)
                 self.record_block_propagation_time(packet, round)
                 # 如果一个adv收到，其他没收到的adv也立即收到
-                if not miner.isAdversary:
+                if not miner._isAdversary:
                     continue
                 not_rcv_advs = [m for m in self.adv_miners 
                                 if m.miner_id != miner.miner_id]
@@ -155,7 +156,7 @@ class DeterPropNetwork(Network):
                     adv_miner.NIC.nic_receive(packet)
                     packet.update_trans_process(adv_miner.miner_id, round)
                     self.record_block_propagation_time(packet, round)
-            if len(set(packet.received_miners)) == self.MINER_NUM:
+            if len(packet.received_miners) == self.MINER_NUM:
                 died_packets.append(i)
                 if not global_var.get_compact_outputfile():
                     self.save_trans_process(packet)
@@ -170,7 +171,7 @@ class DeterPropNetwork(Network):
         if not isinstance(packet.payload, Block):
             return
 
-        rn = len(set(packet.received_miners))
+        rn = len(packet.received_miners)
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):

@@ -20,7 +20,7 @@ class PacketBDNet(Packet):
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程相关
-        self.received_miners = [source_id]
+        self.received_miners:set[int] = set([source_id])
         # self.received_rounds = [round]
         self.trans_process_dict = {
             f'miner {source_id}': round
@@ -30,7 +30,7 @@ class PacketBDNet(Packet):
 
     def update_trans_process(self, minerid, round):
         # if a miner received the message update the trans_process
-        self.received_miners.append(minerid)
+        self.received_miners.add(minerid)
         # self.received_rounds = [round]
         self.trans_process_dict.update({
             f'miner {minerid}': round
@@ -48,7 +48,7 @@ class StochPropNetwork(Network):
         for m in self.miners:
             m.join_network(self)
 
-        self.adv_miners:list[Miner] = [m for m in miners if m.isAdversary]
+        self.adv_miners:list[Miner] = None
         self.network_tape:list[PacketBDNet] = []
         self.rcvprob_start = 0.25
         self.rcvprob_inc = 0.25
@@ -67,6 +67,7 @@ class StochPropNetwork(Network):
         """
         self.rcvprob_start = rcvprob_start
         self.rcvprob_inc = rcvprob_inc
+        self.adv_miners:list[Miner] = [m for m in self.miners if m._isAdversary]
         for rcv_rate in stat_prop_times:
             self.stat_prop_times.update({rcv_rate:0})
             self.block_num_bpt = [0 for _ in range(len(stat_prop_times))]
@@ -97,7 +98,7 @@ class StochPropNetwork(Network):
 
         """
         for msg in new_msg:
-            if not self.miners[minerid].isAdversary:
+            if not self.miners[minerid]._isAdversary:
                 packet = PacketBDNet(msg, minerid, round, self.rcvprob_start, self)
                 self.network_tape.append(packet)
             else:
@@ -126,13 +127,12 @@ class StochPropNetwork(Network):
                             if m.miner_id not in packet.received_miners]
             # 不会重复传给某个矿工
             for miner in not_rcv_miners:
-                if (miner.miner_id not in packet.received_miners and
-                    self.is_recieved(packet.recieve_prob)):
+                if self.is_recieved(packet.recieve_prob):
                     packet.update_trans_process(miner.miner_id, round)
                     miner.NIC.nic_receive(packet)
                     self.record_block_propagation_time(packet, round)
                     # 如果一个adv收到，其他adv也立即收到
-                    if not miner.isAdversary:
+                    if not miner._isAdversary:
                         continue
                     not_rcv_adv_miners = [m for m in self.adv_miners
                                         if m.miner_id != miner.miner_id]
@@ -144,7 +144,7 @@ class StochPropNetwork(Network):
             if packet.recieve_prob < 1:
                 packet.recieve_prob += self.rcvprob_inc
             # 如果所有人都收到了，就丢弃该包
-            if len(set(packet.received_miners)) == self.MINER_NUM:  
+            if len(packet.received_miners) == self.MINER_NUM:  
                 died_packets.append(i)
                 if not global_var.get_compact_outputfile():
                     self.save_trans_process(packet)
@@ -162,7 +162,7 @@ class StochPropNetwork(Network):
         if not isinstance(packet.payload, Block):
             return
 
-        rn = len(set(packet.received_miners))
+        rn = len(packet.received_miners)
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):

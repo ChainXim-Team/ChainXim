@@ -68,15 +68,15 @@ class AtomizationBehavior(aa.AtomizationBehavior):
     def upload(self,  adver_chain: Chain,
                current_miner: miner.Miner, round, adver_list: list[miner.Miner], fork_block: Block = None,
                strategy = FLOODING, forward_target:list = None, syncLocalChain = False) -> Block:
-        # acceess to network
+        # 强制向所有攻击者的邻居发送攻击者链
         # network.access_network([adver_chain.last_block], current_miner.miner_id, round)
         upload_block_list = [adver_chain.get_last_block()]
         # upload_block_list 不能有重复元素 必须是有前指关系 item0->item1->item2->....
         if fork_block != None: 
-            cur = upload_block_list[0]
+            cur = upload_block_list[0].parentblock
             while(cur != None and cur.blockhash != fork_block.blockhash):
-                cur = cur.parentblock
                 upload_block_list.append(cur)
+                cur = cur.parentblock
 
         # upload_block = adver_chain.get_last_block()
         # miner_list
@@ -111,7 +111,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 以下是attack模块攻击者挖矿部分的思路及原因
         # 这里注意到如果调用 miner 自身的 mining 函数, 其使用的是 miner 自身的链以及 miner 自身的 q 
         # 因此为了能方便后续使用者便于书写attack模块, 在 attack 模块中的初始化部分替换 miner 的这两部分内容
-        # 特别提醒： Miner_ID 和 isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
+        # 特别提醒： Miner_ID 和 _isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
         #self.atlog['current_miner'] = self.current_miner.Miner_ID
         adm_newblock, mine_success = consensus.mining_consensus(
                 miner_id = current_miner.consensus.miner_id_bytes, isadversary=True, x=miner_input, round=round)

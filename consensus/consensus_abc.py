@@ -63,7 +63,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         return True
 
     def has_received(self,msg:data.Message):
-        if isinstance(msg, data.Block):
+        if isinstance(msg, self.Block):
             if msg in self._receive_tape:
                 return True
             if block_list := self._block_buffer.get(msg.blockhead.prehash, None):

@@ -90,7 +90,7 @@ class PoW(Consensus):
         new_update = False  # 有没有更新
         chain_update = []
         for incoming_block in self._receive_tape:
-            if not isinstance(incoming_block, Consensus.Block):
+            if type(incoming_block) is not self.Block:
                 continue
             if self.valid_block(incoming_block):
                 prehash = incoming_block.blockhead.prehash

@@ -110,10 +110,11 @@ class Chain(object):
         else:
             return self.get_last_block().get_height()
 
-    def add_blocks(self, blocks, insert_point:Block=None):
+    def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None):
         # 添加区块的功能 (深拷贝*)
         # item是待添加的内容 可以是list[Block]类型 也可以是Block类型
         # 即可以批量添加也可以只添加一个区块
+        # 批量添加时blocks按顺序构成哈希链，第一个区块是最新区块
         # inset_point 是插入区块的位置 从其后开始添加 默认为最深链
         '''
         添加区块的功能不会考虑区块前后的hash是否一致
@@ -121,12 +122,29 @@ class Chain(object):
         数据层只负责添加
         '''
         add_block_list:list[Block]=[]
-        if isinstance(blocks,Block):
-            add_block_list.append(copy.deepcopy(blocks))
-        else:
-            add_block_list.extend(copy.deepcopy(blocks))
         if insert_point is None:
-            insert_point = self.get_last_block()
+            if isinstance(blocks,Block):
+                insert_point = self.search_block_by_hash(blocks.blockhead.prehash)
+                if (cur2add := self.search_block(blocks)) is not None:
+                    return cur2add
+                add_block_list.append(copy.deepcopy(blocks))
+            else:
+                insert_point = self.search_block_by_hash(blocks[-1].blockhead.prehash)
+                checklist = copy.copy(blocks)
+                while checklist:
+                    cur2add = checklist.pop()
+                    # 寻找第一个不在链中的区块
+                    if (local_block := self.search_block(cur2add)) is not None:
+                        insert_point = local_block
+                    else:
+                        checklist.append(cur2add)
+                        break
+                add_block_list.extend(copy.deepcopy(checklist))
+        else:
+            if isinstance(blocks,Block):
+                add_block_list.append(copy.deepcopy(blocks))
+            else:
+                add_block_list.extend(copy.deepcopy(blocks))
 
         # 处理特殊情况
             # 如果当前区块为空 添加blocklist的第一个区块
