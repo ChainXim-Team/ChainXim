@@ -24,7 +24,7 @@ class Miner(object):
         self.input_tape = []
         self.round = -1
         #网络接口
-        self.NIC:NetworkInterface =  None
+        self._NIC:NetworkInterface =  None
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
         if self.max_block_capacity > 0 and not disable_dataitem_queue:
@@ -47,10 +47,10 @@ class Miner(object):
     def join_network(self, network):
         """初始化网络接口"""
         if network.withTopology:
-            self.NIC = NICWithTp(self)
+            self._NIC = NICWithTp(self)
         else:
-            self.NIC = NICWithoutTp(self)
-        self.NIC.nic_join_network(network)
+            self._NIC = NICWithoutTp(self)
+        self._NIC.nic_join_network(network)
         
         
     def set_adversary(self, _isAdversary:bool):
@@ -88,7 +88,7 @@ class Miner(object):
         logger.info("M%d: forwarding %s, type %s, strategy %s", self.miner_id, 
                     str([msg.name for msg in msgs] if len(msgs)>0 else [""]), msg_source_type, forward_strategy)
         for msg in msgs:
-            self.NIC.append_forward_buffer(msg, msg_source_type, forward_strategy, spec_targets, syncLocalChain)
+            self._NIC.append_forward_buffer(msg, msg_source_type, forward_strategy, spec_targets, syncLocalChain)
 
     
     def launch_consensus(self, input, round):
@@ -138,8 +138,8 @@ class Miner(object):
         self.input_tape = []
         # clear the communication tape
         self.consensus._receive_tape = []
-        self.NIC._receive_buffer.clear()
-        # self.NIC.clear_forward_buffer()
+        self._NIC._receive_buffer.clear()
+        # self._NIC.clear_forward_buffer()
     
         
 

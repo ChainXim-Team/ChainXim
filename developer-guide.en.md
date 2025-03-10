@@ -100,7 +100,7 @@ The Miner component defines the miner class, which is used to create miners and 
 | launch_consensus  | input:any                                                      | Block\|None, bool | Start the consensus process, actually calling the `consensus_process` method in the consensus component, returning new messages `new_msg` (None if no new messages) and a flag `msg_available` indicating whether there are new messages |
 | BackboneProtocol  | round:int                                                      | Block\|None       | Operations performed by honest miners each round. First, receive information from the network (blockchain update), then call the mining function to try to generate a block. If the blockchain is updated (received a new block or generated a new block), return the new message to the environment component, otherwise return empty |
 
-Considering the scalability of the simulator, the functions defined by the miner component itself are actually very few. Most of the functions are defined in the consensus component and the environment component. This component actually serves as a bridge connecting various components. Miners can only interact with the network through the network interface `self.NIC:NetworkInterface`. The network interface calls the `receive` function to pass messages sent by other nodes to the current node, and the current node uses the `forward` function to send messages to the network interface layer, which then sends the messages to other nodes through the network layer.
+Considering the scalability of the simulator, the functions defined by the miner component itself are actually very few. Most of the functions are defined in the consensus component and the environment component. This component actually serves as a bridge connecting various components. Miners can only interact with the network through the network interface `self._NIC:NetworkInterface`. The network interface calls the `receive` function to pass messages sent by other nodes to the current node, and the current node uses the `forward` function to send messages to the network interface layer, which then sends the messages to other nodes through the network layer.
 
 ## Chain Data
 
@@ -263,7 +263,7 @@ The following diagram shows the call relationships between different modules and
 
 ![message-lifecycle](doc/message-lifecycle.svg)
 
-Notably, the six bold methods are worth attention. consensus_process calls mining_consensus to generate a block. The new block is added to the miner's forwarding queue via launch_consensus calling forward. When diffuse is called each round, Miner.NIC.nic_forward is called to send the block into the simulated network to start the simulation. When a miner receives a new block, diffuse calls the miner's receive method to receive the block (the received block is temporarily stored in the reception buffer _receive_tape). At the beginning of each round, local_state_update verifies the blocks in _receive_tape one by one and updates them to the target miner's local chain. Note that the specific forwarding and receiving process of messages may vary slightly for different network types (see the [Network](#Network) section for details).
+Notably, the six bold methods are worth attention. consensus_process calls mining_consensus to generate a block. The new block is added to the miner's forwarding queue via launch_consensus calling forward. When diffuse is called each round, Miner._NIC.nic_forward is called to send the block into the simulated network to start the simulation. When a miner receives a new block, diffuse calls the miner's receive method to receive the block (the received block is temporarily stored in the reception buffer _receive_tape). At the beginning of each round, local_state_update verifies the blocks in _receive_tape one by one and updates them to the target miner's local chain. Note that the specific forwarding and receiving process of messages may vary slightly for different network types (see the [Network](#Network) section for details).
 
 #### Block Generation and Propagation
 
@@ -434,12 +434,12 @@ def join_network(self, network):
     """Initialize the network interface"""
     if (isinstance(network, TopologyNetwork) or 
         isinstance(network, AdHocNetwork)):
-        self.NIC = NICWithTp(self)
+        self._NIC = NICWithTp(self)
     else:
-        self.NIC = NICWithoutTp(self)
+        self._NIC = NICWithoutTp(self)
     if isinstance(network, AdHocNetwork):
-        self.NIC.withSegments = True
-    self.NIC.nic_join_network(network)
+        self._NIC.withSegments = True
+    self._NIC.nic_join_network(network)
 ```
 The miner sends messages generated during the consensus process (currently only blocks) to the network through this NIC instance; the network also sends blocks being propagated to the target miner through this NIC instance.
 Depending on the type of network, networks can be divided into two categories: abstract networks without topology information (SynchronousNetwork, StochPropNetwork, DeterPropNetwork) and realistic networks with topology information (TopologyNetwork, AdHocNetwork). Correspondingly, Network Interfaces are divided into two categories: `NICWithoutTp` and `NICWithTp`. Both types of network interfaces inherit from the abstract base class `NetworkInterface`. Before specifically introducing the network interfaces, let's first introduce some constants predefined in `./miner/_consts.py`.
@@ -685,8 +685,8 @@ def receive_process(self,round):
         if link.delay > 0:
             continue
         # Link propagation completed, target receives the packet
-        link.target_miner().NIC.nic_receive(link.packet)
-        link.source_miner().NIC.get_reply(
+        link.target_miner()._NIC.nic_receive(link.packet)
+        link.source_miner()._NIC.get_reply(
             link.get_block_msg_name(),link.target_id(), None, round)
         dead_links.append(i)
     # Clean up links that have finished propagation
@@ -703,7 +703,7 @@ def receive_process(self,round):
 def forward_process(self, round):
     """Forward process"""
     for m in self._miners:
-        m.NIC.nic_forward(round)
+        m._NIC.nic_forward(round)
 ```
 
 **Other Important Functions**:

@@ -97,7 +97,7 @@ Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其
 | launch_consensus | input:any                                                    | Block\|None, bool | 开始共识过程，实际为调用consensus组件中的consensus_process方法，返回新消息new_msg（没有新消息则为None）以及是否有新消息的标识符msg_available |
 | BackboneProtocol | round:int                                                    | Block\|None       | 诚实矿工每轮次执行的操作。首先从网络中接收信息（区块链更新），其次调用挖矿函数尝试生成区块。如果区块链有更新（接收到新区块或产生了新区块），则将新消息返回给环境组件，否则返回空 |
 
-考虑到仿真器的拓展性，miner组件自身定义的函数实际是很少的，主要的函数都在consensus组件与environment组件中定义，该组件实际上为联系各组件的桥梁。miner只能通过网络接口`self.NIC:NetworkInterface`与网络进行交互，网络接口调用`receive`函数将其他节点发送的消息传递给当前节点，当前节点通过`forward`函数将要转发的消息发给网络接口层，网络接口层通过网络层将消息发送给其他节点。
+考虑到仿真器的拓展性，miner组件自身定义的函数实际是很少的，主要的函数都在consensus组件与environment组件中定义，该组件实际上为联系各组件的桥梁。miner只能通过网络接口`self._NIC:NetworkInterface`与网络进行交互，网络接口调用`receive`函数将其他节点发送的消息传递给当前节点，当前节点通过`forward`函数将要转发的消息发给网络接口层，网络接口层通过网络层将消息发送给其他节点。
 
 ## 区块链数据 Chain Data
 
@@ -259,7 +259,7 @@ def create_genesis_block(self, chain:Chain, blockheadextra:dict = None, blockext
 
 ![message-lifecycle](doc/message-lifecycle.svg)
 
-其中比较值得关注的是粗体的六个方法，consensus_process调用mining_consensus实现出块，新区块经由launch_consensus调用forward进入矿工的转发队列，每轮次diffuse被调用时会调用Miner.NIC.nic_forward使区块进入模拟网络开始仿真。在矿工接收到新区块时，diffuse调用该矿工的receive方法实现区块接收（接收到的区块暂存于接收缓冲区_receive_tape），local_state_update在每个轮次开始时逐个验证\_receive_tape中的区块并更新到目标矿工的本地链中。需要注意的是消息的具体转发、接收过程对于不同网络类型会略有不同，详见[网络](#网络-Network)一节）
+其中比较值得关注的是粗体的六个方法，consensus_process调用mining_consensus实现出块，新区块经由launch_consensus调用forward进入矿工的转发队列，每轮次diffuse被调用时会调用Miner._NIC.nic_forward使区块进入模拟网络开始仿真。在矿工接收到新区块时，diffuse调用该矿工的receive方法实现区块接收（接收到的区块暂存于接收缓冲区_receive_tape），local_state_update在每个轮次开始时逐个验证\_receive_tape中的区块并更新到目标矿工的本地链中。需要注意的是消息的具体转发、接收过程对于不同网络类型会略有不同，详见[网络](#网络-Network)一节）
 
 #### 区块产生与传播
 
@@ -431,12 +431,12 @@ def join_network(self, network):
     """初始化网络接口"""
     if (isinstance(network, TopologyNetwork) or 
         isinstance(network, AdHocNetwork)):
-        self.NIC = NICWithTp(self)
+        self._NIC = NICWithTp(self)
     else:
-        self.NIC = NICWithoutTp(self)
+        self._NIC = NICWithoutTp(self)
     if isinstance(network, AdHocNetwork):
-        self.NIC.withSegments = True
-    self.NIC.nic_join_network(network)
+        self._NIC.withSegments = True
+    self._NIC.nic_join_network(network)
 ```
 矿工将共识过程产生的消息（目前仅有区块）通过该NIC实例发送到网络中；而网络也通过该NIC实例，将正在传播的区块发送给目标矿工。
 根据网络的类型不同，可以将网络分为两类：不带拓扑信息的抽象网络（SynchronousNetwork、StochPropNetwork、DeterPropNetwork）和带拓扑信息的拟真网络（TopologyNetwork、AdHocNetwork）。对应将Network Interface分为两类：`NICWithoutTp`和`NICWithTp`。这两类网络接口都继承自抽象基类`NetworkInterface`。在具体介绍网络接口前，先介绍一些`./miner/_consts.py`中预先定义的一些常量。
@@ -682,8 +682,8 @@ def receive_process(self,round):
         if link.delay > 0:
             continue
         # 链路传播完成，target接收数据包
-        link.target_miner().NIC.nic_receive(link.packet)
-        link.source_miner().NIC.get_reply(
+        link.target_miner()._NIC.nic_receive(link.packet)
+        link.source_miner()._NIC.get_reply(
             link.get_block_msg_name(),link.target_id(), None, round)
         dead_links.append(i)
     # 清理传播结束的link
@@ -700,7 +700,7 @@ def receive_process(self,round):
 def forward_process(self, round):
     """转发过程"""
     for m in self._miners:
-        m.NIC.nic_forward(round)
+        m._NIC.nic_forward(round)
 ```
 
 **其他重要函数**：

@@ -107,7 +107,7 @@ class StochPropNetwork(Network):
                                     self.rcvprob_start, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.NIC.nic_receive(packet)
+                    miner._NIC.nic_receive(packet)
                 self.network_tape.append(packet)
 
 
@@ -118,7 +118,7 @@ class StochPropNetwork(Network):
         # 超过某轮后所有人收到
         # 一个人收到之后就不会再次收到这个数据包了
         for m in self.miners:
-            m.NIC.nic_forward(round)
+            m._NIC.nic_forward(round)
         if len(self.network_tape)==0:
             return
         died_packets = []
@@ -129,7 +129,7 @@ class StochPropNetwork(Network):
             for miner in not_rcv_miners:
                 if self.is_recieved(packet.recieve_prob):
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.NIC.nic_receive(packet)
+                    miner._NIC.nic_receive(packet)
                     self.record_block_propagation_time(packet, round)
                     # 如果一个adv收到，其他adv也立即收到
                     if not miner._isAdversary:
@@ -138,7 +138,7 @@ class StochPropNetwork(Network):
                                         if m.miner_id != miner.miner_id]
                     for adv_miner in not_rcv_adv_miners:
                         packet.update_trans_process(adv_miner.miner_id, round)
-                        adv_miner.NIC.nic_receive(packet)
+                        adv_miner._NIC.nic_receive(packet)
                         self.record_block_propagation_time(packet, round)
             # 更新recieve_prob
             if packet.recieve_prob < 1:

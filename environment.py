@@ -113,7 +113,7 @@ class Environment(object):
             parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
             # parameter_str += f'  (Eclipse: {self.adversary.get_eclipse()}) \n'
             parameter_str += f"  (Adversary's q: {self.adversary.get_adver_q()}) \n"
-        if isinstance(self.miners[0].NIC, network_interface.NICWithTp):
+        if isinstance(self.miners[0]._NIC, network_interface.NICWithTp):
             if self.dataitem_params['dataitem_enable']:
                 parameter_str += f'Dataitem Param: {dataitem_param} \n'
             else:
@@ -416,9 +416,9 @@ class Environment(object):
         sync_full_chain_count = 0
         send_data_count = 0
         for miner in self.miners:
-            inv_count += miner.NIC.inv_count
-            sync_full_chain_count += miner.NIC.sync_full_chain_count
-            send_data_count += miner.NIC.send_data_count
+            inv_count += miner._NIC.inv_count
+            sync_full_chain_count += miner._NIC.sync_full_chain_count
+            send_data_count += miner._NIC.send_data_count
         stats.update({
             'inv_count': inv_count,
             'sync_full_chain_count': sync_full_chain_count,

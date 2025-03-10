@@ -59,10 +59,10 @@ class SynchronousNetwork(Network):
         round (not use): The current round in the Envrionment.
         """
         for m in self.miners:
-            m.NIC.nic_forward(round)
+            m._NIC.nic_forward(round)
         if self.network_tape:
             for j in range(self.MINER_NUM):
                 for packet in self.network_tape:
                     if j != packet.source:
-                        self.miners[j].NIC.nic_receive(packet)
+                        self.miners[j]._NIC.nic_receive(packet)
             self.clear_NetworkTape()

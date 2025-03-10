@@ -241,7 +241,7 @@ class TopologyNetwork(Network):
             return False
         inv = new_msgs[0]
         getDataReply = new_msgs[1]
-        getData = self._miners[inv.target].NIC.reply_getdata(inv)
+        getData = self._miners[inv.target]._NIC.reply_getdata(inv)
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
@@ -254,7 +254,7 @@ class TopologyNetwork(Network):
         bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
         transmision_delay = math.ceil(msg.size / bandwidth)
         # 时延=处理时延+传输时延
-        delay = self._miners[source].NIC.processing_delay + transmision_delay
+        delay = self._miners[source]._NIC.processing_delay + transmision_delay
         return delay
     
     def diffuse(self, round):
@@ -278,8 +278,8 @@ class TopologyNetwork(Network):
                 continue
             if link.delay > 0:
                 continue
-            link.target_miner().NIC.nic_receive(link.packet)
-            link.source_miner().NIC.get_reply(round,link.get_block_msg_name(),link.target_id(), None)
+            link.target_miner()._NIC.nic_receive(link.packet)
+            link.source_miner()._NIC.get_reply(round,link.get_block_msg_name(),link.target_id(), None)
             if self._rcv_miners[link.get_block_msg_name()][-1]!=-1:
                 self._rcv_miners[link.get_block_msg_name()].append(link.target_id())
                 self._routing_proc[link.get_block_msg_name()].append(
@@ -297,7 +297,7 @@ class TopologyNetwork(Network):
     def forward_process(self, round):
         """转发过程"""
         for m in self._miners:
-            m.NIC.nic_forward(round)
+            m._NIC.nic_forward(round)
 
     def link_outage(self, round:int, link:Link):
         """每条链路都有概率中断"""
@@ -310,7 +310,7 @@ class TopologyNetwork(Network):
             return outage
         # 链路中断返回ERR_OUTAGE错误
         rest_delay = link.delay + 1 if self._enableResumeTransfer else None # 加1表示本轮失败重传
-        link.source_miner().NIC.get_reply(round, link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, rest_delay)
+        link.source_miner()._NIC.get_reply(round, link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, rest_delay)
         outage = True   
         return outage
 
@@ -391,8 +391,8 @@ class TopologyNetwork(Network):
             nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
             return removed
         
-        self._miners[node1].NIC.remove_neighbor(node2)
-        self._miners[node2].NIC.remove_neighbor(node1)
+        self._miners[node1]._NIC.remove_neighbor(node2)
+        self._miners[node2]._NIC.remove_neighbor(node1)
         removed = True
 
         # 记录下拓扑变更操作
@@ -423,8 +423,8 @@ class TopologyNetwork(Network):
         # 设置带宽（MB/round）
         bandwidths = {(node1,node2):(self._bandwidth_honest)}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-        self._miners[node1].NIC.add_neighbor(node2, round)
-        self._miners[node2].NIC.add_neighbor(node1, round)
+        self._miners[node1]._NIC.add_neighbor(node2, round)
+        self._miners[node2]._NIC.add_neighbor(node1, round)
         # 记录下拓扑变更操作
         if "adds" not in list(change_op.keys()):
             change_op["adds"]=[[node1, node2]]
@@ -522,10 +522,10 @@ class TopologyNetwork(Network):
             
             # 邻居节点保存到各miner的neighbor_list中
             for minerid in list(self._graph.nodes):
-                self._miners[int(minerid)].NIC._neighbors = \
+                self._miners[int(minerid)]._NIC._neighbors = \
                     list(self._graph.neighbors(int(minerid)))
             for miner in self._miners:
-                miner.NIC.init_queues()
+                miner._NIC.init_queues()
                 
             # 结果展示和保存
             #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')

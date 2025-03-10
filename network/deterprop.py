@@ -119,7 +119,7 @@ class DeterPropNetwork(Network):
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
                 for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
                     packet.update_trans_process(miner.miner_id, round)
-                    miner.NIC.nic_receive(packet)
+                    miner._NIC.nic_receive(packet)
                 self.network_tape.append(packet)
 
 
@@ -132,7 +132,7 @@ class DeterPropNetwork(Network):
         round (int): The current round in the Envrionment.
         """
         for m in self.miners:
-            m.NIC.nic_forward(round)
+            m._NIC.nic_forward(round)
 
         if len(self.network_tape) == 0:
             return
@@ -144,7 +144,7 @@ class DeterPropNetwork(Network):
             for miner in rcv_miners:
                 if miner.miner_id in packet.received_miners:
                     continue
-                miner.NIC.nic_receive(packet)
+                miner._NIC.nic_receive(packet)
                 packet.update_trans_process(miner.miner_id, round)
                 self.record_block_propagation_time(packet, round)
                 # 如果一个adv收到，其他没收到的adv也立即收到
@@ -153,7 +153,7 @@ class DeterPropNetwork(Network):
                 not_rcv_advs = [m for m in self.adv_miners 
                                 if m.miner_id != miner.miner_id]
                 for adv_miner in not_rcv_advs:
-                    adv_miner.NIC.nic_receive(packet)
+                    adv_miner._NIC.nic_receive(packet)
                     packet.update_trans_process(adv_miner.miner_id, round)
                     self.record_block_propagation_time(packet, round)
             if len(packet.received_miners) == self.MINER_NUM:

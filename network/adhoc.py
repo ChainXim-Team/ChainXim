@@ -248,7 +248,7 @@ class AdHocNetwork(Network):
             return False
         inv = new_msgs[0]
         getDataReply = new_msgs[1]
-        getData = self._miners[inv.target].NIC.reply_getdata(inv)
+        getData = self._miners[inv.target]._NIC.reply_getdata(inv)
         for attr, value in getData.__dict__.items():
             setattr(getDataReply, attr, value)
         return True
@@ -271,8 +271,8 @@ class AdHocNetwork(Network):
                     dead_links.append(i)
                     continue
                 link.delay -= 1
-            rcv_states = link.target_miner().NIC.nic_receive(link.packet)
-            link.source_miner().NIC.get_reply(round, link.get_seg_names(), link.target_id(), None)
+            rcv_states = link.target_miner()._NIC.nic_receive(link.packet)
+            link.source_miner()._NIC.get_reply(round, link.get_seg_names(), link.target_id(), None)
             if isinstance(rcv_states, dict):
                 for block_name, rcv_state in rcv_states.items():
                     if rcv_state:
@@ -290,7 +290,7 @@ class AdHocNetwork(Network):
     def forward_process(self, round):
         """转发过程"""
         for m in self._miners:
-            m.NIC.nic_forward(round)
+            m._NIC.nic_forward(round)
 
     def get_number_of_segments_to_send(self, source, target):
         """返回需要发送的分片数量"""
@@ -314,7 +314,7 @@ class AdHocNetwork(Network):
         if random.uniform(0, 1) > self._outage_prob:
             return outage
         # 链路中断返回ERR_OUTAGE错误
-        link.source_miner().NIC.get_reply(round, link.get_seg_names(), link.target_id(), ERR_OUTAGE)
+        link.source_miner()._NIC.get_reply(round, link.get_seg_names(), link.target_id(), ERR_OUTAGE)
         outage = True
         return outage
     
@@ -364,8 +364,8 @@ class AdHocNetwork(Network):
             has_edge = node2 in self._graph._adj[node1]
             if within_range and not has_edge:
                 self._graph.add_edge(node1, node2)  # 在范围内且未连接则添加边
-                self._miners[node1].NIC.add_neighbor(node2, round)
-                self._miners[node2].NIC.add_neighbor(node1, round)
+                self._miners[node1]._NIC.add_neighbor(node2, round)
+                self._miners[node2]._NIC.add_neighbor(node1, round)
                 if change_op is not None:
                     if "adds" not in list(change_op.keys()):
                         change_op["adds"]=[[node1, node2]]
@@ -373,8 +373,8 @@ class AdHocNetwork(Network):
                         change_op["adds"].append([node1, node2])
             elif not within_range and has_edge:
                 self._graph.remove_edge(node1, node2)  # 超出范围且已连接则移除边
-                self._miners[node1].NIC.remove_neighbor(node2)
-                self._miners[node2].NIC.remove_neighbor(node1)
+                self._miners[node1]._NIC.remove_neighbor(node2)
+                self._miners[node2]._NIC.remove_neighbor(node1)
                 # 记录下拓扑变更操作
                 if change_op is not None:
                     if "removes" not in list(change_op.keys()):
@@ -500,9 +500,9 @@ class AdHocNetwork(Network):
             
             # 邻居节点保存到各miner的neighbor_list中
             for minerid in list(self._graph.nodes):
-                self._miners[int(minerid)].NIC._neighbors = list(
+                self._miners[int(minerid)]._NIC._neighbors = list(
                     self._graph.neighbors(int(minerid)))
-                self._miners[int(minerid)].NIC.init_queues()
+                self._miners[int(minerid)]._NIC.init_queues()
                 
             # 生成拓扑位置, 并根据位置更新连接    
             self.init_node_pos()
