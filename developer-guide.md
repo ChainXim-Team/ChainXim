@@ -760,16 +760,24 @@ $B\left(d\right) = B\left(d_0\right)·10^{\left(L(d_0)-L(d)\right)/10} = B\left(
 
 其中，B(d0)为参考距离d0处的带宽,由bandwidth_max参数指定，B(d)为距离d处的实际带宽
 
-segment_size由bandwidth_max和通信距离决定，为通信距离/100*bandwidth_max。每轮可传输的分段数由实际带宽除以segment_size向上取整得到。当发生信道中断时,将中断当前传输的所有分段。
+segment_size由bandwidth_max和通信距离（Comm_range）决定，为`通信距离/100*bandwidth_max`。每轮可传输的分段数由实际带宽除以segment_size向上取整得到。当发生信道中断时,将中断当前传输的所有分段。
 
 大尺度衰落性能参考：
+
 Comm_range = 30   (Reference distance: d0 = Comm_range/100)
+
 bandwidth_max = 30   (Bandwidth at the reference point)
+
 path_loss_level = low (n=0.8)
+
 <img src="doc/fading_08.png" alt="large_scale_fading" width="600" />
+
 path_loss_level = medium (n=1)
+
 <img src="doc/fading_10.png" alt="large_scale_fading" width="600" />
+
 path_loss_level = high (n=1.2)
+
 <img src="doc/fading_12.png" alt="large_scale_fading" width="600" />
 
 ## 攻击层 Attack

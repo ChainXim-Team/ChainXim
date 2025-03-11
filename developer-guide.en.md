@@ -760,16 +760,24 @@ $B\left(d\right) = B\left(d_0\right)·10^{\left(L(d_0)-L(d)\right)/10} = B\left(
 
 Where B(d0) is the bandwidth at reference distance d0 specified by bandwidth_max parameter, and B(d) is the actual bandwidth at distance d
 
-The segment_size is determined by bandwidth_max and communication range, set to communication_range/100*bandwidth_max. The number of segments that can be transmitted per round is calculated by rounding up the actual bandwidth divided by segment_size. When channel interruption occurs, all segments being transmitted will be interrupted.
+The segment_size is determined by bandwidth_max and communication range(Comm_range), set to `communication_range/100*bandwidth_max`. The number of segments that can be transmitted per round is calculated by rounding up the actual bandwidth divided by segment_size. When channel interruption occurs, all segments being transmitted will be interrupted.
 
 Large-scale fading performance reference:
+
 Comm_range = 30   (Reference distance: d0 = Comm_range/100)
+
 bandwidth_max = 30   (Bandwidth at the reference point)
+
 path_loss_level = low (n=0.8)
+
 <img src="doc/fading_08.png" alt="large_scale_fading" width="600" />
+
 path_loss_level = medium (n=1)
+
 <img src="doc/fading_10.png" alt="large_scale_fading" width="600" />
+
 path_loss_level = high (n=1.2)
+
 <img src="doc/fading_12.png" alt="large_scale_fading" width="600" />
 
 ## Attack
