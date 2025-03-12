@@ -111,6 +111,8 @@ class Chain(object):
             return self.get_last_block().get_height()
 
     def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None):
+        if blocks == None:
+            return
         # 添加区块的功能 (深拷贝*)
         # item是待添加的内容 可以是list[Block]类型 也可以是Block类型
         # 即可以批量添加也可以只添加一个区块
@@ -177,7 +179,6 @@ class Chain(object):
 
     def _add_block_forcibly(self, block: Block):
         # 该功能是强制将该区块加入某条链 一般不被使用与共识中
-        # 只会被globalchain调用 
         # 返回值：深拷贝插入完之后新插入链的块头
         # block 的 last必须不为none
         # 不会为block默认赋值 要求使用该方法必须给出添加的区块 否则提示报错
@@ -414,7 +415,9 @@ class Chain(object):
             "average_block_time_total": 0,
             "block_throughput_total": 0,
             "throughput_total_MB": 0,
-            "double_spending_success_times": 0
+            "double_spending_success_times": 0,
+            "double_spending_success_times_ver2": 0,
+            "attack_fail": 0
         }
         q = [self.head]
         while q:
@@ -442,6 +445,19 @@ class Chain(object):
                     if block.blockhead.miner not in honest_miner_ids and block.name in mainchain_block:
                         stats["double_spending_success_times"] += 1
                         break
+            last_block = last_block.parentblock
+
+        ## 第二种静态计算双花攻击成功的方法
+        last_block = self.last_block
+        attack_flag = False if last_block.blockhead.miner  in honest_miner_ids else True
+        last_block = self.last_block.parentblock
+        while last_block:
+            if len(last_block.next) > 1 and attack_flag:
+                attack_flag = False
+                stats["double_spending_success_times_ver2"] += 1
+                print(last_block.name)
+            if last_block.blockhead.miner not in honest_miner_ids and not attack_flag:
+                attack_flag = True
             last_block = last_block.parentblock
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
