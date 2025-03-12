@@ -123,7 +123,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             adver_list[0].forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
             for adver_miner in adver_list:
                 # '''保证adverminer一定会收到'''
-                adver_miner.consensus.local_chain.add_blocks(blocks=upload_block_list)
+                adver_miner.consensus.local_chain._add_block_forcibly(adver_chain.get_last_block())
         elif strategy == "SPEC_TARGETS":
             neighbors = {}
             for target in forward_target:
