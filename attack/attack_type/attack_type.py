@@ -24,11 +24,11 @@ class AttackType(metaclass=ABCMeta):
 
     def set_init(self, honest_chain: Chain, adver_list:list[miner.Miner], \
                 adver_consensus: consensus.Consensus, attack_arg:dict, \
-                    eclipsed_list:list[miner.Miner] = None):
+                    eclipsed_list_ids:list[int] = None):
         self.honest_chain: Chain = honest_chain
         self.adver_list: list[miner.Miner] = adver_list
         self.adver_list_ids: list[int] = [miner.miner_id for miner in self.adver_list]
-        self.eclipsed_list_ids: list[int] = [id_ for id_ in eclipsed_list] if eclipsed_list is not None else None
+        self.eclipsed_list_ids: list[int] = eclipsed_list_ids if eclipsed_list_ids is not None else None
         self.adver_consensus: consensus.Consensus = adver_consensus
         self.adver_chain: Chain = self.adver_consensus.local_chain
         self.attack_arg:dict = attack_arg
