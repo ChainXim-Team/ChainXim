@@ -41,7 +41,7 @@ class DeterPropNetwork(Network):
 
         self.miners:list[Miner] = miners
         for m in self.miners:
-            m.join_network(self)
+            m._join_network(self)
         
         self.adv_miners:list[Miner] = None
         self.network_tape:list[PacketPVNet] = []

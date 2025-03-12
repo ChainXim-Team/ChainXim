@@ -44,14 +44,17 @@ class Miner(object):
     def has_received(self, block:Message):
         return self.consensus.has_received(block)
 
-    def join_network(self, network):
+    def _join_network(self, network):
         """初始化网络接口"""
         if network.withTopology:
             self._NIC = NICWithTp(self)
         else:
             self._NIC = NICWithoutTp(self)
         self._NIC.nic_join_network(network)
-        
+    
+    @property
+    def neighbors(self):
+        return self._NIC._neighbors
         
     def set_adversary(self, _isAdversary:bool):
         '''
@@ -137,7 +140,7 @@ class Miner(object):
         # clear the input tape
         self.input_tape = []
         # clear the communication tape
-        self.consensus._receive_tape = []
+        self.consensus.receive_tape = []
         self._NIC._receive_buffer.clear()
         # self._NIC.clear_forward_buffer()
     

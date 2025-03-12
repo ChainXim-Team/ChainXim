@@ -40,13 +40,13 @@ class BlockHead(metaclass=ABCMeta):
 
 
 class Block(Message):
-    __slots__ = ['name', '__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
+    __slots__ = ['__name', '__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
     __omit_keys = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
         super().__init__(blocksize_MB)
-        self.name = name
+        self.__name = name
         self.__blockhead = blockhead
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
@@ -112,6 +112,10 @@ class Block(Message):
             if omk in var_dict:
                 del var_dict[omk]
         return '\n'+ _formatter(var_dict)
+
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def blockhead(self):

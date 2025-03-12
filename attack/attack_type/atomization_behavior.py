@@ -40,8 +40,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     imcoming_block_from_eclipse[block.blockhash] = block
 
                     # 从攻击节点的准进消息中剔除对应标记区块 防止二次处理
-                    if block in set(temp_miner.consensus._receive_tape):
-                        temp_miner.consensus._receive_tape.remove(block)
+                    if block in set(temp_miner.consensus.receive_tape):
+                        temp_miner.consensus.receive_tape.remove(block)
 
             
         input_tape = []
@@ -129,7 +129,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             for target in forward_target:
                 neighbors[target] = set()
             for i,adver_miner in enumerate(adver_list):
-                for nb in adver_miner._NIC._neighbors:
+                for nb in adver_miner.neighbors:
                     if nb in neighbors and len(neighbors[nb])<1:
                         neighbors[nb].add(i)
             for target in forward_target:
@@ -162,7 +162,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             # global_chain._add_block_forcibly(adm_newblock)
             # for temp_miner in miner_list:
             #     # 将新挖出的区块放在攻击者的receive_tape
-            #     temp_miner._consensus._receive_tape.append(adm_newblock)
+            #     temp_miner._consensus.receive_tape.append(adm_newblock)
 
         adm_newblock: Block
         return attack_mine, adm_newblock

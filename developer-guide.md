@@ -90,7 +90,7 @@ Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其
 
 | 函数             | 输入参数与类型                                               | 返回值类型        | 说明                                                         |
 | ---------------- | ------------------------------------------------------------ | ----------------- | ------------------------------------------------------------ |
-| join_network     | network:Network                                              | -                 | 在网络初始化时矿工加入网络，初始化网络接口                   |
+| _join_network     | network:Network                                              | -                 | 在网络初始化时矿工加入网络，初始化网络接口                   |
 | forward          | msgs:list[Message], msg_source_type:str, forward_strategy:str, spec_targets:list, syncLocalChain:bool | -                 | 通过网络接口层将消息转发给其他节点。 msgs需要转发的消息列表; msg_source_type消息来源类型, SELF_GEN_MSG表示由本矿工产生, OUTER_RCV_MSG表示由网络接收; forward_strategy 消息转发策略; spec_targets 如果forward_strategy为SPECIFIC, 则spec_targets为转发的目标节点列表; syncLocalChain 是否向邻居同步本地链，尽量在产生新区块时同步. |
 | set_adversary    | _isAdversary:bool                                             | -                 | 设置各矿工是否为攻击者                                       |
 | receive          | msg:message                                                  | bool              | 处理接收的信息，实际为调用consensus组件中的receive方法       |
@@ -181,7 +181,7 @@ Chain类具有多种方法，可以用于添加新区块、合并链、搜索区
 | 属性          | 类型  | 说明                                                         |
 | ------------- | ----- | ------------------------------------------------------------ |
 | local_chain   | Chain | 本地链，是某一矿工视角下的区块链，包含主链以及所有该矿工已知的分叉 |
-| _receive_tape | list  | 接收队列，区块到达矿工时被添加到接收队列中，矿工的回合结束后清空队列 |
+| receive_tape | list  | 接收队列，区块到达矿工时被添加到接收队列中，矿工的回合结束后清空队列 |
 | target        | bytes | PoW中哈希计算问题的目标值，当且仅当区块哈希值小于该目标值，区块有效 |
 | q             | int   | 单个矿工每轮次可计算哈希次数                                 |
 
@@ -317,8 +317,8 @@ Block对象的构造过程可参考“[共识协议与区块](#共识协议与�
             return self.receive_extra_message(msg)
     def receive_extra_message(self,extra_msg: ExtraMessage):
         if extra_msg_not_received_yet:
-            self._receive_tape.append(extra_msg)
-            random.shuffle(self._receive_tape) # 打乱接收顺序
+            self.receive_tape.append(extra_msg)
+            random.shuffle(self.receive_tape) # 打乱接收顺序
             return True
         else:
             return False
@@ -367,7 +367,7 @@ MyConsensus.local_state_update需要根据_receive_tape中缓存的Message对象
 
 ```python
     def local_state_update(self):
-        for incoming_block in self._receive_tape:
+        for incoming_block in self.receive_tape:
             if isinstance(incoming_block, Consensus.Block):# 处理Block
                 if not self.valid_block(incoming_block):
                     continue
@@ -427,7 +427,7 @@ from .myconsensus import MyConsensus
 在介绍网络模块之前，首先介绍网络接口，定义于`./miner/network_interface`，用于模拟网卡（NIC）的行为，作为矿工和网络之间交互的通道。在矿工初始化时并加入网络时，会根据网络类型在矿工中初始化一个NIC实例。
 
 ```python
-def join_network(self, network):
+def _join_network(self, network):
     """初始化网络接口"""
     if (isinstance(network, TopologyNetwork) or 
         isinstance(network, AdHocNetwork)):

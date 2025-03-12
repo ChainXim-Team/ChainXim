@@ -455,7 +455,6 @@ class Chain(object):
             if len(last_block.next) > 1 and attack_flag:
                 attack_flag = False
                 stats["double_spending_success_times_ver2"] += 1
-                print(last_block.name)
             if last_block.blockhead.miner not in honest_miner_ids and not attack_flag:
                 attack_flag = True
             last_block = last_block.parentblock

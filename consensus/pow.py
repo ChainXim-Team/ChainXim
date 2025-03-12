@@ -89,7 +89,7 @@ class PoW(Consensus):
         #   lastblock 最长链的最新一个区块
         new_update = False  # 有没有更新
         chain_update = []
-        for incoming_block in self._receive_tape:
+        for incoming_block in self.receive_tape:
             if type(incoming_block) is not self.Block:
                 continue
             if self.valid_block(incoming_block):

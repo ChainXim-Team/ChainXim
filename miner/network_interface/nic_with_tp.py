@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class NICWithTp(NetworkInterface):
     def __init__(self, miner) -> None:
         super().__init__(miner)
-        self._neighbors:list[int] = []
+        self._neighbors:tuple[int] = []
         # 暂存本轮收到的数据包
         self._segment_buffer:dict[set] = dict()
         # 输出队列(拓扑网络)
@@ -50,7 +50,7 @@ class NICWithTp(NetworkInterface):
             logger.warning("M%d: remove neighbour M%d Failed! not connected", 
                            self.miner_id, remove_id)
             return
-        self._neighbors = [n for n in self._neighbors if n != remove_id]
+        self._neighbors = tuple(n for n in self._neighbors if n != remove_id)
         if self._channel_states[remove_id] != _IDLE:
             disrupted_msgs = self._channel_states[remove_id]
             if self._network.withSegments:
@@ -71,7 +71,7 @@ class NICWithTp(NetworkInterface):
             logger.warning("M%d: add neighbour M%d Failed! already connected", 
                            self.miner.miner_id,add_id)
             return
-        self._neighbors.append(add_id)
+        self._neighbors += (add_id,)
         self._channel_states[add_id] = _IDLE
         if add_id not in self._output_queues.keys():
             self._output_queues[add_id] = []

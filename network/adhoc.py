@@ -99,7 +99,7 @@ class AdHocNetwork(Network):
 
         self._miners:list[Miner] = miners
         for miner in self._miners:
-            miner.join_network(self)
+            miner._join_network(self)
             
         # parameters, set by set_net_param()
         self._init_mode = None

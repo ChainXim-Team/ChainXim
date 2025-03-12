@@ -50,7 +50,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
         self.local_chain = data.Chain(miner_id)   # 维护的区块链
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
-        self._receive_tape:list[data.Message] = [] # 接收到的消息
+        self.receive_tape:list[data.Message] = [] # 接收到的消息
         self._block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
 
     def in_local_chain(self,block:data.Block):
@@ -64,7 +64,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
 
     def has_received(self,msg:data.Message):
         if isinstance(msg, self.Block):
-            if msg in self._receive_tape:
+            if msg in self.receive_tape:
                 return True
             if block_list := self._block_buffer.get(msg.blockhead.prehash, None):
                 for block in block_list:
@@ -83,8 +83,8 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         '''
         if self.has_received(rcvblock):
             return False
-        self._receive_tape.append(rcvblock)
-        random.shuffle(self._receive_tape)
+        self.receive_tape.append(rcvblock)
+        random.shuffle(self.receive_tape)
         return True
 
     def synthesize_fork(self, conjunction_block:data.Block):

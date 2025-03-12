@@ -22,7 +22,7 @@ class SynchronousNetwork(Network):
         
         self.miners:list[Miner] = miners
         for m in self.miners:
-            m.join_network(self)
+            m._join_network(self)
 
         # network_tape存储要广播的数据包和对应信息
         self.network_tape:list[PacketSyncNet] = []
