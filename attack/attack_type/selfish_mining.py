@@ -97,15 +97,9 @@ class SelfishMining(aa.AttackType):
                         # 否则等待至下一回合，进入match状态。
                         '''
                         此时局面应是一部分诚实矿工本地连为攻击链，一部分为诚实链。攻击者本地全部为攻击链。
+                        攻击者静等就行
                         '''
-                        block = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block) 
-                        # 攻击者依然进行“区块主张”，尽可能让一些诚实矿工的本地链为攻击链，因此还是每回合upload区块。
                         bh.wait()
-                        # 但本质行为逻辑是wait
                         self._log['state']='0#'
             else:
                 # 这时，攻击链比诚实链高，高多少不知道。什么状态也不确定。
