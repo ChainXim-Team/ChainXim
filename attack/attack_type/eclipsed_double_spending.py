@@ -37,6 +37,8 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._attack_success_detect: bool = False
         self._eclipse_block: Message = None # 记录 eclipse对象的newestblock状况
         self._eclipse_block_from: Message = None # 记录 eclipse最新区块的来源
+        self._syn_blocks: dict = {} # 记录 已向邻居同步过的区块
+
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -79,13 +81,6 @@ class EclipsedDoubleSpending(aa.AttackType):
                 if not from_block.isAdversaryBlock and from_block.blockhead.miner not in self.eclipsed_list_ids:
                     break
                 from_block = from_block.parentblock
-
-            # while(from_block != None 
-            #       and from_block.blockhash != self._fork_block.blockhash
-            #       and from_block.blockhead.miner in self.eclipsed_list_ids):
-            #     if not block.isAdversaryBlock and block.blockhead.miner not in self.eclipsed_list_ids:
-            #         break
-            #     block = block.parentblock
             from_block = from_block if from_block != None else self.adver_chain.head
             self._eclipse_block_from = from_block
         else:
@@ -118,22 +113,25 @@ class EclipsedDoubleSpending(aa.AttackType):
             if self._eclipse_block_from.isAdversaryBlock:
                 # 来源于adver 执行adopt
                 # 这里用add block 替代 
-                self.adver_chain.add_blocks(blocks=self._eclipse_block)
+                self.adver_chain._add_block_forcibly(self._eclipse_block)
             elif self._eclipse_block_from.blockhash == self._fork_block.blockhash:
                 # 来源于 fork 接受之 操作同上
-                self.adver_chain.add_blocks(blocks=self._eclipse_block)
+                self.adver_chain._add_block_forcibly(self._eclipse_block)
             else:
                 # 来源于 honest 放任之
                 pass
         elif eclipse_height < adver_height:
 
             # adver_height 高于 eclipse_height 强行将adver状态更新给ec
-            blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+            sync_block = self.adver_chain.get_last_block()
+            if sync_block.blockhash not in self._syn_blocks:
+                self._syn_blocks[sync_block.blockhash] = sync_block
+                blocks = bh.upload(adver_chain = self.adver_chain,
+                                    current_miner = current_miner, 
+                                    round = round,
+                                    adver_list = self.adver_list,
+                                    fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                    strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
             # 因为 ec_miner 更新过了所以要将 eclipse_block 更新为 adver
             self._eclipse_block = self.adver_chain.get_last_block()
             self._eclipse_block_from = self._eclipse_block
@@ -164,17 +162,20 @@ class EclipsedDoubleSpending(aa.AttackType):
             if attack_mine:
 
                 # 还处于确认当中 如果 adver 挖出来了 将区块共享给 ec
-                blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                sync_block = self.adver_chain.get_last_block()
+                if sync_block.blockhash not in self._syn_blocks:
+                    self._syn_blocks[sync_block.blockhash] = sync_block
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                        current_miner = current_miner, 
+                                        round = round,
+                                        adver_list = self.adver_list,
+                                        fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                        strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 # 因为 ec_miner 更新过了所以要将 eclipse_block 更新为 adver
                 self._eclipse_block = self.adver_chain.get_last_block()
                 self._eclipse_block_from = self._eclipse_block
 
-            self._log['behavior'] = 'conforming ' + str(honest_height - self._fork_height+1) + '/' +str(n)
+            self._log['behavior'] = 'conforming ' + str(honest_height - self._fork_height) + '/' +str(n)
         elif honest_height - self._fork_height >= n:
             # 从分叉起点开始 确认数以足够
             if honest_height - adver_height >= ng:
@@ -189,12 +190,15 @@ class EclipsedDoubleSpending(aa.AttackType):
                                          round = round) 
 
                 ### 与普通DB不同 adver 在同步之后 还要同步给 ec
-                blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                sync_block = self.adver_chain.get_last_block()
+                if sync_block.blockhash not in self._syn_blocks:
+                    self._syn_blocks[sync_block.blockhash] = sync_block
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                        current_miner = current_miner, 
+                                        round = round,
+                                        adver_list = self.adver_list,
+                                        fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                        strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 ### 同时更新掌握的eclipse状态
                 # 因为 adver 可能 mine 成功 因此用adver最末链更新状态
                 self._eclipse_block = self.adver_chain.get_last_block()
@@ -205,19 +209,6 @@ class EclipsedDoubleSpending(aa.AttackType):
                 self._log['behavior'] = 'adopt'
             elif adver_height > honest_height:
                 # 攻击链比诚实链长
-                # 立刻 upload
-                '''
-                这时是攻击成功
-                但为了保证一些意外情况
-                adver在upload时对外全声称self发布的 这样其他节点不会再回传
-                '''
-                blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
-                self._lastattackblock = self.adver_chain.get_last_block()
-
                 # 然后开挖
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
@@ -225,23 +216,25 @@ class EclipsedDoubleSpending(aa.AttackType):
                                          adver_chain = self.adver_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
-                if attack_mine:
-                    # 如果挖出来了 也立刻 upload
-                    blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
-                    self._lastattackblock = self.adver_chain.get_last_block()
 
-
-                # 这里还是对ec全面同步 防止upload未成功传递至ec_miner
                 blocks = bh.upload(adver_chain = self.adver_chain,
                                  current_miner = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
+                self._lastattackblock = self.adver_chain.get_last_block()
+
+
+                # 这里还是对ec全面同步 防止upload未成功传递至ec_miner
+                sync_block = self.adver_chain.get_last_block()
+                if sync_block.blockhash not in self._syn_blocks:
+                    self._syn_blocks[sync_block.blockhash] = sync_block
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                        current_miner = current_miner, 
+                                        round = round,
+                                        adver_list = self.adver_list,
+                                        fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                        strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 self._eclipse_block = self._lastattackblock
                 self._eclipse_block_from = self._eclipse_block
                 
@@ -276,12 +269,15 @@ class EclipsedDoubleSpending(aa.AttackType):
                     self._log['behavior'] = 'matching'
 
                 # 这里还是对ec全面同步 防止upload未成功传递至ec_miner
-                blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                sync_block = self.adver_chain.get_last_block()
+                if sync_block.blockhash not in self._syn_blocks:
+                    self._syn_blocks[sync_block.blockhash] = sync_block
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                        current_miner = current_miner, 
+                                        round = round,
+                                        adver_list = self.adver_list,
+                                        fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                        strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 self._eclipse_block = self._lastattackblock
                 self._eclipse_block_from = self._eclipse_block
 
@@ -296,16 +292,22 @@ class EclipsedDoubleSpending(aa.AttackType):
                                          round = round)
                 if attack_mine:
                     # 如果挖出来了要同步给 ec
-                    blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                    sync_block = self.adver_chain.get_last_block()
+                    if sync_block.blockhash not in self._syn_blocks:
+                        self._syn_blocks[sync_block.blockhash] = sync_block
+                        blocks = bh.upload(adver_chain = self.adver_chain,
+                                            current_miner = current_miner, 
+                                            round = round,
+                                            adver_list = self.adver_list,
+                                            fork_block= self._eclipse_block if self._eclipse_block != None else self.honest_chain.head,
+                                            strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                     self._eclipse_block = self.adver_chain.get_last_block()
                     self._eclipse_block_from = self._eclipse_block
 
                 self._log['behavior'] = 'matching'
+
+        self._log['eclipse_block'] = self._eclipse_block.name if self._eclipse_block != None else None
+        self._log['eclipse_from'] = self._eclipse_block_from.name if self._eclipse_block_from != None else None
 
     def clear_record_stage(self, round):
         bh = self.behavior
@@ -327,12 +329,21 @@ class EclipsedDoubleSpending(aa.AttackType):
 
         
     def info_getter(self, miner_num):
-
+        last_block = self.adver_list[0].consensus.local_chain.get_last_block()
+        attack_flag = False
+        success_times = 0
+        while last_block:
+            if last_block.blockhead.miner  in (self.adver_list_ids + self.eclipsed_list_ids) and not attack_flag:
+                attack_flag = True
+            if len(last_block.next) > 1 and attack_flag:
+                attack_flag = False
+                success_times += 1
+            last_block = last_block.parentblock
         rate, thr_rate = self.__success_rate(miner_num)
-        return {'Success Rate': '{:.4f}'.format(rate),
+        return {'Success Rate': '{:.4f}'.format(success_times/(self._log['success']+self._log['fail'])),
                 'Theory rate in SynchronousNetwork (consider eclipsed miners)': '{:.4f}'.format(thr_rate),
                 'Attack times': self._log['success']+self._log['fail'],
-                'Success times': self._log['success'],
+                'Success times': success_times,
                 'eclipsed ids': len(self.eclipsed_list_ids),
                 'Ng': self.attack_arg['Ng'],
                 'N': self.attack_arg['N'],
