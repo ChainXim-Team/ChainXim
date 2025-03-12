@@ -65,9 +65,9 @@ class Adversary(metaclass=ABCMeta):
                     adversary.set_adversary(True)
                     self.__adver_ids.append(adversary.miner_id)
         if 'Eclipse' in global_var.get_attack_execute_type():
-            self.__eclipsed_list = [self.__miner_list[i].miner_id for i in list(self.__attack_arg.get('eclipse_target'))]
+            self.__eclipsed_list_ids = [self.__miner_list[i].miner_id for i in list(self.__attack_arg.get('eclipse_target'))]
         else:
-            self.__eclipsed_list = None
+            self.__eclipsed_list_ids = None
         self.__adver_num = len(self.__adver_list)
         return self.__adver_list    
     
@@ -86,7 +86,7 @@ class Adversary(metaclass=ABCMeta):
                                     adver_list = self.__adver_list,
                                     adver_consensus = self.__consensus_type, 
                                     attack_arg = self.__attack_arg,
-                                    eclipsed_list = self.__eclipsed_list)
+                                    eclipsed_list_ids = self.__eclipsed_list_ids)
     '''
     相关值返回 构造器
     '''
@@ -109,8 +109,8 @@ class Adversary(metaclass=ABCMeta):
         return self.__consensus_type.q
     
     def get_eclipsed_ids(self):
-        if self.__eclipsed_list:
-            return [id for id in self.__eclipsed_list]
+        if self.__eclipsed_list_ids:
+            return self.__eclipsed_list_ids
         else:
             return None
     '''
