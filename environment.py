@@ -469,6 +469,22 @@ class Environment(object):
         if self.adversary.get_info():
             print('The simulation data of', self.adversary.get_attack_type_name() , 'is as follows', ':\n', self.adversary.get_info())
             stats.update(self.adversary.get_info())
+            print('Double spending success times:', stats["double_spending_success_times"])
+            print('Double spending success times (ver2):', stats["double_spending_success_times_ver2"])
+            if self.adversary.get_eclipsed_ids() is not None:
+                honest = set(self.honest_miner_ids) - set(self.adversary.get_eclipsed_ids())
+                last_block = self.global_chain.get_last_block()
+                attack_flag = False
+                success_times = 0
+                while last_block.parentblock:
+                    if last_block.blockhead.miner not in honest and not attack_flag:
+                        attack_flag = True
+                    last_block = last_block.parentblock
+                    if len(last_block.next) > 1 and attack_flag:
+                        attack_flag = False
+                        success_times += 1
+                    
+                print('Double spending success times (eclipsed):', success_times)
         # Network Property
         if not isinstance(self.network,network.SynchronousNetwork):
             print('Block propagation times:', ave_block_propagation_times)
