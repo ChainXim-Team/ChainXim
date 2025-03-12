@@ -127,26 +127,25 @@ class Chain(object):
         if insert_point is None:
             if isinstance(blocks,Block):
                 insert_point = self.search_block_by_hash(blocks.blockhead.prehash)
-                if (cur2add := self.search_block(blocks)) is not None:
-                    return cur2add
-                add_block_list.append(copy.deepcopy(blocks))
             else:
                 insert_point = self.search_block_by_hash(blocks[-1].blockhead.prehash)
-                checklist = copy.copy(blocks)
-                while checklist:
-                    cur2add = checklist.pop()
-                    # 寻找第一个不在链中的区块
-                    if (local_block := self.search_block(cur2add)) is not None:
-                        insert_point = local_block
-                    else:
-                        checklist.append(cur2add)
-                        break
-                add_block_list.extend(copy.deepcopy(checklist))
+            assert self.__is_empty() or insert_point is not None
+
+        if isinstance(blocks,Block):
+            if (cur2add := self.search_block(blocks)) is not None:
+                return cur2add
+            add_block_list.append(copy.deepcopy(blocks))
         else:
-            if isinstance(blocks,Block):
-                add_block_list.append(copy.deepcopy(blocks))
-            else:
-                add_block_list.extend(copy.deepcopy(blocks))
+            checklist = copy.copy(blocks)
+            while checklist:
+                cur2add = checklist.pop()
+                # 寻找第一个不在链中的区块
+                if (local_block := self.search_block(cur2add)) is not None:
+                    insert_point = local_block
+                else:
+                    checklist.append(cur2add)
+                    break
+            add_block_list.extend(copy.deepcopy(checklist))
 
         # 处理特殊情况
             # 如果当前区块为空 添加blocklist的第一个区块

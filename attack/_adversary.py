@@ -78,7 +78,6 @@ class Adversary(metaclass=ABCMeta):
 
     def __attack_type_init(self):
         self.honest_chain: Chain = copy.deepcopy(self.__global_chain)
-        self.honest_chain.add_blocks(blocks=[self.__global_chain.get_last_block()])
         '''
         拷贝全局链初始状态作为adver的初始诚实链
         '''
