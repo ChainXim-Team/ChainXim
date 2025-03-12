@@ -40,7 +40,9 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     imcoming_block_from_eclipse[block.blockhash] = block
 
                     # 从攻击节点的准进消息中剔除对应标记区块 防止二次处理
-                    temp_miner.consensus._receive_tape.remove(block)
+                    if block in set(temp_miner.consensus._receive_tape):
+                        temp_miner.consensus._receive_tape.remove(block)
+
             
         input_tape = []
         for temp_miner in adver_list:
