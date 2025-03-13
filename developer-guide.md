@@ -93,7 +93,7 @@ Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其
 | _join_network     | network:Network                                              | -                 | 在网络初始化时矿工加入网络，初始化网络接口                   |
 | forward          | msgs:list[Message], msg_source_type:str, forward_strategy:str, spec_targets:list, syncLocalChain:bool | -                 | 通过网络接口层将消息转发给其他节点。 msgs需要转发的消息列表; msg_source_type消息来源类型, SELF_GEN_MSG表示由本矿工产生, OUTER_RCV_MSG表示由网络接收; forward_strategy 消息转发策略; spec_targets 如果forward_strategy为SPECIFIC, 则spec_targets为转发的目标节点列表; syncLocalChain 是否向邻居同步本地链，尽量在产生新区块时同步. |
 | set_adversary    | _isAdversary:bool                                             | -                 | 设置各矿工是否为攻击者                                       |
-| receive          | msg:message                                                  | bool              | 处理接收的信息，实际为调用consensus组件中的receive方法       |
+| receive          | source:int, msg:Message                                     | bool              | 处理接收的信息，实际为调用consensus组件中的receive方法，同时在receive_history中记录msg的来源 |
 | launch_consensus | input:any                                                    | Block\|None, bool | 开始共识过程，实际为调用consensus组件中的consensus_process方法，返回新消息new_msg（没有新消息则为None）以及是否有新消息的标识符msg_available |
 | BackboneProtocol | round:int                                                    | Block\|None       | 诚实矿工每轮次执行的操作。首先从网络中接收信息（区块链更新），其次调用挖矿函数尝试生成区块。如果区块链有更新（接收到新区块或产生了新区块），则将新消息返回给环境组件，否则返回空 |
 

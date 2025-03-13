@@ -14,7 +14,7 @@ class NICWithoutTp(NetworkInterface):
         self._network = network
 
     def nic_receive(self, packet: Packet):
-        return self.miner.receive(packet.payload)
+        return self.miner.receive(packet.source, packet.payload)
 
     def nic_forward(self, round:int):
         if len(self._forward_buffer[SELF_GEN_MSG])==0:

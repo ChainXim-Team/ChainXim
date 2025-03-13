@@ -23,26 +23,16 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 根据消息来源确认coming block的上一跳
         if eclipse_list_ids is not None:
             for temp_miner in adver_list:
-                remove_block:dict[str,Block] = {}
-                
-                for i,incoming_packet in enumerate(temp_miner._NIC._receive_buffer):
-                    
-                    if incoming_packet.source in eclipse_list_ids and isinstance(incoming_packet.payload, network.DataSegment):
-                        # 如果是消息片段 判断片段来源 根据来源标记该区块
-                        remove_block[incoming_packet.payload.origin_block.blockhash] = incoming_packet.payload.origin_block
+                filtered_receive_tape = []
+                for i,incoming_block in enumerate(temp_miner.consensus.receive_tape):
+                    if not isinstance(incoming_block, Consensus.Block):
                         continue
-                    if incoming_packet.source in eclipse_list_ids and isinstance(incoming_packet.payload, Block):
+                    if temp_miner.receive_history[incoming_block.name] in eclipse_list_ids:
                         # 如果是消息区块 判断区块来源 根据来源标记该区块
-                        remove_block[incoming_packet.payload.blockhash] = incoming_packet.payload
-                
-                for k,block in remove_block.items():
-                    # 将从日蚀节点来源的区块记录下来
-                    imcoming_block_from_eclipse[block.blockhash] = block
-
-                    # 从攻击节点的准进消息中剔除对应标记区块 防止二次处理
-                    if block in set(temp_miner.consensus.receive_tape):
-                        temp_miner.consensus.receive_tape.remove(block)
-
+                        imcoming_block_from_eclipse[incoming_block.blockhash] = incoming_block
+                    else: # 从攻击节点的准进消息中剔除对应标记区块 防止二次处理
+                        filtered_receive_tape.append(incoming_block)
+                temp_miner.consensus.receive_tape = filtered_receive_tape
             
         input_tape = []
         for temp_miner in adver_list:

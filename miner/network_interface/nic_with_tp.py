@@ -84,8 +84,9 @@ class NICWithTp(NetworkInterface):
         '''处理接收到的消息, 直接调用miner.receive'''
         self._receive_buffer.append(packet)
         payload = packet.payload
+        source = packet.source
         if  not (isinstance(payload, list) and isinstance(payload[0], DataSegment)):
-            return self.miner.receive(payload)
+            return self.miner.receive(source, payload)
 
         rcv_states = {}
         def update_rcv_states(block_name, rcv_state):
@@ -108,7 +109,7 @@ class NICWithTp(NetworkInterface):
             #self._segment_buffer.pop(block_name)
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
-            update_rcv_states(seg.origin_block.name, self.miner.receive(seg.origin_block))
+            update_rcv_states(seg.origin_block.name, self.miner.receive(source, seg.origin_block))
         return rcv_states
     
     def forward_buffer_to_output_queue(self, msg_source_type):

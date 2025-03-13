@@ -40,13 +40,12 @@ class BlockHead(metaclass=ABCMeta):
 
 
 class Block(Message):
-    __slots__ = ['__name', '__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
+    __slots__ = ['__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
     __omit_keys = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
-        super().__init__(blocksize_MB)
-        self.__name = name
+        super().__init__(name, blocksize_MB)
         self.__blockhead = blockhead
         self.height = height
         self.blockhash = blockhead.calculate_blockhash()
@@ -62,7 +61,7 @@ class Block(Message):
         result = cls.__new__(cls)
         memo[id(self)] = result
 
-        slots = chain.from_iterable(getattr(s, '__slots__', []) for s in self.__class__.__mro__)
+        slots = chain.from_iterable((getattr(s, '__slots__', [])) for s in self.__class__.__mro__)
         for k in slots:
             if cls.__name__ == 'Block':
                 if k == 'next':
@@ -71,12 +70,14 @@ class Block(Message):
                 if k == 'parentblock':
                     setattr(result, k, None)
                     continue
-            if k.startswith('__'):
-                key = '_' + cls.__name__ + k
-                setattr(result, key, copy.deepcopy(getattr(self, key), memo))
+            if k == '__name':
+                key = '_Message__name'
+            elif k == '__blockhead':
+                key = '_Block__blockhead'
             else:
-                setattr(result, k, copy.deepcopy(getattr(self, k), memo))
-            
+                key = k
+            setattr(result, key, copy.deepcopy(getattr(self, key), memo))
+
         if var_dict := getattr(self, '__dict__', None):
             for k, v in var_dict.items():
                 setattr(result, k, copy.deepcopy(v, memo))
@@ -98,11 +99,13 @@ class Block(Message):
         slots = chain.from_iterable(getattr(s, '__slots__', []) for s in self.__class__.__mro__)
         var_dict = {}
         for k in slots:
-            if k.startswith('__'):
-                key = '_' + self.__class__.__name__ + k
-                var_dict[k] = getattr(self, key)
+            if k == '__name':
+                key = '_Message__name'
+            elif k == '__blockhead':
+                key = '_Block__blockhead'
             else:
-                var_dict[k] = getattr(self, k)
+                key = k
+            var_dict[k] = getattr(self, key)
 
         if hasattr(self, '__dict__'):
             var_dict.update(self.__dict__)
@@ -112,10 +115,6 @@ class Block(Message):
             if omk in var_dict:
                 del var_dict[omk]
         return '\n'+ _formatter(var_dict)
-
-    @property
-    def name(self):
-        return self.__name
 
     @property
     def blockhead(self):
