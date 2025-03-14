@@ -113,10 +113,10 @@ class EclipsedDoubleSpending(aa.AttackType):
             if self._eclipse_block_from.isAdversaryBlock:
                 # 来源于adver 执行adopt
                 # 这里用add block 替代 
-                self.adver_chain._add_block_forcibly(self._eclipse_block)
+                self.adver_chain.add_block_forcibly(self._eclipse_block)
             elif self._eclipse_block_from.blockhash == self._fork_block.blockhash:
                 # 来源于 fork 接受之 操作同上
-                self.adver_chain._add_block_forcibly(self._eclipse_block)
+                self.adver_chain.add_block_forcibly(self._eclipse_block)
             else:
                 # 来源于 honest 放任之
                 pass

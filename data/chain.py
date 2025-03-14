@@ -176,7 +176,7 @@ class Chain(object):
             self.set_last_block(cur2add)
         return cur2add
 
-    def _add_block_forcibly(self, block: Block):
+    def add_block_forcibly(self, block: Block):
         # 该功能是强制将该区块加入某条链 一般不被使用与共识中
         # 返回值：深拷贝插入完之后新插入链的块头
         # block 的 last必须不为none

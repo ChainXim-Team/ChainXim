@@ -231,7 +231,7 @@ class Environment(object):
                     # self.network.access_network(new_msgs,temp_miner.miner_id,round)
                     for msg in new_msgs:
                         if isinstance(msg, Block):
-                            self.global_chain._add_block_forcibly(msg)
+                            self.global_chain.add_block_forcibly(msg)
                 miner.clear_tapes()
                 
             # diffuse(C)

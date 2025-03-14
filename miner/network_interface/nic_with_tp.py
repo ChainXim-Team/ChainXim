@@ -1,5 +1,6 @@
 import logging
 import random
+from copy import deepcopy
 from collections import defaultdict
 import global_var
 
@@ -86,7 +87,7 @@ class NICWithTp(NetworkInterface):
         payload = packet.payload
         source = packet.source
         if  not (isinstance(payload, list) and isinstance(payload[0], DataSegment)):
-            return self.miner.receive(source, payload)
+            return self.miner.receive(source, deepcopy(payload))
 
         rcv_states = {}
         def update_rcv_states(block_name, rcv_state):
@@ -109,7 +110,7 @@ class NICWithTp(NetworkInterface):
             #self._segment_buffer.pop(block_name)
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
-            update_rcv_states(seg.origin_block.name, self.miner.receive(source, seg.origin_block))
+            update_rcv_states(seg.origin_block.name, self.miner.receive(source, deepcopy(seg.origin_block)))
         return rcv_states
     
     def __forward_buffer_to_output_queue(self, msg_source_type):

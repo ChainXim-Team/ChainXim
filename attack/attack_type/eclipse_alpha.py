@@ -83,7 +83,7 @@ class Eclipse(aa.AttackType):
         domain_flag = False
         if eclipse_height > adver_height:
             if self.__judge_block_from(self._eclipse_block).blockhead.miner in self.adver_list_ids:
-                self.adver_chain._add_block_forcibly(self._eclipse_block)
+                self.adver_chain.add_block_forcibly(self._eclipse_block)
             else:
                 pass
         elif eclipse_height < adver_height:
@@ -120,10 +120,10 @@ class Eclipse(aa.AttackType):
                                  miner_list = self.adver_list,
                                  fork_block = self._fork_block)
             for miner in self.adver_list:
-                miner.consensus.local_chain._add_block_forcibly(self.adver_chain.get_last_block())
+                miner.consensus.local_chain.add_block_forcibly(self.adver_chain.get_last_block())
         elif domain_flag:
             for miner in self.eclipsed_list:
-                miner.consensus.local_chain._add_block_forcibly(self.adver_chain.get_last_block())
+                miner.consensus.local_chain.add_block_forcibly(self.adver_chain.get_last_block())
                 self._eclipse_block = miner.consensus.local_chain.get_last_block()
 
 
@@ -150,7 +150,7 @@ class Eclipse(aa.AttackType):
 
                 if self.__judge_block_from(newest_block_from_eclipse).blockhead.miner in self.adver_list_ids:
                 # 如果最新区块自攻击者的区块挖出来则接受
-                    self.adver_chain._add_block_forcibly(newest_block_from_eclipse)
+                    self.adver_chain.add_block_forcibly(newest_block_from_eclipse)
                     attack_mine,admin_block = self.behavior.mine(miner_list = self.adver_list,
                                                                  current_miner = current_miner,
                                                                  miner_input = mine_input,
@@ -173,7 +173,7 @@ class Eclipse(aa.AttackType):
                                                                  consensus = self.adver_consensus,
                                                                  round = round)
                     for ec_miner in self.eclipsed_list:
-                        ec_miner.consensus.local_chain._add_block_forcibly(self.adver_chain.get_last_block())
+                        ec_miner.consensus.local_chain.add_block_forcibly(self.adver_chain.get_last_block())
             else:
                 attack_mine,admin_block = self.behavior.mine(miner_list = self.adver_list,
                                                             current_miner = current_miner,
@@ -191,7 +191,7 @@ class Eclipse(aa.AttackType):
                                          fork_block = self._fork_block)
                 else:
                     for ec_miner in self.eclipsed_list:
-                        ec_miner.consensus.local_chain._add_block_forcibly(self.adver_chain.get_last_block())         
+                        ec_miner.consensus.local_chain.add_block_forcibly(self.adver_chain.get_last_block())         
         else:
             # 判断来自eclipse的区块的情况
             if len(imcoming_block_from_eclipse) >0:
@@ -217,7 +217,7 @@ class Eclipse(aa.AttackType):
                                          fork_block = self._fork_block)
             else:
                 if newest_block_from_eclipse.blockhead.miner in self.adver_list_ids:
-                    self.adver_chain._add_block_forcibly(newest_block_from_eclipse)
+                    self.adver_chain.add_block_forcibly(newest_block_from_eclipse)
                     attack_mine,admin_block = self.behavior.mine(miner_list = self.adver_list,
                                                                  current_miner = current_miner,
                                                                  miner_input = mine_input,

@@ -121,7 +121,7 @@ class Adversary(metaclass=ABCMeta):
         Adversary的核心功能 每轮执行一次attack
         '''
         self.__excute_attack.excute_this_attack_per_round(round)
-        self.__global_chain._add_block_forcibly(self.__attack_type.adver_chain.last_block)
+        self.__global_chain.add_block_forcibly(self.__attack_type.adver_chain.last_block)
         
 
     def get_info(self):

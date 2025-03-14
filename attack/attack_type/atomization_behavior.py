@@ -55,10 +55,10 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     break
                 temp_newest = temp_newest.parentblock
         if flag:
-            newest_block = honest_chain._add_block_forcibly(block=newest_block)
+            newest_block = honest_chain.add_block_forcibly(block=newest_block)
 
         for temp_miner in adver_list:
-            temp_miner.consensus.local_chain._add_block_forcibly(block=newest_block)
+            temp_miner.consensus.local_chain.add_block_forcibly(block=newest_block)
         mine_input:bytes = I(round, input_tape)
         if eclipse_list_ids is not None:
             return newest_block, mine_input, imcoming_block_from_eclipse
@@ -73,7 +73,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
 
     def adopt(self, honest_chain: Chain, adver_chain: Chain) -> Block:
         # Adversary adopts the newest chain based on tthe adver's chains
-        adver_chain._add_block_forcibly(block=honest_chain.get_last_block())
+        adver_chain.add_block_forcibly(block=honest_chain.get_last_block())
         # 首先将attack内的adver_chain更新为attacker可以接收到的最新的链
         fork_block = adver_chain.get_last_block()
         return fork_block
@@ -113,7 +113,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             current_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
             for adver_miner in adver_list:
                 # '''保证adverminer一定会收到'''
-                adver_miner.consensus.local_chain._add_block_forcibly(adver_chain.get_last_block())
+                adver_miner.consensus.local_chain.add_block_forcibly(adver_chain.get_last_block())
         elif strategy == "SPEC_TARGETS":
             neighbors = {}
             for target in forward_target:
@@ -150,7 +150,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             adver_chain.set_last_block(adm_newblock)
             # adver_chain.last_block = adm_newblock
             # 作为历史可能分叉的一部添加到全局链中
-            # global_chain._add_block_forcibly(adm_newblock)
+            # global_chain.add_block_forcibly(adm_newblock)
             # for temp_miner in miner_list:
             #     # 将新挖出的区块放在攻击者的receive_tape
             #     temp_miner._consensus.receive_tape.append(adm_newblock)
