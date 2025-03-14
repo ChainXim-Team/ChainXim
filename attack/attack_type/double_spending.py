@@ -147,16 +147,20 @@ class DoubleSpending(aa.AttackType):
 
         
     def info_getter(self,miner_num):
-        last_block = self.adver_list[0].consensus.local_chain.get_last_block()
-        attack_flag = False
-        success_times = 0
-        while last_block:
-            if last_block.blockhead.miner  in self.adver_list_ids and not attack_flag:
-                attack_flag = True
-            if len(last_block.next) > 1 and attack_flag:
-                attack_flag = False
-                success_times += 1
-            last_block = last_block.parentblock
+        success_times_list =[]
+        for adver_miner in self.adver_list:
+            last_block = adver_miner.consensus.local_chain.get_last_block()
+            temp_times = 0
+            while last_block:
+                if len(last_block.next)>1:
+                    for block in last_block.next:
+                        if block.blockhead.miner in self.adver_list_ids or self.eclipsed_list_ids:
+                            temp_times += 1
+                            break
+                last_block = last_block.parentblock
+            success_times_list.append(temp_times)
+        success_times_list.sort()
+        success_times = success_times_list[-1]
         rate, thr_rate = self.__success_rate(miner_num)
         return {'Success Rate': '{:.4f}'.format(success_times/(self._log['success']+self._log['fail'])),
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(thr_rate),
