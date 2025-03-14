@@ -271,7 +271,7 @@ Configure AdHocNetwork parameters
 
 Configure DataItem parameters
 
-| system_config           | 命令行示例                    | 类型 | 说明                                                         |
+| system_config           | Command Line Example          | Type | Description                                                  |
 | ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
 | dataitem_enable         | `--dataitem_enable=False`     | bool | If True, data items will be generated and contained in blocks.    |
 | max_block_capacity      | `--max_block_capacity=10`     | int  | The maximum number ofdata items that a block can contain. max_block_capacity=0 will disable the dataitem mechanism.    |
