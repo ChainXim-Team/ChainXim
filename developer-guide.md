@@ -824,7 +824,7 @@ _adversary.py提供Adversary抽象父类，用于adversary.py提供的Adversary�
 | __Miner_ID              | int                | 值为-1，不变。在初始化过程中，类似普通矿工Adversary也需要初始化共识consensus，因此需要提供一个不被重复的ID。 |
 | __adver_num             | int                | 记录攻击者的数量。                                                                                                             |
 | __attack_type           | class: AttackType  |  根据设置创建攻击类型对象，若未设置则默认是HonestMining。                                                                                                            |
-| __excute_type        | class: AttackType  | 用来执行攻击的对象。                                                                                                             |
+| __excute_attack         | class: AttackType  | 用来执行攻击的攻击类型对象。                                           |
 | __adver_ids             | list[int]          |记录了攻击者ID的list。                                                                                                              |
 | __miner_list             | list[class: Miner] |记录了全体矿工的list。                                                                                                              |
 | __global_chain          | class: Chain       |记录了当前全局链对象，环境创建，并传给Adversary。                                                                                                              |
@@ -902,7 +902,7 @@ adopt用于将基准链（honset_chain）的结果更新到攻击链（adver_cha
 #### >>> 6. wait()
 wait是让攻击模块等待至下一回合再继续运行。因此并没有对wait部分设计具体行为，当攻击实例执行这两个操作时也不会做出实际行动。
 
-### attack_type.py & honest_mining.py, selfish_mining.py, eclipsed_double_spending
+### attack_type.py & honest_mining.py, selfish_mining.py, eclipsed_double_spending.py
 #### >>> attack_type.py中的成员变量
 ##### 外部变量
 未说明的成员变量，其含义与前述一致。

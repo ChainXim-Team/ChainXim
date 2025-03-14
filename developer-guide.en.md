@@ -792,7 +792,7 @@ The following figure shows an example of the operation of the attack module in a
 - Honest Mining
 - Selfish Mining
 - Double Spending
-- Eclipse Attack
+- Eclipsed Double Spending
 
 ### Attack Layer Code Structure
 ```
@@ -802,7 +802,7 @@ The following figure shows an example of the operation of the attack module in a
 │  │  ├─ atomization_behavior.py
 │  │  ├─ attack_type.py
 │  │  ├─ double_spending.py
-│  │  ├─ eclipse.py
+│  │  ├─ eclipsed_double_spending.py
 │  │  ├─ honest_mining.py
 │  │  ├─ selfish_mining.py
 │  │  └─ _atomization_behavior.py
@@ -821,11 +821,9 @@ _adversary.py provides the abstract parent class Adversary, which is inherited b
 | __Miner_ID              | int                | Value is -1, unchanged. During initialization, similar to ordinary miners, Adversary also needs to initialize consensus, so a unique ID is required. |
 | __adver_num             | int                | Records the number of attackers.                             |
 | __attack_type           | class: AttackType  | Creates an attack type object based on the settings, defaults to HonestMining if not set. |
-| __eclipse               | bool               | Records whether to execute an eclipse attack.                |
-| __eclipse_attack        | class: AttackType  | If executing an eclipse attack, creates an Eclipse object; otherwise, it is None. When creating an eclipse attack, the internal initialization will record the above attack type object to implement the eclipse attack with a specific attack type. |
+| __excute_attack           | class: AttackType  | The attack type to be executed                                            |
 | __adver_ids             | list[int]          | Records the list of attacker IDs.                            |
 | __miner_list            | list[class: Miner] | Records the list of all miners.                              |
-| __network_type          | class: Network     | Records the current network type object, created by the environment and passed to Adversary. |
 | __global_chain          | class: Chain       | Records the current global chain object, created by the environment and passed to Adversary. |
 | __adver_consensus_param | dict               | Records the parameters required by the attackers' consensus object in the form of a dict. |
 | __consensus_type        | class: Consensus   | Creates a consensus object based on the settings.            |
@@ -871,16 +869,18 @@ Summary: renew requires at least the following three parts:
 
 * Perform local_state_update for each attacker miner.
 
-* Update the reference chain and global chain based on the update results.
+* Update the reference chain based on the update results.
 
 * Record the update results of each round as needed.
 
 If developers want to develop new attack modes, they can adjust the specific content of these three parts or add other functionalities as needed, but these three parts are essential.
 
+(The decision-making strategy of eclipse attack is relatively complex and will not be elaborated here. Developers who need it can refer to comments in the source code for more details.)
+
 #### >>> 2. mine()
 mine calls the current consensus method and performs the mining function corresponding to the consensus method (i.e., honest mining). In the current version, mine randomly selects one attacker as the "representative" for mining in the current round. Additionally, the source code provides the functionality to specify miners for mining by ID.
 
-If a block is generated, the attack chain (adver_chain) and the global chain are updated.
+If a block is generated, the attack chain (adver_chain) is updated.
 
 All attackers are iterated to update the block to the attacker's receive_tape. The purpose is twofold: to allow attackers to share the block directly (received in the next round) and to update the block to the reference chain in the next round.
 
@@ -888,6 +888,7 @@ The content of the mine module generally does not change significantly because i
 
 #### >>> 3. upload()
 Upload Adversary's block to the network.
+(The specific logic for determining which blocks to upload can be found in the corresponding comments in the source code.)
 
 #### >>> 4. adopt()
 adopt is used to update the results of the reference chain (honest_chain) to the attack chain (adver_chain). The attack chain can be seen as a chain jointly maintained by the attack group, rather than the individual chains of each malicious miner, so each malicious miner's local chain needs to be updated.
@@ -898,7 +899,7 @@ Clear the input and communication content of all miners in the attacker. The pur
 #### >>> 6. wait()
 wait allows the attack module to wait until the next round to continue running. Therefore, no specific behavior is designed for the wait part, and no actual action will be taken when the attack instance executes these operations.
 
-### attack_type.py & honest_mining.py, selfish_mining.py, double_spending
+### attack_type.py & honest_mining.py, selfish_mining.py, eclipsed_double_spending.py
 #### >>> Member Variables in attack_type.py
 ##### External Variables
 Unspecified member variables have the same meaning as previously described.
@@ -906,12 +907,10 @@ Unspecified member variables have the same meaning as previously described.
 | Member Variable | Type | Description |
 | -------- | -------- | -------- |
 | behavior | class: AtomizationBehavior | Records the AtomizationBehavior type method class object. |
-| global_chain | class: Chain | -------- |
 | honest_chain | class: Chain | The honest chain updated from the Adversary's perspective. The Adversary generally does not perform additional operations on it other than updating the blocks of honest nodes. It is also the reference for updating adver_chain when the Adversary gives up the attack. |
 | adver_chain | class: Chain | The local chain of the Adversary, which is generally inconsistent with the honest_chain. |
-| miner_list | list[class: Miner] | -------- |
 | adver_list | list[class: Miner] | -------- |
-| network_type | class: Network | -------- |
+| eclipsed_list_ids | list[int] | -------- |
 | adver_consensus | class: Consensus | -------- |
 | attack_arg | dict | -------- |
 
@@ -926,7 +925,7 @@ Unspecified member variables have the same meaning as previously described.
 
 | Member Method | Input Parameters: Type | Return Parameters: Type | Description |
 | -------- | -------- | -------- | -------- |
-| set_init() | global_chain: Chain, adver_list:list[Miner], miner_list:list[Miner], network_type: Network, adver_consensus: Consensus, attack_arg:dict | None | Assigns values to all member variables of the attack type object. |
+| set_init() | adver_list:list[Miner], miner_list:list[Miner], network_type: Network, adver_consensus: Consensus, attack_arg:dict, eclipsed_list_ids:list[int] | None | Assigns values to all member variables of the attack type object. |
 
 ##### Abstract Methods
 
@@ -986,9 +985,6 @@ def clear_record_stage(self,round):
 
 This stage is relatively simple, mainly calling the `clear()` method to clear redundant data inside the miners and recording some necessary information in the log dictionary.
 
-### eclipse.py
-
-Eclipse attacks are different from HonestMining and other attacks, as they need to rely on the previous three types of attacks to be effective.
       
 ## Evaluation
 After `Environment.exec` is completed, `Environment.view_and_write` will be executed to evaluate and output the simulation results.

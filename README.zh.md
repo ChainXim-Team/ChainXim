@@ -623,7 +623,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ##### **受日蚀攻击影响下的双花攻击示意图**
 
-![eclipse_doublespending](https://hackmd.io/_uploads/ryPk6QZ3Jg.svg)
+![eclipse_doublespending](doc/eclipse_doublespending.svg)
 
 
 **参数设置如下：**
@@ -636,9 +636,10 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 - 网络类型：TopologyNetwork
 - 区块大小：0MB
 - 网络参数：使用如下拓扑
- ![network topology](https://hackmd.io/_uploads/SJeKAzZ3ye.svg)
 
- 日蚀目标设置为0号节点，攻击者设置为1,2,3,4等。简言之，0号节点只能与攻击者链接，其余节点是全连接。
+  ![eclipse_topology](doc/eclipse_topology.svg)
+
+  日蚀目标设置为0号节点，攻击者设置为1,2,3,4等。简言之，0号节点只能与攻击者链接，其余节点是全连接。
 
 
 

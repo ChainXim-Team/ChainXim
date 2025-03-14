@@ -621,21 +621,18 @@ $\beta$ is the ratio of the attacker's hash power to that of the honest miners, 
 
 ---
 
-#### 4. Eclipse Attack
+#### 4. Eclipsed Double Spending
 
 ##### **Double Spending Attack under Eclipse Attack**
 
-![eclipse1](doc/eclipse1.png)
+![eclipse_doublespending](doc/eclipse_doublespending.svg)
 
-The green curve Theory Shift 10% is obtained by shifting the Theory curve to the left by one unit.
-
-![eclipse2](doc/eclipse2.png)
 
 **Parameter settings:**
 
-* Simulation rounds: 3000000 rounds * 1 time
+* Simulation rounds: 1000000 rounds * 1 time
 
-* Number of miners: 20
+* Number of miners: 10
 
 * Consensus type: PoW
 
@@ -645,13 +642,13 @@ The green curve Theory Shift 10% is obtained by shifting the Theory curve to the
 
 * Network type: TopologyNetwork
 
-* Network parameters: The Full connect topology, Random connect topology, Eclipse 10% miners, and Eclipse 20% miners in the figure use fixed adjacency matrices to generate the topology network. Their adjacency matrices are $TP_F$, $TP_R$, $TP_1$, and $TP_2$, respectively, and other settings are default.
-    - The $TP_F$ matrix has all elements as 1 except for the diagonal elements which are 0.
-    - The $TP_R$ matrix is a randomly generated topology network.
-    - The $TP_1$ matrix is as shown below (isolated nodes are 18, 19):
-        ![matrix_tp1](doc/matrix_tp1.png)
-    - The $TP_2$ matrix is as shown below (isolated nodes are 16, 17, 18, 19):
-        ![matrix_tp2](doc/matrix_tp2.png)
+* Block size: 0 MB
+
+* Network Parameters: Use the following topology:
+
+    ![eclipse_topology](doc/eclipse_topology.svg)
+
+    The eclipse target is set to node 0, and attackers are designated as nodes 1, 2, 3, 4, etc. In short, node 0 is only connected to attackers, while all other nodes are fully connected.
         
 
 **Note: When setting attackers, please avoid isolated nodes and set them manually.**
