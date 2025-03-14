@@ -28,7 +28,7 @@ class NICWithTp(NetworkInterface):
         self._output_queues = defaultdict(list[Message | tuple[Message, int]])
         self._channel_states = {}
 
-    def has_received(self, block_name:str):
+    def __has_received(self, block_name:str):
         return block_name in self._segment_buffer and len(self._segment_buffer[block_name]) == 0
 
     def nic_join_network(self, network):
@@ -63,7 +63,7 @@ class NICWithTp(NetworkInterface):
         
         # logger.info("M%d: removed neighbour M%d", self.miner_id, remove_id)
 
-    def get_number_of_segments_to_send(self, source, target):
+    def __get_number_of_segments_to_send(self, source, target):
         return self._network.get_number_of_segments_to_send(source, target)
 
     def add_neighbor(self, add_id:int, round):
@@ -77,7 +77,7 @@ class NICWithTp(NetworkInterface):
             self._output_queues[add_id] = []
         # logger.info("round%d, M%d: added neighbour M%d", 
         #             round, self.miner.miner_id, add_id)
-        self.gossip_full_chain(add_id, round)
+        self.__gossip_full_chain(add_id, round)
        
 
     def nic_receive(self, packet: Packet):
@@ -99,7 +99,7 @@ class NICWithTp(NetworkInterface):
                 raise TypeError("Segment not contains a block!")
             block_name = seg.origin_block.name
             # 如果这个段中的区块已经收到过了，就不再处理
-            if self.has_received(block_name):
+            if self.__has_received(block_name):
                 update_rcv_states(block_name, False)
                 continue
             self._segment_buffer[block_name].discard(seg.seg_id)
@@ -112,15 +112,15 @@ class NICWithTp(NetworkInterface):
             update_rcv_states(seg.origin_block.name, self.miner.receive(source, seg.origin_block))
         return rcv_states
     
-    def forward_buffer_to_output_queue(self, msg_source_type):
+    def __forward_buffer_to_output_queue(self, msg_source_type):
         for [msg, strategy, spec_tgts] in self._forward_buffer[msg_source_type]:
-            targets = self.select_target(msg, strategy, spec_tgts) # 选择目标节点
-            out_msgs = self.seg_blocks(msg) if (isinstance(msg, Block) 
+            targets = self.__select_target(msg, strategy, spec_tgts) # 选择目标节点
+            out_msgs = self.__seg_blocks(msg) if (isinstance(msg, Block) 
                 and self._network.withSegments) else [msg]
             for target in  targets:
                 self._output_queues[target].extend(out_msgs)
 
-    def seg_blocks(self, block:Block):
+    def __seg_blocks(self, block:Block):
         self._network.message_preprocessing(block)
         segids = list(range(block.segment_num))
         random.shuffle(segids)
@@ -130,8 +130,8 @@ class NICWithTp(NetworkInterface):
         # 将 forward_buffer 写入 output_queue 中
         if (len(self._forward_buffer[SELF_GEN_MSG]) != 0 or
             len(self._forward_buffer[OUTER_RCV_MSG]) != 0):
-            self.forward_buffer_to_output_queue(SELF_GEN_MSG)
-            self.forward_buffer_to_output_queue(OUTER_RCV_MSG)
+            self.__forward_buffer_to_output_queue(SELF_GEN_MSG)
+            self.__forward_buffer_to_output_queue(OUTER_RCV_MSG)
             logger.info("round %d, M%d, neighbors %s, outputqueue %s", round, self.miner_id, str(self._neighbors), 
                 {k:[msg.name if isinstance(msg, Block) else msg for msg in v] for k,v in self._output_queues.items()})
         
@@ -149,7 +149,7 @@ class NICWithTp(NetworkInterface):
                 if msg == SYNC_LOC_CHAIN:
                     self.inv_count += 1
                     self.sync_full_chain_count += 1
-                    self.gossip_full_chain(neighbor, round)
+                    self.__gossip_full_chain(neighbor, round)
                     while (len(self._output_queues[neighbor]) != 0 and 
                            self._output_queues[neighbor][0] == SYNC_LOC_CHAIN):
                         self._output_queues[neighbor].pop(0)
@@ -159,36 +159,36 @@ class NICWithTp(NetworkInterface):
 
                 gossip_msg, rest_delay = msg if isinstance(msg, tuple) else (msg, None)
                 self.inv_count += 1
-                isMsgRequired = self.gossip_single_msg(neighbor, gossip_msg, round)
+                isMsgRequired = self.__gossip_single_msg(neighbor, gossip_msg, round)
                 if not isMsgRequired:
                     continue
 
                 send_msgs =[msg]
                 
                 if isinstance(msg, DataSegment):
-                    seg_nums = self.get_number_of_segments_to_send(self.miner_id, neighbor) - 1
+                    seg_nums = self.__get_number_of_segments_to_send(self.miner_id, neighbor) - 1
                     self.inv_count += 1
                     while (seg_nums > 0 and len(self._output_queues[neighbor]) > 0 and 
                            isinstance(self._output_queues[neighbor][0], DataSegment)):
                         send_msg = self._output_queues[neighbor].pop(0)
-                        if self.gossip_single_msg(neighbor, send_msg, round):
+                        if self.__gossip_single_msg(neighbor, send_msg, round):
                             send_msgs.append(send_msg)
                             seg_nums = seg_nums - 1
                 
                 self._channel_states[neighbor] = send_msgs
-                self.send_data(send_msgs, neighbor, round, sendTogether=True)
+                self.__send_data(send_msgs, neighbor, round, sendTogether=True)
                 break
         
         self.clear_forward_buffer()
 
-    def send_inv(self, inv:INVMsg, round:int ):
+    def __send_inv(self, inv:INVMsg, round:int ):
         getDataReply = GetDataMsg(require=False) # 空getData，回应的getData会写入该结构中
         self._network.access_network([inv, getDataReply], self.miner.miner_id,  round, inv.target)
         # logger.info("round %d, Sending inv , get reqblocks %s", 
         #             round, str([b.name for b in getDataReply.req_blocks])) 
         return getDataReply
     
-    def gossip_single_msg(self, target, msg:Message, round):
+    def __gossip_single_msg(self, target, msg:Message, round):
         """
         发送某个消息前，询问对方是否需要
         """
@@ -196,18 +196,18 @@ class NICWithTp(NetworkInterface):
             return True
         # 通过inv询问对方是否需要该区块
         inv = INVMsg(self.miner_id, target, msg, isFullChain=False)
-        getDataReply  = self.send_inv(inv, round)
+        getDataReply  = self.__send_inv(inv, round)
         logger.info("round%d, M%d->M%d: %s require: %s", round, 
                     self.miner_id, target, msg.name if isinstance(msg, Block) else msg, getDataReply.isRequired)
         return getDataReply.isRequired
     
-    def gossip_full_chain(self, target:int, round:int):
+    def __gossip_full_chain(self, target:int, round:int):
         """
         新建连接或挖出新区块时和邻居对齐整链, inv消息包含本地lastblock
         """
         last_block = self.miner.get_local_chain().get_last_block()
         inv = INVMsg(self.miner_id, target, last_block, isFullChain=True)
-        getDataReply  = self.send_inv(inv, round)
+        getDataReply  = self.__send_inv(inv, round)
         if not getDataReply.isRequired:
             return
         if inv.target not in self._output_queues.keys():
@@ -242,7 +242,7 @@ class NICWithTp(NetworkInterface):
             if req_b.name in self._segment_buffer:
                 getData.isRequired = inv.block_or_seg.seg_id in self._segment_buffer[req_b.name]
             else:
-                getData.isRequired =  not self.has_received(req_b.name)
+                getData.isRequired =  not self.__has_received(req_b.name)
                 if getData.isRequired:
                     self._segment_buffer[req_b.name] = set(range(req_b.segment_num))
             if not getData.isRequired:
@@ -283,24 +283,24 @@ class NICWithTp(NetworkInterface):
             req_b = req_b.parentblock
         return getData
     
-    def send_data(self, msgs:list[Message|tuple[Message, int]], target:int,round:int, sendTogether:bool=False):
+    def __send_data(self, msgs:list[Message|tuple[Message, int]], target:int,round:int, sendTogether:bool=False):
         """
         inv没问题后发送数据
         """
         self.send_data_count += 1
         self._network.access_network(msgs, self.miner_id, round, target, sendTogether)
             
-    def select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:list=None):
+    def __select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:list=None):
         if strategy == FLOODING:
-            return self.select_target_flooding(msg)
+            return self.__select_target_flooding(msg)
         if strategy == SPEC_TARGETS:
             if spec_tgts is None or len(spec_tgts) == 0:
                 raise ValueError("Please specify the targets(SPEC_TARGETS)")
-            return self.select_target_spec(msg, spec_tgts)
+            return self.__select_target_spec(msg, spec_tgts)
         if strategy == SELFISH:
             return []
 
-    def select_target_flooding(self, msg:Block=None):
+    def __select_target_flooding(self, msg:Block=None):
         """
         泛洪转发, 转发给不包括source的邻居节点
         """
@@ -318,7 +318,7 @@ class NICWithTp(NetworkInterface):
         return targets
     
 
-    def select_target_spec(self, msg:Block=None, spec_tgts:list = None):
+    def __select_target_spec(self, msg:Block=None, spec_tgts:list = None):
         """
         转发给指定节点
         """

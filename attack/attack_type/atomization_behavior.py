@@ -123,7 +123,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     if nb in neighbors and len(neighbors[nb])<1:
                         neighbors[nb].add(i)
             for target in forward_target:
-                adver_list[neighbors[target].pop()].forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS, spec_targets=forward_target)
+                if len(neighbors[target]) > 0:
+                    adver_list[neighbors[target].pop()].forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS, spec_targets=forward_target)
         # upload_block: Block
         return upload_block_list
 
