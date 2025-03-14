@@ -618,41 +618,27 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ---
 
-#### 4. 日蚀攻击（eclipse attack）
+#### 4. 日蚀攻击（eclipsed double spending）
 
 
 ##### **受日蚀攻击影响下的双花攻击示意图**
 
-![eclipse1](doc/eclipse1.png)
+![eclipse_doublespending](https://hackmd.io/_uploads/ryPk6QZ3Jg.svg)
 
-图中绿色曲线 Theory Shift 10% 为曲线 Theory向左平移一个单位得到。
-
-![eclipse2](doc/eclipse2.png)
 
 **参数设置如下：**
 
-- 仿真次数：3000000轮*1次
-- 矿工数：20
+- 仿真次数：1000000轮*1次
+- 矿工数：10
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
 - 网络类型：TopologyNetwork
-- 网络参数：图中的Full connect topolog、Random connect topolog、Eclipse 10% miners 以及 Eclipse 20% miners使用固定的邻接矩阵生成拓扑网络，其邻接矩阵分别为$TP_F$、$TP_R$、$TP_1$和$TP_2$，此外设置为默认
-    - $TP_F$矩阵为除对角线元素为0外均为1。
-    - $TP_R$矩阵为随机生成的拓扑网络。
-    - $TP_1$矩阵如图TP1（孤立节点为18，19）
-    - $TP_2$矩阵如图TP2（孤立节点为16，17，18，19）
-    
+- 区块大小：0MB
+- 网络参数：使用如下拓扑
+ ![network topology](https://hackmd.io/_uploads/SJeKAzZ3ye.svg)
 
-TP1邻接矩阵：
-
-![matrix_tp1](doc/matrix_tp1.png)
-
-TP2邻接矩阵：
-
-![matrix_tp2](doc/matrix_tp2.png)
-
-**注：在设置攻击者时请绕开孤立节点，手动设置。**
+ 日蚀目标设置为0号节点，攻击者设置为1,2,3,4等。简言之，0号节点只能与攻击者链接，其余节点是全连接。
 
 
 
