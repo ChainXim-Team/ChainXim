@@ -110,7 +110,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # upload_block = adver_chain.get_last_block()
         # miner_list
         if strategy == FLOODING:
-            adver_list[0].forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
+            current_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
             for adver_miner in adver_list:
                 # '''保证adverminer一定会收到'''
                 adver_miner.consensus.local_chain._add_block_forcibly(adver_chain.get_last_block())
