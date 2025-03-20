@@ -512,18 +512,16 @@ Results/20230819-232107/
 
 #### 1. 算力攻击（honest mining）
 
-![honest_mining](doc/honest_mining.png)
+![honest_mining](../python_wy/chainximresult/honest_mining.svg)
 
 ##### **四种不同网络对算力攻击的影响示意图**
 一次攻击成功的定义：攻击者产出区块，并被网络接受。
 
 **参数设置如下：**
 
-* 轮数：100000
+* 轮数：1000000轮
 
-* 曲线上单点重复次数：20
-
-* 矿工数：40
+* 矿工数：20
 
 * 共识类型：PoW
 
@@ -531,49 +529,30 @@ Results/20230819-232107/
 
 * q_ave = 1
 
-* 网络参数：四种网络参数均为默认
+* 网络参数：
+    blocksize=4 TopologyNetwork中带宽均为2 且 开启动态拓扑
+    其余网络参数为默认参数
 
 ---
 #### 2. 区块截留攻击（selfish mining）
-##### **四种不同网络对区块截留攻击的影响示意图**
+##### **不同网络对区块截留攻击的影响示意图**
 
-![selfish_mining](doc/selfish_mining.png)
+![selfish_mining](../python_wy/chainximresult/selfish_mining.svg)
 
 纵坐标为链质量指标，即最终攻击者产出区块在主链中的占比。
 
 **参数设置如下：**
 
-- 仿真次数：100000轮*20次
-- 矿工数：40
+- 仿真次数：300000轮
+- 矿工数：20
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
-- 网络参数：四种网络参数均为默认
+- 网络参数：与算力攻击一样
 
----
-
-##### **矿工不同择链策略对区块截留攻击的影响示意图**
-
-![selfish_mining_2](doc/selfish_mining_2.png)
-
-图中的理论区域由以下公式得到：
-
-$$ R=\frac{\alpha(1-\alpha)^{2}(4\alpha+\gamma(1-2\alpha))-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
-
-$\alpha$为攻击者算力占全网比例，$0\leqslant\alpha\leqslant\frac{1}{2}$。
-$\gamma$为当网络中存在诚实链（最新的区块由诚实节点产出）与攻击链（从某一个区块开始到最新的区块均为攻击者产生）分叉时，选择在攻击链上继续挖矿的诚实矿工占其自身的比例，$0\leqslant\gamma\leqslant1$。
-注：矿工择链策略为内部测试功能，暂未开放。但本仿真器遵循着$\gamma=0$的挖矿策略，即所有诚实节点默认在诚实链分支上继续挖矿。因此使用者可以利用以下理论曲线公式验证。
+图中的理论曲线由以下公式得到：
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
-
-**参数设置如下：**
-
-- 仿真次数：100000轮*20次
-- 矿工数：40
-- 共识类型：PoW
-- 难度：000FFF...
-- q_ave = 1
-- 网络类型：SynchronousNetwork
 
 ---
 #### 3. 双花攻击（double spending）
@@ -581,21 +560,29 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 
 ##### **不同网络对双花攻击的影响示意图**
 
-![doublespending](doc/doublespending.png)
+![doublespending_different_net](../python_wy/chainximresult/doublespending_net.svg)
 
 **参数设置如下：**
 
-- 仿真次数：1200000轮*1次
-- 矿工数：40
+- 仿真次数：3000000轮
+- 矿工数：20
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
-- 网络参数：四种网络参数均为默认
+- 网络参数：与算力攻击一样
 
 ---
 ##### **不同策略对双花攻击的影响与理论对比示意图**
 
-![double_spending](doc/double_spending.png)
+![double_spending](doublespending.svg)
+**参数设置如下：**
+
+- 仿真次数：3000000轮
+- 矿工数：20
+- 共识类型：PoW
+- 难度：000FFF...
+- q_ave = 1
+- 网络参数：SynchronousNetwork
 
 图中的理论曲线由以下公式得到：
 
@@ -607,15 +594,6 @@ $N$为攻击者等待确认区块的数量，即攻击者会等待诚实链高�
 $N_g$表示当攻击者落后诚实链$N_g$个区块时放弃当前攻击。
 $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
-**参数设置如下：**
-
-- 仿真次数：3000000轮*1次
-- 矿工数：40
-- 共识类型：PoW
-- 难度：000FFF...
-- q_ave = 1
-- 网络类型：SynchronousNetwork
-
 ---
 
 #### 4. 日蚀攻击（eclipsed double spending）
@@ -623,12 +601,12 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ##### **受日蚀攻击影响下的双花攻击示意图**
 
-![eclipse_doublespending](doc/eclipse_doublespending.svg)
+![eclipse_doublespending](eclipse_doublespending.svg)
 
 
 **参数设置如下：**
 
-- 仿真次数：1000000轮*1次
+- 仿真次数：1000000轮
 - 矿工数：10
 - 共识类型：PoW
 - 难度：000FFF...
