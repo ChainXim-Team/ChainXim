@@ -575,6 +575,7 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 ##### **不同策略对双花攻击的影响与理论对比示意图**
 
 ![double_spending](doc/doublespending.svg)
+
 **参数设置如下：**
 
 - 仿真次数：3000000轮
@@ -622,7 +623,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 
 ## 开发者文档 Developer's Document
-详见[developer-guide](doc/developer-guide.md)
+详见[developer-guide](developer-guide.md)
 
 
 

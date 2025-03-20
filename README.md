@@ -494,20 +494,18 @@ Variation of propagation delay and 90% effective throughput with block size
 
 ### Attacker's Block Proportion under Different Attack Vectors
 
-#### 1. Hash Power Attack (honest mining)
+#### 1. Honest Mining Attack
 
-![honest_mining](doc/honest_mining.png)
+![honest_mining](doc/honest_mining.svg)
 
-##### **Impact of Four Different Networks on Hash Power Attack**
+##### **Impact of Four Different Networks on Honest Mining Attack**
 Definition of a successful attack: The attacker produces a block and is accepted by the network.
 
 **Parameter settings:**
 
-* Rounds: 100000
+* Rounds: 1000000 rounds
 
-* Repetitions per point on the curve: 20
-
-* Number of miners: 40
+* Number of miners: 20
 
 * Consensus type: PoW
 
@@ -515,21 +513,21 @@ Definition of a successful attack: The attacker produces a block and is accepted
 
 * q_ave = 1
 
-* Network parameters: default for all four network types
+* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology enabled. Other network parameters are set to default values.
 
 ---
 #### 2. Selfish Mining Attack
-##### **Impact of Four Different Networks on Selfish Mining Attack**
+##### **Impact of Different Networks on Selfish Mining Attack**
 
-![selfish_mining](doc/selfish_mining.png)
+![selfish_mining](doc/selfish_mining.svg)
 
-The vertical axis represents the chain quality metric, i.e., the proportion of blocks produced by the attacker in the main chain.
+The vertical axis represents the chain quality metric, i.e., the proportion of blocks produced by the attacker in the main chain
 
 **Parameter settings:**
 
-* Simulation rounds: 100000 rounds * 20 times
+* Simulation rounds: 300000 rounds
 
-* Number of miners: 40
+* Number of miners: 20
 
 * Consensus type: PoW
 
@@ -537,50 +535,24 @@ The vertical axis represents the chain quality metric, i.e., the proportion of b
 
 * q_ave = 1
 
-* Network parameters: default for all four network types
+* Network parameters: identical to that of honest mining
 
----
-
-##### **Impact of Different Miner Chain Selection Strategies on Selfish Mining Attack**
-
-![selfish_mining_2](doc/selfish_mining_2.png)
-
-The theoretical region in the figure is obtained by the following formula:
-
-$$ R=\frac{\alpha(1-\alpha)^{2}(4\alpha+\gamma(1-2\alpha))-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
-
-$\alpha$ is the proportion of the attacker's hash power to the total network, $0\leqslant\alpha\leqslant\frac{1}{2}$.
-$\gamma$ is the proportion of honest miners who choose to mine on the attack chain when there is a fork between the honest chain (the latest block is produced by an honest node) and the attack chain (all blocks from a certain block to the latest block are produced by the attacker), $0\leqslant\gamma\leqslant1$.
-Note: The chain selection strategy is an internal test functionality and is not yet available. However, this simulator follows the mining strategy of $\gamma=0$, which means all honest nodes default to continue mining on the honest chain branch. Therefore, users can use the following theoretical curve formula for verification.
+The theoretical curve in the figure is obtained by the following formula:
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
-
-**Parameter settings:**
-
-* Simulation rounds: 100000 rounds * 20 times
-
-* Number of miners: 40
-
-* Consensus type: PoW
-
-* Difficulty: 000FFF...
-
-* q_ave = 1
-
-* Network type: SynchronousNetwork
 
 ---
 #### 3. Double Spending Attack
 
 ##### **Impact of Different Networks on Double Spending Attack**
 
-![doublespending](doc/doublespending.png)
+![doublespending_different_net](doc/doublespending_net.svg)
 
 **Parameter settings:**
 
-* Simulation rounds: 1200000 rounds * 1 time
+* Simulation rounds: 3000000 rounds
 
-* Number of miners: 40
+* Number of miners: 20
 
 * Consensus type: PoW
 
@@ -588,12 +560,26 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 
 * q_ave = 1
 
-* Network parameters: default for all four network types
+* Network parameters: identical to that of honest mining
 
 ---
 ##### **Impact of Different Strategies on Double Spending Attack and Theoretical Comparison**
 
-![double_spending](doc/double_spending.png)
+![double_spending](doc/doublespending.svg)
+
+**Parameter settings:**
+
+* Simulation rounds: 3000000 rounds
+
+* Number of miners: 20
+
+* Consensus type: PoW
+
+* Difficulty: 000FFF...
+
+* q_ave = 1
+
+* Network parameters: SynchronousNetwork
 
 The theoretical curve in the figure is obtained by the following formula:
 
@@ -604,20 +590,6 @@ n
 $N$ is the number of blocks the attacker waits for confirmation, i.e., the attacker will wait for the honest chain to grow by $N$ blocks before deciding whether to publish.
 $N_g$ indicates that the attacker abandons the current attack when it is $N_g$ blocks behind the honest chain.
 $\beta$ is the ratio of the attacker's hash power to that of the honest miners, $0\leqslant\beta\leqslant1$.
-
-**Parameter settings:**
-
-* Simulation rounds: 3000000 rounds * 1 time
-
-* Number of miners: 40
-
-* Consensus type: PoW
-
-* Difficulty: 000FFF...
-
-* q_ave = 1
-
-* Network type: SynchronousNetwork
 
 ---
 
@@ -630,7 +602,7 @@ $\beta$ is the ratio of the attacker's hash power to that of the honest miners, 
 
 **Parameter settings:**
 
-* Simulation rounds: 1000000 rounds * 1 time
+* Simulation rounds: 1000000 rounds
 
 * Number of miners: 10
 
