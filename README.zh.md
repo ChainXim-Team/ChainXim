@@ -512,7 +512,7 @@ Results/20230819-232107/
 
 #### 1. 算力攻击（honest mining）
 
-![honest_mining](../python_wy/chainximresult/honest_mining.svg)
+![honest_mining](doc/honest_mining.svg)
 
 ##### **四种不同网络对算力攻击的影响示意图**
 一次攻击成功的定义：攻击者产出区块，并被网络接受。
@@ -537,7 +537,7 @@ Results/20230819-232107/
 #### 2. 区块截留攻击（selfish mining）
 ##### **不同网络对区块截留攻击的影响示意图**
 
-![selfish_mining](../python_wy/chainximresult/selfish_mining.svg)
+![selfish_mining](doc/selfish_mining.svg)
 
 纵坐标为链质量指标，即最终攻击者产出区块在主链中的占比。
 
@@ -560,7 +560,7 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 
 ##### **不同网络对双花攻击的影响示意图**
 
-![doublespending_different_net](../python_wy/chainximresult/doublespending_net.svg)
+![doublespending_different_net](doc/doublespending_net.svg)
 
 **参数设置如下：**
 
@@ -574,7 +574,7 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 ---
 ##### **不同策略对双花攻击的影响与理论对比示意图**
 
-![double_spending](doublespending.svg)
+![double_spending](doc/doublespending.svg)
 **参数设置如下：**
 
 - 仿真次数：3000000轮
@@ -601,7 +601,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ##### **受日蚀攻击影响下的双花攻击示意图**
 
-![eclipse_doublespending](eclipse_doublespending.svg)
+![eclipse_doublespending](doc/eclipse_doublespending.svg)
 
 
 **参数设置如下：**
@@ -622,7 +622,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 
 ## 开发者文档 Developer's Document
-详见[developer-guide](developer-guide.md)
+详见[developer-guide](doc/developer-guide.md)
 
 
 
