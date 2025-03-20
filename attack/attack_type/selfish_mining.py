@@ -166,14 +166,14 @@ class SelfishMining(aa.AttackType):
         
     def info_getter(self,miner_num):
         return {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]',
-                'Theory region in SynchronousNetwork': self.__theory_propotion(miner_num)}
+                'Theory proportion in SynchronousNetwork': self.__theory_propotion(miner_num)}
     
 
     def __theory_propotion(self,miner_num):
         def revenue(a,gama):
             R = (a*(1-a)**2*(4*a+gama*(1-2*a))-a**3)/(1-a*(1+(2-a)*a))
             return R
-        thryRegion = ['%.4f'% revenue(len(self.adver_list)/miner_num,0), '%.4f'% revenue(len(self.adver_list)/miner_num,1)]
+        thryRegion = '%.4f'% revenue(len(self.adver_list)/miner_num,0)
 
         return thryRegion
 
