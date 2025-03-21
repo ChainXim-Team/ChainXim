@@ -350,7 +350,7 @@ class Chain(object):
         plt.ylabel('Times')
         # plt.title('Block generation interval distribution')
         RESULT_PATH = global_var.get_result_path()
-        plt.savefig(RESULT_PATH / 'block interval distribution.svg')
+        plt.savefig(RESULT_PATH / 'block_interval_distribution.svg')
         if global_var.get_show_fig():
             plt.show()
         plt.close()

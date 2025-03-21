@@ -158,9 +158,9 @@ Attack Execute Type: execute_sample1
 图中每个点代表一个区块，蓝点代表诚实矿工产生的区块，红点代表攻击者产生的区块。每个点的横坐标表示区块产生的轮次，纵坐标表示区块所在高度。**注意，如果运行轮数过多，产生的区块数过多，会导致生成的图片挤成一团，难以分辨**
 
 -----
-区块产生时间分布直方图（[block interval distribution.svg](doc/block interval distribution.svg)）
+区块产生时间分布直方图（[block_interval_distribution.svg](doc/block_interval_distribution.svg)）
 
-![block_interval_distribution](doc/block interval distribution.svg)
+![block_interval_distribution](doc/block_interval_distribution.svg)
 
 -----
 网络拓扑图（[Network Results/network topology.svg](doc/network-topology.svg)）
@@ -344,7 +344,7 @@ Results/20230819-232107/
 │   ├── ......
 ├── Network Results
 │   ├── ......
-├── block interval distribution.svg
+├── block_interval_distribution.svg
 ├── blockchain visualisation.svg
 ├── blockchain_visualization
 │   ├── Blockchain Structure.gv
@@ -362,7 +362,7 @@ Results/20230819-232107/
 | Attack_result.txt | 攻击结果 |
 | Chain Data/ | 全局链和各矿工本地链的完整数据 |
 | Network Results/ | 网络传输结果，如传播过程（各矿工何时收到某区块）及网络拓扑、路由过程图等 |
-| block interval distribution.svg | 区块时间分布 |
+| block_interval_distribution.svg | 区块时间分布 |
 | blockchain visualisation.svg | 区块链可视化 |
 | blockchain_visualization/ | 借助Graphviz的区块链可视化 |
 | evaluation results.txt | 评估结果 |
