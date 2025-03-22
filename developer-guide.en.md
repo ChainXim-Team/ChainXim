@@ -1,6 +1,202 @@
 # ChainXim Developer Guide
 
+## Simulator Input Parameters
+The input parameters of the simulator can be specified in two ways: command line and configuration file. Generally, you can modify the configuration file system_config.ini that comes with ChainXim to change the simulation parameters, or you can specify individual simulation parameters through the command line. The command line supports fewer parameters than the configuration file, but once specified, they take precedence over the configuration file. You can view the command line help information by using the command `python main.py --help`.
+
+### EnvironmentSettings
+
+Configure the simulation environment
+
+| system_config      | Command Line Example                         | Type  | Description                                                  |
+| ------------------ | -------------------------------------------- | ----- | ------------------------------------------------------------ |
+| total_round        | `--total_round 50`                           | int   | Total number of simulation rounds                            |
+| process_bar_type   | `--process_bar_type round`                   | str   | Progress bar display style (round or height)                 |
+| miner_num          | `--miner_num 80`                             | int   | Total number of miners in the network                        |
+| blocksize          | `--blocksize 8`                              | float | Block size, in MB                                            |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | Consensus type, currently only `consensus.PoW` is available  |
+| network_type       | `--network_type network.SynchronousNetwork ` | str   | Network type, should be one of `network.SynchronousNetwork`,<br/>`network.PropVecNetwork`, `network.BoundedDelayNetwork`,<br/>`network.TopologyNetwork`, `network.AdHocNetwork` |
+| show_fig           | `--show_fig`                                 | bool  | Whether to display images during the simulation              |
+| compact_outputfile | `--no_compact_outputfile`                    | bool  | Whether to simplify log and result output to save disk space<br/>Set to False via `--no_compact_outputfile` |
+
+### ConsensusSettings
+
+Configure consensus protocol parameters
+
+| system_config | Command Line Example | Type | Description                                                  |
+| ------------- | -------------------- | ---- | ------------------------------------------------------------ |
+| q_ave         | `--q_ave 5`          | int  | Average hash rate of a single miner, i.e., the number of hash calculations per round |
+| q_distr       | `--q_distr equal`    | str  | Hash rate distribution mode<br>equal: All miners have the same hash rate;<br>rand: Hash rate follows a Gaussian distribution |
+| target        | None                 | str  | PoW target value in hexadecimal format                       |
+| None          | `--difficulty 12`    | int  | PoW difficulty represented by the length of the prefix zeros in the binary PoW target value,<br/>converted to the PoW target value in the main program |
+
+### AttackModeSettings
+
+Configure attack mode parameters
+
+| system_config       | Command Line Example                     | Type       | Description                                                  |
+| ------------------- | ---------------------------------------- | ---------- | ------------------------------------------------------------ |
+| adver_num           | `--adver_num 0`                          | int        | Total number of attackers                                    |
+| adver_lists         | None                                     | tuple[int] | Attacker IDs e.g.(1,3,5)                                     |
+| attack_type         | `--attack_type SelfishMining`            | str        | Attack type<br>HonestMining,SelfishMining,DoubleSpending     |
+
+### DeterPropNetworkSettings
+
+Configure DeterPropNetwork parameters
+
+| system_config | Type        | Description                                                  |
+| ------------- | ----------- | ------------------------------------------------------------ |
+| prop_vector   | list[float] | Propagation vector (in list form) e.g.[0.1, 0.2, 0.4, 0.6, 1.0] where the elements represent the proportion of miners receiving the message after (1,2,3...) rounds, the last element must be 1.0 |
+
+### StochPropNetworkSettings
+
+Configure StochPropNetwork parameters
+
+| system_config              | Command Line Example    | Type        | Description                                                  |
+| -------------------------- | ----------------------- | ----------- | ------------------------------------------------------------ |
+| rcvprob_start              | `--rcvprob_start 0.001` | float       | Initial message reception probability                        |
+| rcvprob_inc                | `--rcvprob_inc 0.001`   | float       | Incremental message reception probability per round          |
+| block_prop_times_statistic | None                    | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+
+### TopologyNetworkSettings
+
+Configure TopologyNetwork parameters
+
+| system_config          | Command Line Example      | Type        | Description                                                  |
+| ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode              | `--init_mode rand`        | str         | Network initialization method, 'adj' adjacency matrix, 'coo' sparse adjacency matrix, 'rand' randomly generated. 'adj' and 'coo' network topologies are given via csv files. 'rand' requires specifying bandwidth, degree, etc. |
+| bandwidth_honest       | `--bandwidth_honest 0.5`  | float       | Network bandwidth between honest miners and between honest miners and attackers, in MB/round |
+| bandwidth_adv          | `--bandwidth_adv 5`       | float       | Bandwidth between attackers, in MB/round                     |
+| rand_mode              | `--rand_mode homogeneous` | str         | Random network topology generation mode<br />'homogeneous': Generate network based on ave_degree and try to keep each node's degree the same<br />'binomial': Use Erdős-Rényi algorithm, randomly establish links between nodes with probability `ave_degree/(miner_num-1)` |
+| ave_degree             | `--ave_degree 8`          | float       | When the network generation method is 'rand', set the topology average degree |
+| stat_prop_times        | None                      | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+| outage_prob            | `--outage_prob 0.1`       | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
+| dynamic                | `--dynamic`               | bool        | Whether to make the network dynamic, if dynamic, links between nodes will be added or deleted with a certain probability |
+| avg_tp_change_interval | None                      | float       | When dynamic=true, set the average round interval for topology changes |
+| edge_remove_prob       | None                      | float       | When dynamic=true, set the probability of removing existing edges during topology changes |
+| edge_add_prob          | None                      | float       | When dynamic=true, set the probability of establishing new connections for non-existing edges during topology changes |
+| max_allowed_partitions | None                      | int         | When dynamic=true, set the maximum number of partitions allowed during topology changes |
+| save_routing_graph     | `--save_routing_graph`    | bool        | Whether to save the routing propagation graph of each message, recommended to turn off when the network scale is large |
+| show_label             | `--show_label`            | bool        | Whether to display labels on the topology or routing propagation graph, recommended to turn off when the network scale is large |
+
+### AdHocNetworkSettings
+
+Configure AdHocNetwork parameters
+
+| system_config   | Command Line Example | Type        | Description                                                  |
+| --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode       | `--init_mode rand`   | str         | Network initialization method, only 'rand' is valid for AdhocNetwork |
+| ave_degree      | `--ave_degree 3`     | float       | When the network generation method is 'rand', set the topology average degree |
+| segment_size    | `--ave_degree 8`     | float       | Message segment size; divide the complete message into several segments, each segment takes one round to propagate |
+| region_width    | `--region_width 100` | float       | Width of the square region, nodes perform Gaussian random walks within this region |
+| comm_range      | `--comm_range 30`    | float       | Node communication range, automatically establish connections between nodes within the communication range |
+| move_variance   | `--move_variance 5`  | float       | Variance of the xy coordinate movement distance when nodes perform Gaussian random walks |
+| outage_prob     | `--outage_prob 0.1`  | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
+| stat_prop_times | None                 | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+
+### DataItemSettings
+
+Configure DataItem parameters
+
+| system_config           | Command Line Example          | Type | Description                                                  |
+| ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
+| dataitem_enable         | `--dataitem_enable`           | bool | If enabled, data items will be generated and contained in blocks. |
+| max_block_capacity      | `--max_block_capacity=10`     | int  | The maximum number ofdata items that a block can contain. max_block_capacity=0 will disable the dataitem mechanism. |
+| dataitem_size           | `--dataitem_size=1`           | int  | The size of each dataitem in MB.                             |
+| dataitem_input_interval | `--dataitem_input_interval=0` | int  | The interval of dataitem input in rounds. dataitem_input_interval=0 will enable a global dataitem queue. |
+
+## Simulator Output
+
+After the simulation ends, the global chain statistics during the simulation will be printed in the terminal. Example:
+```
+Chain Growth Property:
+12 blocks are generated in 3000 rounds, in which 3 are stale blocks.
+Average chain growth in honest miners' chain: 9.0
+Number of Forks: 3
+Fork rate: 0.33333333
+Stale rate: 0.25
+Average block time (main chain): 333.33333333 rounds/block
+Average block time (total): 250.0 rounds/block
+Block throughput (main chain): 0.003 blocks/round
+Throughput in MB (main chain): 0.024 MB/round
+Block throughput (total): 0.004 blocks/round
+Throughput in MB (total): 0.032 MB/round
+
+Chain_Quality Property: {'Honest Block': 9, 'Adversary Block': 1}
+Ratio of blocks contributed by malicious players: 0.1
+The simulation data of SelfishMining is as follows :
+ {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in SynchronousNetwork': '0.2731'}
+Double spending success times: 1
+Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.222, 0.5: 3.182, 0.6: 3.455, 0.7: 4.0, 0.8: 4.5, 0.9: 5.4, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
+Count of INV interactions: 257
+Count of full chain synchronization: 25
+Count of data sending: 93
+```
+The meaning of the simulation results displayed in the terminal is as follows:
+
+| Output Item                                         | Explanation                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| Number of stale blocks                              | Number of stale blocks (blocks not in the main chain)        |
+| Average chain growth in honest miners' chain        | Average chain growth of honest nodes                         |
+| Number of Forks                                     | Number of forks (only counting the main chain)               |
+| Fork rate                                           | Fork rate = number of heights with forks in the main chain / main chain height |
+| Stale rate                                          | Stale rate = number of stale blocks / total number of blocks |
+| Average block time (main chain)                     | Average block time of the main chain = total rounds / main chain length (rounds/block) |
+| Block throughput (main chain)                       | Block throughput of the main chain = main chain length / total rounds |
+| Throughput in MB (main chain)                       | Block throughput of the main chain \* block size             |
+| Throughput of valid dataitems                       | Throughput of valid data items = valid DataItems in the main chain / total rounds |
+| Throughput of valid dataitems in MB                 | Throughput of valid data items in MB = Throughput of valid data items * size of each DataItem |
+| Average dataitems per block                         | Average size per block (average number of data items \* size of each data item) |
+| Input dataitem rate                                 | Input rate of data items                                     |
+| Average block time (total)                          | Total average block time = total rounds / total number of blocks generated |
+| Block throughput (total)                            | Total block throughput = total number of blocks generated / total rounds |
+| Throughput in MB (total)                            | = Total block throughput \* block size                       |
+| common prefix pdf                                   | PDF obtained from common prefix statistics (statistics of the difference between the common prefix of all honest nodes' chains and the longest chain length at the end of each round, resulting in a probability density distribution) |
+| Consistency rate                                    | Consistency metric = common_prefix_pdf[0]                    |
+| Chain_Quality Property                              | Total number of blocks generated by honest and malicious miners |
+| Ratio of dataitems contributed by malicious players | valid DataItems in the main chain / total number of DataItems in the main chain |
+| Ratio of blocks contributed by malicious players    | Proportion of blocks generated by malicious nodes            |
+| Upper Bound t/(n-t)                                 | Upper bound of the proportion of blocks generated by malicious nodes (n is the total number of miners, t is the number of malicious miners) |
+| Block propagation times                             | Block propagation times (distribution)                       |
+
+
+During the simulation, results, logs, and images are saved in the Results/\<date-time\>/ directory, where date-time is the date and time when the simulation starts. The typical file structure of this directory is as follows:
+```
+Results/20230819-232107/
+├── Attack Result
+│   └── Attack Log.txt
+├── Chain Data
+│   ├── chain_data.txt
+│   ├── chain_data0.txt
+│   ├── chain_data1.txt
+│   ├── ......
+├── Network Results
+│   ├── ......
+├── block_interval_distribution.svg
+├── blockchain visualisation.svg
+├── blockchain_visualization
+│   ├── Blockchain Structure.gv
+│   └── Blockchain Structure.gv.svg
+├── evaluation results.txt
+├── events.log
+└── parameters.txt
+```
+The meaning of the output simulation result files is as follows:
+
+| File or Directory               | Description                                                  |
+| ------------------------------- | ------------------------------------------------------------ |
+| Attack_log.txt                  | Attack log                                                   |
+| Attack_result.txt               | Attack results                                               |
+| Chain Data/                     | Complete data of the global chain and local chains of each miner |
+| Network Results/                | Network transmission results, such as propagation process (when each miner receives a certain block), network topology, routing process diagrams, etc. |
+| block_interval_distribution.svg | block_interval_distribution                                  |
+| blockchain visualisation.svg    | Blockchain visualization                                     |
+| blockchain_visualization/       | Blockchain visualization using Graphviz                      |
+| evaluation results.txt          | Evaluation results                                           |
+| events.log                      | Simulation process log, recording important events such as block generation, network access, etc. |
+| parameters.txt                  | Simulation environment parameters                            |
+
 ## Framework
+
 ChainXim is mainly composed of six components: Environment, Miner, Adversary, Network, Consensus, and Blockchain. Among them, the three major components, Consensus, Adversary, and Network, are configurable and replaceable to adapt to different types of consensus protocols, attack vectors, and network models. The relationships between the six abstract components are shown in the figure below:
 
 ![framework](doc/framework.svg)
@@ -985,7 +1181,7 @@ def clear_record_stage(self,round):
 
 This stage is relatively simple, mainly calling the `clear()` method to clear redundant data inside the miners and recording some necessary information in the log dictionary.
 
-      
+
 ## Evaluation
 After `Environment.exec` is completed, `Environment.view_and_write` will be executed to evaluate and output the simulation results.
 

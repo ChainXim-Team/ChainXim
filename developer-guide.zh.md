@@ -1,5 +1,203 @@
 # ChainXim 开发者文档 Developer Guide
 
+## 仿真器输入参数 Input
+仿真器的输入参数可以通过两种方式指定：命令行以及配置文件。一般情况下可以修改ChainXim附带的配置文件system_config.ini以改变仿真参数，也可以通过命令行指定个别仿真参数。命令行支持的参数少于配置文件，但是一旦被指定，优先级高于配置文件，可以通过`python main.py --help`命令查看命令行帮助信息。
+
+### EnvironmentSettings
+
+配置仿真环境
+
+| system_config      | 命令行示例                                   | 类型  | 说明                                                         |
+| ------------------ | -------------------------------------------- | ----- | ------------------------------------------------------------ |
+| total_round        | `--total_round 50`                           | int   | 仿真总轮次数                                                 |
+| process_bar_type   | `--process_bar_type round`                   | str   | 进度条显示风格（round或height）                              |
+| miner_num          | `--miner_num 80`                             | int   | 网络中的矿工总数                                             |
+| blocksize          | `--blocksize 8`                              | float | 区块大小，单位MB                                             |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，目前仅`consensus.PoW`可选                          |
+| network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`四选一 |
+| show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                     |
+| compact_outputfile | `--no_compact_outputfile`                    | bool  | 是否简化log和result输出以节省磁盘空间<br/>通过`--no_compact_outputfile`设置为False |
+
+### ConsensusSettings
+
+配置共识协议参数
+
+| system_config | 命令行示例        | 类型 | 说明                                                         |
+| ------------- | ----------------- | ---- | ------------------------------------------------------------ |
+| q_ave         | `--q_ave 5`       | int  | 单个矿工的平均哈希率，即每轮能计算哈希的次数                 |
+| q_distr       | `--q_distr equal` | str  | 哈希率的分布模式<br>equal：所有矿工哈希率相同；<br>rand：哈希率满足高斯分布 |
+| target        | 无                | str  | 16进制格式的PoW目标值                                        |
+| 无            | `--difficulty 12` | int  | 用二进制PoW目标值前缀零的长度表示的PoW难度，<br/>在主程序转换为PoW目标值 |
+
+### AttackModeSettings
+
+配置攻击模式参数
+
+| system_config       | 命令行示例                               | 类型       | 说明                                                         |
+| ------------------- | ---------------------------------------- | ---------- | ------------------------------------------------------------ |
+| adver_num           | `--adver_num 0`                          | int        | 攻击者总数                                                   |
+| adver_lists         | 无                                       | tuple[int] | 攻击者id e.g.(1,3,5)                                         |
+| attack_type         | `--attack_type SelfishMining `           | str        | 攻击类型<br>HonestMining,SelfishMining,DoubleSpending |
+
+### DeterPropNetworkSettings
+
+配置DeterPropNetwork参数
+
+| system_config | 类型        | 说明                                                         |
+| ------------- | ----------- | ------------------------------------------------------------ |
+| prop_vector   | list[float] | 传播向量（以列表形式）e.g.[0.1, 0.2, 0.4, 0.6, 1.0]其中的元素代表了当(1,2,3...)轮过后接收到消息的矿工比例，最后一个元素必须为1.0 |
+
+### StochPropNetworkSettings
+
+配置StochPropNetwork参数
+
+| system_config              | 命令行示例              | 类型        | 说明                                   |
+| -------------------------- | ----------------------- | ----------- | -------------------------------------- |
+| rcvprob_start              | `--rcvprob_start 0.001` | float       | 消息的初始接收概率                     |
+| rcvprob_inc                | `--rcvprob_inc 0.001`   | float       | 每轮增加的消息接收概率                 |
+| block_prop_times_statistic | 无                      | list[float] | 需统计的区块传播时间对应的接收矿工比例 |
+
+### TopologyNetworkSettings
+
+配置TopologyNetwork参数
+
+| system_config          | 命令行示例                | 类型        | 说明                                                         |
+| ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode              | `--init_mode rand`        | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
+| bandwidth_honest       | `--bandwidth_honest 0.5`  | float       | 诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round |
+| bandwidth_adv          | `--bandwidth_adv 5`       | float       | 攻击者之间的带宽，单位MB/round                               |
+| rand_mode              | `--rand_mode homogeneous` | str         | 随机网络拓扑的生成模式<br />'homogeneous'：根据ave_degree生成网络并尽可能保持每个节点的度相同<br />'binomial'：采用Erdős-Rényi算法，以`ave_degree/(miner_num-1)`概率在节点之间随机建立链接 |
+| ave_degree             | `--ave_degree 8`          | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
+| stat_prop_times        | 无                        | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
+| outage_prob            | `--outage_prob 0.1`       | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
+| dynamic                | `--dynamic`               | bool        | 是否使网络动态变化，如果动态变化，会以一定概率添加或者删除节点之间的链接 |
+| avg_tp_change_interval | 无                        | float       | dynamic=true时，设置拓扑变化的平均轮次                       |
+| edge_remove_prob       | 无                        | float       | dynamic=true时，设置拓扑变化时，已存在的每条边移除的概率     |
+| edge_add_prob          | 无                        | float       | dynamic=true时，设置拓扑变化时，未存在的条边新建立连接的概率 |
+| max_allowed_partitions | 无                        | int         | dynamic=true时,设置拓扑变化时，最大可存在的分区数量          |
+| save_routing_graph     | `--save_routing_graph`    | bool        | 是否保存各消息的路由传播图，建议网络规模较大时关闭           |
+| show_label             | `--show_label`            | bool        | 是否显示拓扑图或路由传播图上的标签，建议网络规模较大时关闭   |
+
+### AdHocNetworkSettings
+
+配置AdHocNetwork参数
+
+| system_config   | 命令行示例           | 类型        | 说明                                                         |
+| --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode       | `--init_mode rand`   | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
+| ave_degree      | `--ave_degree 3`     | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
+| segment_size    | `--ave_degree 8`     | float       | 消息分段大小 ；将完整消息分若干段，每段消息传播时间为一轮    |
+| region_width    | `--region_width 100` | float       | 正方形区域的宽度，节点在该区域中进行高斯随机游走             |
+| comm_range      | `--comm_range 30`    | float       | 节点通信距离，在通信距离内的两节点自动建立连接               |
+| move_variance   | `--move_variance 5`  | float       | 节点进行高斯随机游走时，指定xy坐标移动距离的方差             |
+| outage_prob     | `--outage_prob 0.1`  | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
+| stat_prop_times | 无                   | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
+
+### DataItemSettings
+
+配置DataItem机制的参数
+
+| system_config           | 命令行示例                    | 类型 | 说明                                                         |
+| ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
+| dataitem_enable         | `--dataitem_enable`           | bool | 如果启用该选项，将生成并包含在块中数据项。                          |
+| max_block_capacity      | `--max_block_capacity=10`     | int  | 块中可以包含的最大数据项数。max_block_capacity=0将禁用数据项机制。   |
+| dataitem_size           | `--dataitem_size=1`           | int  | 每个数据项的大小（以MB为单位）。                                  |
+| dataitem_input_interval | `--dataitem_input_interval=0` | int  | 数据项输入的时间间隔（以轮次为单位）。dataitem_input_interval=0将启用全局数据项队列。 |
+
+
+## 仿真器输出 Simulator Output
+
+仿真结束后会在终端打印仿真过程中全局链的统计数据。例：
+```
+Chain Growth Property:
+12 blocks are generated in 3000 rounds, in which 3 are stale blocks.
+Average chain growth in honest miners' chain: 9.0
+Number of Forks: 3
+Fork rate: 0.33333333
+Stale rate: 0.25
+Average block time (main chain): 333.33333333 rounds/block
+Average block time (total): 250.0 rounds/block
+Block throughput (main chain): 0.003 blocks/round
+Throughput in MB (main chain): 0.024 MB/round
+Block throughput (total): 0.004 blocks/round
+Throughput in MB (total): 0.032 MB/round
+
+Chain_Quality Property: {'Honest Block': 9, 'Adversary Block': 1}
+Ratio of blocks contributed by malicious players: 0.1
+The simulation data of SelfishMining is as follows :
+ {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in SynchronousNetwork': '0.2731'}
+Double spending success times: 1
+Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.222, 0.5: 3.182, 0.6: 3.455, 0.7: 4.0, 0.8: 4.5, 0.9: 5.4, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
+Count of INV interactions: 257
+Count of full chain synchronization: 25
+Count of data sending: 93
+```
+
+终端显示的仿真结果含义如下：
+
+| 输出项目                                            | 解释                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| Number of stale blocks                              | 孤立区块数（不在主链中的区块数）                             |
+| Average chain growth in honest miners' chain        | 诚实节点平均链长增长                                         |
+| Number of Forks                                     | 分叉数目（只算主链）                                         |
+| Fork rate                                           | 分叉率=主链上有分叉的高度数/主链高度                         |
+| Stale rate                                          | 孤块率=孤块数/区块总数                                       |
+| Average block time (main chain)                     | 主链平均出块时间=总轮数/主链长度(轮/块)                      |
+| Block throughput (main chain)                       | 主链区块吞吐量=主链长度/总轮数                               |
+| Throughput in MB (main chain)                       | 主链区块吞吐量\*区块大小                                     |
+| Average block time (total)                          | 总平均出块时间=总轮数/生成的区块总数                         |
+| Block throughput (total)                            | 总区块吞吐量=生成的区块总数/总轮数                           |
+| Throughput in MB (total)                            | =总区块吞吐量\*区块大小                                      |
+| Throughput of valid dataitems                       | 有效DataItem吞吐量                                           |
+| Throughput of valid dataitems in MB                 | 以MB计的有效DataItem吞吐量                                   |
+| Average dataitems per block                         | 每个区块的平均大小（平均DataItem数量\*每个DataItem大小）     |
+| Input dataitem rate                                 | DataItem的输入速率                                           |
+| common prefix pdf                                   | 统计共同前缀得到的pdf（统计每轮结束时，所有诚实节点的链的共同前缀与最长链长度的差值得到的概率密度分布） |
+| Consistency rate                                    | 一致性指标=common_prefix_pdf[0]                              |
+| Chain_Quality Property                              | 诚实矿工和恶意矿工的出块总数                                 |
+| Ratio of dataitems contributed by malicious players | = 主链上有效DataItem数量 / 主链上总DataItem数量              |
+| Ratio of blocks contributed by malicious players    | 恶意节点出块比例                                             |
+| Upper Bound t/(n-t)                                 | 恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)         |
+| Block propagation times                             | 区块传播时间（分布）                                         |
+
+
+仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
+```
+Results/20230819-232107/
+├── Attack Result
+│   └── Attack Log.txt
+├── Chain Data
+│   ├── chain_data.txt
+│   ├── chain_data0.txt
+│   ├── chain_data1.txt
+│   ├── ......
+├── Network Results
+│   ├── ......
+├── block_interval_distribution.svg
+├── blockchain visualisation.svg
+├── blockchain_visualization
+│   ├── Blockchain Structure.gv
+│   └── Blockchain Structure.gv.svg
+├── evaluation results.txt
+├── events.log
+└── parameters.txt
+```
+
+输出的仿真结果文件含义如下：
+
+| 文件或目录                      | 功能描述                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| Attack_log.txt                  | 攻击日志                                                     |
+| Attack_result.txt               | 攻击结果                                                     |
+| Chain Data/                     | 全局链和各矿工本地链的完整数据                               |
+| Network Results/                | 网络传输结果，如传播过程（各矿工何时收到某区块）及网络拓扑、路由过程图等 |
+| block_interval_distribution.svg | 区块时间分布                                                 |
+| blockchain visualisation.svg    | 区块链可视化                                                 |
+| blockchain_visualization/       | 借助Graphviz的区块链可视化                                   |
+| evaluation results.txt          | 评估结果                                                     |
+| events.log                      | 仿真过程日志，记录重要事件如产生区块、接入网络等             |
+| parameters.txt                  | 仿真环境参数                                                 |
+
 ## 总体架构 Framework
 ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockchain六个组件组成，其中Consensus、Adversary与Network三大组件可配置、可替换，从而适应不同类型的共识协议、攻击向量与网络模型。六个抽象组件之间的关系如下图所示：
 
@@ -985,7 +1183,7 @@ def clear_record_stage(self,round):
 ```
 这个阶段比较简单，主要是调用clear()方法，清空矿工内部的冗余数据，并记录一些需要的信息到日志dict中。
 
-      
+
 ## 评估 Evaluation
 ```Environment.exec```执行完成后，将执行```Environment.view_and_write```，对仿真结果进行评估与输出。
 

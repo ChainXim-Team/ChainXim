@@ -238,12 +238,16 @@ could be performed with attackers designed in the simulator'
     consensus_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
                         \'equal\': all miners have equal hash rate;\
                         \'rand\': q satisfies gaussion distribution.',type=str)
-    consensus_setting.add_argument('--difficulty', help='The number of zero prefix of valid block hash.\
-                    A metric for Proof of Work difficulty.',type=int)
+    # Ensure only one of difficulty and average_block_time can be set
+    group = consensus_setting.add_mutually_exclusive_group()
+    group.add_argument('--difficulty', help='The number of zero prefix of valid block hash.\
+                    A metric for Proof of Work difficulty.', type=int)
+    group.add_argument('--average_block_time', help='The average time interval between two blocks.\
+                    If average_block_time=0, then target is set as the difficulty.', type=float)
     # AttackModeSettings
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
-    attack_setting.add_argument('-t',help='The total number of attackers. If t non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
-    attack_setting.add_argument('--attack_execute_type', help='The name of attack type defined in attack mode.',type=str)
+    attack_setting.add_argument('-adver_num',help='The total number of attackers. If adver_num is non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
+    attack_setting.add_argument('--attack_type', help='The name of attack type defined in attack mode.',type=str)
     # StochPropNetworkSettings
     stoch_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
     stoch_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
