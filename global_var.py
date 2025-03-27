@@ -135,9 +135,9 @@ def get_compact_outputfile():
     return _var_dict['COMPACT_OUTPUT']
 
 def set_attack_execute_type(attack_execute_type):
-    '''定义网络类型 type:str'''
+    '''定义攻击类型 type:str'''
     _var_dict['ATTACK_EXECUTE_TYPE'] = attack_execute_type
 
 def get_attack_execute_type():
-    '''获得网络类型'''
+    '''定义攻击类型'''
     return _var_dict['ATTACK_EXECUTE_TYPE']
