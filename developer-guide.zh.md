@@ -13,7 +13,7 @@
 | process_bar_type   | `--process_bar_type round`                   | str   | 进度条显示风格（round或height）                              |
 | miner_num          | `--miner_num 80`                             | int   | 网络中的矿工总数                                             |
 | blocksize          | `--blocksize 8`                              | float | 区块大小，单位MB                                             |
-| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、<br/>`consensus.VirutalPoW`、`consensus.SolidPoW`三选一                          |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、`consensus.VirutalPoW`、<br/>`consensus.SolidPoW`三选一                          |
 | network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`、`network.AdHocNetwork`五选一 |
 | show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                      |
 | log_level          | `--log_level error`                          | str   | 日志文件的级别（error、warning、debug或info）                                      |
@@ -39,7 +39,7 @@
 | ------------------- | ---------------------------------------- | ---------- | ------------------------------------------------------------ |
 | adver_num           | `--adver_num 0`                          | int        | 攻击者总数                                                   |
 | adver_lists         | 无                                       | tuple[int] | 攻击者id e.g.(1,3,5)                                         |
-| attack_type         | `--attack_type SelfishMining `           | str        | 攻击类型<br>HonestMining,SelfishMining,DoubleSpending |
+| attack_type         | `--attack_type SelfishMining `           | str        | 攻击类型，HonestMining、SelfishMining<br/>、DoubleSpending、EclipsedDoubleSpending四选一 |
 
 ### DeterPropNetworkSettings
 
