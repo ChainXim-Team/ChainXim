@@ -1,11 +1,95 @@
 # ChainXim 开发者文档 Developer Guide
 
+
+## 总体架构 Framework
+ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockchain六个组件组成，其中Consensus、Adversary与Network三大组件可配置、可替换，从而适应不同类型的共识协议、攻击向量与网络模型。六个抽象组件之间的关系如下图所示：
+
+![framework](doc/framework.svg)
+
+每个抽象组件由对应的一个或多个类实现，其中Consensus对应的Consensus类以及Network对应的Network类仅为抽象类，还需要派生出有实际功能的类，以实现各类共识协议与网络模型。
+
+目前已实现的共识协议（目前consensus_type配置的所有可选项）：
+
+| 共识类(派生自Consensus) | 说明                                     |
+| ----------------------- | ---------------------------------------- |
+| consensus.PoW           | 工作量证明机制                           |
+| consensus.VirtualPoW    | 通过均匀分布随机数和出块概率模拟的工作量证明机制   |
+| consensus.SolidPoW      | 严格约束每轮哈希计算次数的工作量证明机制 |
+
+目前已实现的网络模型（目前network_type配置的所有可选项）：
+
+| 网络类(派生自Network)       | 说明                                       |
+| --------------------------- | ------------------------------------------ |
+| network.SynchronousNetwork  | 同步网络模型                               |
+| network.DeterPropNetwork      | 基于传播向量的网络模型                     |
+| network.StochPropNetwork | 延迟有界、接收概率随轮次增加递增的网络模型 |
+| network.TopologyNetwork     | 复杂拓扑网络模型，可以生成随机网络         |
+
+Environment是仿真器的核心。用户执行main.py中的主程序开始仿真。主程序根据仿真参数初始化Environment对象，调用`exec`启动仿真循环，仿真结束后调用`view_and_write`生成仿真结果并写入Results文件夹。
+
+ChainXim将时间离散化处理，抽象为“轮次”（round），以轮次为单位模拟每个节点的行为。每个轮次依次激活矿工节点执行共识操作，所有节点都被激活一遍之后，调用网络类中的`diffuse`方法在矿工节点间进行消息传输。(详见**环境与模型假设**章节)
+
+
+## 环境与模型假设 Environment & Model Assumptions
+Environment组件是ChainXim程序运行的基石，其主要完成了仿真器系统模型的架构，以便与其它五大组件进行对接。同时也定义了仿真器中主要的一些参量，并封装了仿真器各组件中需要运用的部分函数。为便于理解该部分内容，下面将首先介绍ChainXim的模型假设。
+### 模型假设
+ChainXim的系统模型设计主要参考了下面的论文：
+
+* J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
+
+ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全部节点（包含诚实矿工与非诚实攻击者）都将在每个轮次内进行一定数目的操作，以完成记账权的竞争与新区块的生成与传播。定义网络中矿工总数为n，其中有t个矿工隶属于非诚实的攻击者。每个轮次中，全体矿工根据各自的编号被依次唤醒，并根据自己的身份采取行动，诚实矿工将严格依照共识协议的规则产生区块；攻击者则会结合实际情况选择遵守协议或发起攻击。**注意，每个轮次中，攻击模块只会被触发一次，每次触发都会进行一次完整的攻击行为。当前版本中，攻击者每轮次中会随机在轮到某一个隶属于攻击者的矿工时触发。虽然不同矿工被唤醒的次序不同，但同一轮次内实际上不存在先后顺序。** 
+
+为模拟上述各方在现实区块链系统中的具体操作，ChainXim参考了论文中提出的两种重要方法，它们分别为随机预言（Random Oracle）和扩散（Diffuse）方法，其在ChainXim中的具体定义如下：
+
+- **随机预言（Random Oracle）**：以PoW共识为例，各矿工在每一轮次最多可执行q次行动（不同矿工的q可能为不同值），即q次进行哈希计算的机会。每个矿工都将进行q次随机查询操作，即将某一随机数输入哈希函数，验证其结果是否小于给定难度值。若矿工成功找到了低于难度值的结果，则视为其成功产生了一个区块。**同一轮次中不同矿工产生的区块视作是同时产生的。**
+- **扩散（Diffuse）**：当矿工产生了新的区块，它会将这个区块上传到网络，由网络层负责消息传播。根据网络层配置的不同，传播逻辑也会有所不同。此外，攻击者也可能选择不上传自己本轮次挖到的区块，只有上传到网络层的区块才会经由该方法进行传播。**在ChainXim的模型中，认为攻击者所控制的矿工拥有独立于区块链系统的专用通信通道，即任一隶属于攻击者的矿工一旦接收到某个区块，则攻击者麾下的所有矿工均会在下一轮次收到该区块。**
+
+**注意，上述的扩散方法主要与Network组件对接，而随机预言方法则与Consensus组件对接。随即预言建模最初是针对比特币中的的PoW共识协议提出的。为使仿真器能够兼容其它共识，例如PBFT这类基于交互的共识，ChainXim后续将考虑在Consensus组件中对这一方法进行重载。**
+**Environment中设置了exec函数来一次性完成上述两种方法**：每一轮次中，所有矿工将依次被唤醒，并各自执行随机预言方法：如果矿工为诚实方，那么exec函数将调用Consensus组件执行进行相关操作；如果激活了攻击者，则调用Attacker组件进行相关操作。（每一轮次中只会调用一次Attacker组件）
+当所有矿工都完成自己的行动，即回合结束时，exec函数中将执行Network组件中的扩散方法，在网络中传播区块。一个具体的实例如下图所示：
+
+![environment](doc/environment.png)
+
+该实例中n=4，t=1。当第k轮次（Round k）开始时，四个矿工将依照序号从小到大的顺序被依次唤醒，且各自完成自己的q次行动。其中，仅有2号矿工（Miner 2）成功获得了记账权，并将产生的区块进行传播（Diffuse方法）。由于各自的传播时延不尽相同，1号矿工与3号矿工在第k+1轮次便已成功接收到了该区块，而4号矿工则到第k+2轮次才收到此区块。第k+1轮次没有矿工完成出块，第k+2轮次中1号与4号矿工则都完成了出块，但这里4号矿工为攻击者，它采取了自私挖矿的攻击手段，将随机预言中产生的区块置于私链上，在扩散中也暂不传播给其它矿工。第k+3轮次中只有4号攻击者矿工完成出块，这时在它的视野中，自己的私链已经长于主链，故它会将私链通过扩散方法传播给其它矿工，区块链至此发生分叉，且在收到该私链矿工的视野中，攻击者的链为最长合法链。第k+4轮次中，如果1号或2号矿工没有收到私链，并继续在诚实主链上挖矿，则它们的利益将可能受到损害。
+
+综上所述，ChainXim利用离散的轮次与受限的行动次数有效抽象了区块链网络中区块的产生与传播。
+
+### 仿真器环境
+总体来说，环境组件完成了整体模型的搭建。初始化函数根据输入参数设置基础参数，调用了其它组件进行各自的初始化，设置n个矿工、选定t个攻击者、配置全局区块链、网络组件、攻击组件等，用于后续运行与评估。环境组件中的主要函数及其各自的参数如下表所示：
+
+| 函数                      | 参数                                                 | 说明                                                         |
+| ------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| envir_create_global_chain | -                                                    | 创建环境中的全局区块链                                       |
+| exec                      | num_rounds:int, max_height:int, process_bar_type:str | 执行指定轮数或指定高度的仿真，通过num_rounds设置仿真运行的总轮数，通过max_height设置仿真终止的高度 |
+| on_round_start            | round: int                                           | 每轮次开始时执行的操作，包括DataItem生成                     |
+| generate_dataitem         | round: int                                           | 在round指定的轮次生成DataItem                                |
+| view                      | -                                                    | 在终端窗口输出仿真结果，包含仿真生成的区块链结构图、吞吐量、增长率(反映链增长)、分叉率及共同前缀与链质量评估 |
+| view_and_write            | -                                                    | 输出仿真结果并保存在txt文件中                                |
+| assess_common_prefix      | type: str                                            | 计算评估区块链的共同前缀特性，可以统计两种类型的共同前缀分布：`pdf`以及`cdf` |
+| process_bar               | -                                                    | 显示当前仿真的进度，在终端输出实时变动的进度条与百分比       |
+
+上表中，envir_create_global_chain初始化生成了一条全局区块链。此后，该链将作为上帝视角下的全局区块链树与全局最长合法链。
+主程序根据仿真参数初始化Environment对象，调用`exec`启动仿真循环，实现了论文中所述的随机预言方法与扩散方法,对于攻击者则需通过`attack_excute`调用相应接口。仿真结束后调用`view_and_write`统计并输出仿真结果。
+
+### DataItem机制
+
+DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 随机数。
+
+在system_config.ini中设置dataitem_enable=True之后，将启用DataItem机制。此时ChainXim将具备以下特性：
+
+1. TopologyNetwork和AdhocNetwork两大模型在仿真时将会按照区块中存储的DataItem数量计算区块大小以及相应的区块传播延迟。
+2. 评估阶段按照主链上所有区块的数据项数计算吞吐量
+3. 评估阶段可按照链上非法DataItem的比例评估攻击者的攻击效果（仅Environment中产生的DataItem合法，其余均为非法）
+
+目前的Environment中将在每个轮次为每个矿工提供`max_block_capacity`个DataItem，矿工需要在挖矿时将这些DataItem打包到区块中。一旦矿工产生了新区块，Environment将在下个轮次开始前生成新的DataItem供矿工使用，确保DataItem足以填满区块。
+
+
 ## 仿真器输入参数 Input
 仿真器的输入参数可以通过两种方式指定：命令行以及配置文件。一般情况下可以修改ChainXim附带的配置文件system_config.ini以改变仿真参数，也可以通过命令行指定个别仿真参数。命令行支持的参数少于配置文件，但是一旦被指定，优先级高于配置文件，可以通过`python main.py --help`命令查看命令行帮助信息。
 
 ### EnvironmentSettings
 
-配置仿真环境
+配置仿真环境:
 
 | system_config      | 命令行示例                                   | 类型  | 说明                                                         |
 | ------------------ | -------------------------------------------- | ----- | ------------------------------------------------------------ |
@@ -13,33 +97,33 @@
 | process_bar_type   | `--process_bar_type round`                   | str   | 进度条显示风格（round或height）                              |
 | miner_num          | `--miner_num 80`                             | int   | 网络中的矿工总数                                             |
 | blocksize          | `--blocksize 8`                              | float | 区块大小，单位MB                                             |
-| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、`consensus.VirutalPoW`、<br/>`consensus.SolidPoW`三选一                          |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、`consensus.VirutalPoW`、<br/>`consensus.SolidPoW`三选一 |
 | network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`、`network.AdHocNetwork`五选一 |
-| show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                      |
-| log_level          | `--log_level error`                          | str   | 日志文件的级别（error、warning、debug或info）                                      |
+| show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                     |
+| log_level          | `--log_level error`                          | str   | 日志文件的级别（error、warning、info或debug）                |
 | compact_outputfile | `--no_compact_outputfile`                    | bool  | 是否简化log和result输出以节省磁盘空间<br/>通过`--no_compact_outputfile`设置为False |
 
 ### ConsensusSettings
 
-配置共识协议参数
+配置共识协议参数:
 
-| system_config      | 命令行示例                  | 类型 | 说明                                                         |
+| system_config      | 命令行示例                 | 类型 | 说明                                                         |
 | ------------------ | -------------------------- | ---- | ------------------------------------------------------------ |
 | q_ave              | `--q_ave 5`                | int  | 单个矿工的平均哈希率，即每轮能计算哈希的次数                 |
 | q_distr            | `--q_distr equal`          | str  | 哈希率的分布模式<br>equal：所有矿工哈希率相同；<br>rand：哈希率满足高斯分布 |
 | target             | 无                         | str  | 16进制格式的PoW目标值                                        |
 | 无                 | `--difficulty 12`          | int  | 用二进制PoW目标值前缀零的长度表示的PoW难度，<br/>在主程序转换为PoW目标值 |
-| average_block_time | `--average_block_time 400` | int  | 平均产生一个区块所需要的轮数，<br/>设置后根据q的数值自动设置target |
+| average_block_time | `--average_block_time 400` | int  | 平均产生一个区块所需要的轮数，<br/>设置后根据q和miner_num的数值自动设置target |
 
 ### AttackModeSettings
 
-配置攻击模式参数
+配置攻击模式参数:
 
-| system_config       | 命令行示例                               | 类型       | 说明                                                         |
-| ------------------- | ---------------------------------------- | ---------- | ------------------------------------------------------------ |
-| adver_num           | `--adver_num 0`                          | int        | 攻击者总数                                                   |
-| adver_lists         | 无                                       | tuple[int] | 攻击者id e.g.(1,3,5)                                         |
-| attack_type         | `--attack_type SelfishMining `           | str        | 攻击类型，HonestMining、SelfishMining<br/>、DoubleSpending、EclipsedDoubleSpending四选一 |
+| system_config | 命令行示例                     | 类型       | 说明                                                         |
+| ------------- | ------------------------------ | ---------- | ------------------------------------------------------------ |
+| adver_num     | `--adver_num 0`                | int        | 攻击者总数                                                   |
+| adver_lists   | 无                             | tuple[int] | 攻击者id e.g.(1,3,5)                                         |
+| attack_type   | `--attack_type SelfishMining ` | str        | 攻击类型，HonestMining、SelfishMining<br/>、DoubleSpending、EclipsedDoubleSpending四选一 |
 
 ### DeterPropNetworkSettings
 
@@ -47,11 +131,11 @@
 
 | system_config | 类型        | 说明                                                         |
 | ------------- | ----------- | ------------------------------------------------------------ |
-| prop_vector   | list[float] | 传播向量（以列表形式）e.g.[0.1, 0.2, 0.4, 0.6, 1.0]其中的元素代表了当(1,2,3...)轮过后接收到消息的矿工比例，最后一个元素必须为1.0 |
+| prop_vector   | list[float] | 传播向量（以列表形式）e.g. [0.1, 0.2, 0.4, 0.6, 1.0]其中的元素代表了当(1,2,3...)轮过后接收到消息的矿工比例，最后一个元素必须为1.0 |
 
 ### StochPropNetworkSettings
 
-配置StochPropNetwork参数
+配置StochPropNetwork参数:
 
 | system_config              | 命令行示例              | 类型        | 说明                                   |
 | -------------------------- | ----------------------- | ----------- | -------------------------------------- |
@@ -61,7 +145,7 @@
 
 ### TopologyNetworkSettings
 
-配置TopologyNetwork参数
+配置TopologyNetwork参数:
 
 | system_config          | 命令行示例                | 类型        | 说明                                                         |
 | ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
@@ -82,7 +166,7 @@
 
 ### AdHocNetworkSettings
 
-配置AdHocNetwork参数
+配置AdHocNetwork参数:
 
 | system_config   | 命令行示例           | 类型        | 说明                                                         |
 | --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
@@ -97,7 +181,7 @@
 
 ### DataItemSettings
 
-配置DataItem机制的参数
+配置DataItem机制的参数:
 
 | system_config           | 命令行示例                    | 类型 | 说明                                                         |
 | ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
@@ -199,88 +283,6 @@ Results/20230819-232107/
 | evaluation results.txt          | 评估结果                                                     |
 | events.log                      | 仿真过程日志，记录重要事件如产生区块、接入网络等             |
 | parameters.txt                  | 仿真环境参数                                                 |
-
-## 总体架构 Framework
-ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockchain六个组件组成，其中Consensus、Adversary与Network三大组件可配置、可替换，从而适应不同类型的共识协议、攻击向量与网络模型。六个抽象组件之间的关系如下图所示：
-
-![framework](doc/framework.svg)
-
-每个抽象组件由对应的一个或多个类实现，其中Consensus对应的Consensus类以及Network对应的Network类仅为抽象类，还需要派生出有实际功能的类，以实现各类共识协议与网络模型。
-
-目前已实现的共识协议（目前consensus_type配置的所有可选项）：
-
-| 共识类(派生自Consensus) | 说明                                     |
-| ----------------------- | ---------------------------------------- |
-| consensus.PoW           | 工作量证明机制                           |
-| consensus.VirtualPoW    | 通过均匀分布随机数和出块概率模拟的工作量证明机制   |
-| consensus.SolidPoW      | 严格约束每轮哈希计算次数的工作量证明机制 |
-
-目前已实现的网络模型（目前network_type配置的所有可选项）：
-
-| 网络类(派生自Network)       | 说明                                       |
-| --------------------------- | ------------------------------------------ |
-| network.SynchronousNetwork  | 同步网络模型                               |
-| network.DeterPropNetwork      | 基于传播向量的网络模型                     |
-| network.StochPropNetwork | 延迟有界、接收概率随轮次增加递增的网络模型 |
-| network.TopologyNetwork     | 复杂拓扑网络模型，可以生成随机网络         |
-
-Environment是仿真器的核心。用户执行main.py中的主程序开始仿真。主程序根据仿真参数初始化Environment对象，调用`exec`启动仿真循环，仿真结束后调用`view_and_write`生成仿真结果并写入Results文件夹。
-
-ChainXim将时间离散化处理，抽象为“轮次”（round），以轮次为单位模拟每个节点的行为。每个轮次依次激活矿工节点执行共识操作，所有节点都被激活一遍之后，调用网络类中的`diffuse`方法在矿工节点间进行消息传输。(详见**环境与模型假设**章节)
-
-
-## 环境与模型假设 Environment & Model Assumptions
-Environment组件是ChainXim程序运行的基石，其主要完成了仿真器系统模型的架构，以便与其它五大组件进行对接。同时也定义了仿真器中主要的一些参量，并封装了仿真器各组件中需要运用的部分函数。为便于理解该部分内容，下面将首先介绍ChainXim的模型假设。
-### 模型假设
-ChainXim的系统模型设计主要参考了下面的论文：
-
-* J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
-
-ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全部节点（包含诚实矿工与非诚实攻击者）都将在每个轮次内进行一定数目的操作，以完成记账权的竞争与新区块的生成与传播。定义网络中矿工总数为n，其中有t个矿工隶属于非诚实的攻击者。每个轮次中，全体矿工根据各自的编号被依次唤醒，并根据自己的身份采取行动，诚实矿工将严格依照共识协议的规则产生区块；攻击者则会结合实际情况选择遵守协议或发起攻击。**注意，每个轮次中，攻击模块只会被触发一次，每次触发都会进行一次完整的攻击行为。当前版本中，攻击者每轮次中会随机在轮到某一个隶属于攻击者的矿工时触发。虽然不同矿工被唤醒的次序不同，但同一轮次内实际上不存在先后顺序。** 
-
-为模拟上述各方在现实区块链系统中的具体操作，ChainXim参考了论文中提出的两种重要方法，它们分别为随机预言（Random Oracle）和扩散（Diffuse）方法，其在ChainXim中的具体定义如下：
-
-- **随机预言（Random Oracle）**：以PoW共识为例，各矿工在每一轮次最多可执行q次行动（不同矿工的q可能为不同值），即q次进行哈希计算的机会。每个矿工都将进行q次随机查询操作，即将某一随机数输入哈希函数，验证其结果是否小于给定难度值。若矿工成功找到了低于难度值的结果，则视为其成功产生了一个区块。**同一轮次中不同矿工产生的区块视作是同时产生的。**
-- **扩散（Diffuse）**：当矿工产生了新的区块，它会将这个区块上传到网络，由网络层负责消息传播。根据网络层配置的不同，传播逻辑也会有所不同。此外，攻击者也可能选择不上传自己本轮次挖到的区块，只有上传到网络层的区块才会经由该方法进行传播。**在ChainXim的模型中，认为攻击者所控制的矿工拥有独立于区块链系统的专用通信通道，即任一隶属于攻击者的矿工一旦接收到某个区块，则攻击者麾下的所有矿工均会在下一轮次收到该区块。**
-
-**注意，上述的扩散方法主要与Network组件对接，而随机预言方法则与Consensus组件对接。随即预言建模最初是针对比特币中的的PoW共识协议提出的。为使仿真器能够兼容其它共识，例如PBFT这类基于交互的共识，ChainXim后续将考虑在Consensus组件中对这一方法进行重载。**
-**Environment中设置了exec函数来一次性完成上述两种方法**：每一轮次中，所有矿工将依次被唤醒，并各自执行随机预言方法：如果矿工为诚实方，那么exec函数将调用Consensus组件执行进行相关操作；如果激活了攻击者，则调用Attacker组件进行相关操作。（每一轮次中只会调用一次Attacker组件）
-当所有矿工都完成自己的行动，即回合结束时，exec函数中将执行Network组件中的扩散方法，在网络中传播区块。一个具体的实例如下图所示：
-
-![environment](doc/environment.png)
-
-该实例中n=4，t=1。当第k轮次（Round k）开始时，四个矿工将依照序号从小到大的顺序被依次唤醒，且各自完成自己的q次行动。其中，仅有2号矿工（Miner 2）成功获得了记账权，并将产生的区块进行传播（Diffuse方法）。由于各自的传播时延不尽相同，1号矿工与3号矿工在第k+1轮次便已成功接收到了该区块，而4号矿工则到第k+2轮次才收到此区块。第k+1轮次没有矿工完成出块，第k+2轮次中1号与4号矿工则都完成了出块，但这里4号矿工为攻击者，它采取了自私挖矿的攻击手段，将随机预言中产生的区块置于私链上，在扩散中也暂不传播给其它矿工。第k+3轮次中只有4号攻击者矿工完成出块，这时在它的视野中，自己的私链已经长于主链，故它会将私链通过扩散方法传播给其它矿工，区块链至此发生分叉，且在收到该私链矿工的视野中，攻击者的链为最长合法链。第k+4轮次中，如果1号或2号矿工没有收到私链，并继续在诚实主链上挖矿，则它们的利益将可能受到损害。
-
-综上所述，ChainXim利用离散的轮次与受限的行动次数有效抽象了区块链网络中区块的产生与传播。
-
-### 仿真器环境
-总体来说，环境组件完成了整体模型的搭建。初始化函数根据输入参数设置基础参数，调用了其它组件进行各自的初始化，设置n个矿工、选定t个攻击者、配置全局区块链、网络组件、攻击组件等，用于后续运行与评估。环境组件中的主要函数及其各自的参数如下表所示：
-
-| 函数 | 参数 | 说明 |
-| -------- | -------- | -------- |
-|envir_create_global_chain|-|创建环境中的全局区块链|
-|configure_oracles|consensus_params:dict, adversary_ids:list|为所有矿工配置相应的预言机|
-|exec|num_rounds:int, max_height:int, process_bar_type:str|执行指定轮数或指定高度的仿真，通过num_rounds设置仿真运行的总轮数，通过max_height设置仿真终止的高度|
-|assess_common_prefix|type:str|计算评估区块链的共同前缀特性|
-|collect_until_next_round|-|统计当前轮次的事件集|
-|view|-|在终端窗口输出仿真结果，包含仿真生成的区块链结构图、吞吐量、增长率(反映链增长)、分叉率及共同前缀与链质量评估|
-|view_and_write|-|输出仿真结果并保存在txt文件中|
-|process_bar|-|显示当前仿真的进度，在终端输出实时变动的进度条与百分比|
-
-上表中，envir_create_global_chain初始化生成了一条全局区块链。此后，该链将作为上帝视角下的全局区块链树与全局最长合法链。
-主程序根据仿真参数初始化Environment对象，调用`exec`启动仿真循环，实现了论文中所述的随机预言方法与扩散方法,对于攻击者则需通过`attack_excute`调用相应接口。仿真结束后调用`view_and_write`统计并输出仿真结果。
-
-### DataItem机制
-
-DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 随机数。
-
-在system_config.ini中设置dataitem_enable=True之后，将启用DataItem机制。此时ChainXim将具备以下特性：
-
-1. TopologyNetwork和AdhocNetwork两大模型在仿真时将会按照区块中存储的DataItem数量计算区块大小以及相应的区块传播延迟。
-2. 评估阶段按照主链上所有区块的数据项数计算吞吐量
-3. 评估阶段可按照链上非法DataItem的比例评估攻击者的攻击效果（仅Environment中产生的DataItem合法，其余均为非法）
-
-目前的Environment中将在每个轮次为每个矿工提供`max_block_capacity`个DataItem，矿工需要在挖矿时将这些DataItem打包到区块中。一旦矿工产生了新区块，Environment将在下个轮次开始前生成新的DataItem供矿工使用，确保DataItem足以填满区块。
 
 
 ## 矿工 Miner
@@ -691,7 +693,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | --------------- | ------------------------------------ | ------------------------------------------------------------ |
 | remove_neighbor | remove_id:int                        | 抽象方法。移除指定的邻居。                                   |
 | add_neighbor    | add_id:int                           | 抽象方法。添加指定的邻居。                                   |
-| getdata         | inv:INVMsg                           | 抽象方法。回应inv消息，索要缺失的区块。                      |
+| reply_getdata   | inv:INVMsg                           | 抽象方法。回应inv消息，索要缺失的区块。                      |
 | get_reply       | msg_name, target:int, err:str, round | 抽象方法。消息成功发送到目标矿工，或发送失败时，原矿工获得消息发送结果。 |
 
 
@@ -717,7 +719,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | nic_forward           | list[Packet]                                           | _forward_buffer中的消息按照规则发送到网络中，具体过程在后文介绍。    |
 | remove_neighbor | remove_id:int                        |移除指定的邻居。                                   |
 | add_neighbor    | add_id:int                           |添加指定的邻居。                                   |
-| getdata         | inv:INVMsg                           |回应inv消息，索要缺失的区块。                      |
+| reply_getdata         | inv:INVMsg                           |回应inv消息，索要缺失的区块。                      |
 | get_reply       | msg_name, target:int, err:str, round |消息成功发送到目标矿工，或发送失败时，原矿工获得消息发送结果。 |
 
 ## 网络 Network

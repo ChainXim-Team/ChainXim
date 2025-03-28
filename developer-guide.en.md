@@ -1,11 +1,98 @@
 # ChainXim Developer Guide
 
+
+## Framework
+
+ChainXim is mainly composed of six components: Environment, Miner, Adversary, Network, Consensus, and Blockchain. Among them, the three major components, Consensus, Adversary, and Network, are configurable and replaceable to adapt to different types of consensus protocols, attack vectors, and network models. The relationships between the six abstract components are shown in the figure below:
+
+![framework](doc/framework.svg)
+
+Each abstract component is implemented by one or more corresponding classes. The Consensus class and the Network class corresponding to Consensus and Network are only abstract classes, and functional classes need to be derived to implement various consensus protocols and network models.
+
+Currently implemented consensus protocols (all options available for the consensus_type configuration):
+
+| Consensus Class (Derived from Consensus) | Description                                                  |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| consensus.PoW                            | Proof of Work                                                |
+| consensus.VirtualPoW                     | Proof of Work simulated by uniformly distributed random numbers and block generation probability |
+| consensus.SolidPoW                       | Proof of Work with strictly constrained hash calculations per round |
+
+Currently implemented network models (all options available for the network_type configuration):
+
+| Network Class (Derived from Network) | Description                                                  |
+| ------------------------------------ | ------------------------------------------------------------ |
+| network.SynchronousNetwork           | Synchronous Network Model                                    |
+| network.DeterPropNetwork             | Network Model Based on Propagation Vector                    |
+| network.StochPropNetwork             | Network Model with Bounded Delay and Increasing Receiving Probability with Rounds |
+| network.TopologyNetwork              | Complex network model, the topology can be randomly generated. |
+
+Environment is the core of the simulator. Users execute the main program in main.py to start the simulation. The main program initializes the Environment object according to the simulation parameters, calls `exec` to start the simulation loop, and calls `view_and_write` to generate the simulation results and write them to the Results folder after the simulation ends.
+
+ChainXim discretizes time, abstracting it into "rounds" to simulate the behavior of each node in units of rounds. Each round sequentially activates miners to perform consensus operations. After all nodes have been activated once, the `diffuse` method in the network class is called to transmit messages between miner nodes. (See **Environment & Model Assumptions** section for details)
+
+
+## Environment & Model Assumptions
+The Environment component is the cornerstone of the ChainXim program, supporting the architecture of the simulator system model to interface with the other five major components. It also defines some key parameters in the simulator and encapsulates some functions needed by the other components of the simulator. To facilitate understanding of this part, the model assumptions of ChainXim will be introduced first.
+
+### Model Assumptions
+The system model design of ChainXim mainly refers to the following paper:
+
+* J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
+
+ChainXim divides continuous time into discrete rounds, and all nodes in the network (including honest miners and dishonest attackers) will perform a certain number of operations in each round to compete for the accounting rights and generate and propagate new blocks. The total number of miners in the network is defined as $n$, among which $t$ miners belong to dishonest attackers. In each round, all miners are awakened in sequence according to their numbers and take actions based on their identities. Honest miners will strictly follow the consensus protocol to generate blocks; attackers will choose to follow the protocol or launch attacks based on the actual situation. **Note that in each round, the attack module will only be triggered once, and each trigger will perform a complete attack action. In the current version, attackers will be randomly triggered when it is the turn of an attacker in each round. Although the order of awakening different miners is different, there is no actual order within the same round.**
+
+To simulate the specific operations of the above parties in the real blockchain system, ChainXim refers to two important methods proposed in the paper, namely the Random Oracle and Diffuse methods, which are defined in ChainXim as follows:
+
+- **Random Oracle**: Taking the PoW consensus as an example, each miner can perform up to $q$ hash actions in each round (the $q$ value may be different for different miners), i.e., $q$ opportunities to perform hash calculations. Each miner will perform $q$ random oracle operations, i.e., input a random number into the hash function and verify whether the result is less than the given difficulty value. If the miner successfully finds a result lower than the target value, it is considered that a block has been successfully generated. **Blocks generated by different miners in the same round are considered to be generated simultaneously.**
+- **Diffuse**: When a miner generates a new block, it will upload this block to the network, and the network layer will be responsible for message propagation. The propagation logic will vary depending on the configuration of the network layer. In addition, attackers may choose not to upload the blocks they mined in the current round. Only blocks uploaded to the network layer will be propagated through this method. **In the ChainXim model, it is assumed that miners controlled by attackers have a dedicated communication channel independent of the blockchain system, i.e., once any miner belonging to the attackers receives a block, all miners under the attacker's control will receive the block in the next round.**
+
+**Note that the above Diffuse method is implemented in the Network component, while the Random Oracle method is implemented in the Consensus component. The Random Oracle model was initially proposed for the PoW consensus protocol in Bitcoin. To make the simulator compatible with other consensus protocols, such as PBFT, which is a protocol based on interaction, ChainXim will consider overloading this method in the Consensus component in the future.**
+**The exec function in the Environment is set to complete the above two methods at once**: In each round, all miners will be awakened in sequence and perform the Random Oracle method: if the miner is honest, the exec function will call the Consensus component to perform related operations; if the attacker is activated, the Attacker component will be called to perform related operations (the Attacker component will only be called once in each round).
+When all miners have completed their actions, i.e., the round ends, the exec function will execute the Diffuse method in the Network component to propagate blocks in the network. A specific example is shown in the figure below:
+
+![environment](doc/environment.png)
+
+In this example, $n=4$, $t=1$. When the k-th round (Round $k$) begins, the four miners will be awakened in sequence according to their numbers and complete their $q$ actions. Among them, only Miner 2 successfully obtained the accounting rights and propagated the generated block (Diffuse method). Due to different propagation delays, Miner 1 and Miner 3 successfully received the block in round k+1, while Miner 4 received the block in round k+2. No miner completed block generation in round k+1. In round k+2, both Miner 1 and Miner 4 completed block generation, but Miner 4, being an attacker, adopted a selfish mining attack strategy, placing the block generated by the Random Oracle on a private chain and not propagating it to other miners during the Diffuse method. In round k+3, only Miner 4 completed block generation. At this point, in its view, its private chain is longer than the main chain, so it propagates the private chain to other miners through the Diffuse method, causing a fork in the blockchain. In the view of miners who received the private chain, the attacker's chain is the longest valid chain. In round k+4, if Miner 1 or Miner 2 did not receive the private chain and continued mining on the honest main chain, their interests might be harmed.
+
+In summary, ChainXim effectively abstracts the generation and propagation of blocks in the blockchain network using discrete rounds and limited actions.
+
+### Environment
+
+Overall, the Environment component completes the construction of the overall model. The initialization function sets the basic parameters according to the input parameters, calls other components for their respective initialization, sets $n$ miners, selects $t$ attackers, configures the global blockchain, network components, attack components, etc., for subsequent operation and evaluation. The main functions in the Environment component and their respective parameters are shown in the table below:
+
+| Function                  | Parameters                                           | Description                                                  |
+| ------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| envir_create_global_chain | -                                                    | Create the global blockchain in the Environment component    |
+| exec                      | num_rounds:int, max_height:int, process_bar_type:str | Execute the simulation for the specified number of rounds or height; `num_rounds` sets the total number of rounds, `max_height` sets the termination height |
+| on_round_start            | round:int                                            | Operations executed at the start of each round, including `DataItem` generation |
+| generate_dataitem         | round:int                                            | Generate `DataItem` at the specified round                   |
+| view                      | -                                                    | Output the simulation results in the terminal, including the generated blockchain structure diagram, throughput, growth rate (reflecting chain growth), fork rate, and evaluation of common prefix and chain quality |
+| view_and_write            | -                                                    | Output the simulation results and save them in a txt file    |
+| assess_common_prefix      | type:str                                             | Calculate and evaluate the common prefix property of the blockchain, supporting two types of common prefix distributions: `pdf` and `cdf` |
+| process_bar               | -                                                    | Display the current simulation progress, outputting a real-time progress bar and percentage in the terminal |
+
+In the table above, envir_create_global_chain initializes and generates a global blockchain. After that, this chain will serve as the global blockchain tree and the global longest valid chain from a global view.
+The main program initializes the Environment object according to the simulation parameters, calls `exec` to start the simulation loop, and implements the random oracle method and diffusion method described in the paper. For attackers, the corresponding attacking operations needs to be executed through `attack_excute`. After the simulation ends, `view_and_write` is called to collect and output the simulation results.
+
+### DataItem Mechanism
+
+DataItem is an abstraction of on-chain data, with a data structure of 4 bytes for generation round + 4 bytes for a random number.
+
+When `dataitem_enable=True` is set in `system_config.ini`, the DataItem mechanism will be enabled with the following features:
+
+1. The TopologyNetwork and AdhocNetwork models will calculate block size and corresponding block propagation delay based on the number of DataItems stored in the block during simulation.
+2. During the evaluation stage, throughput will be calculated based on the number of DataItems in all blocks in the main chain.
+3. During the evaluation stage, the attack efficacy of attackers can be assessed based on the proportion of invalid DataItems on the chain (only DataItems generated in the Environment are valid, all others are invalid).
+
+In the current Environment implementation, each miner will be provided with `max_block_capacity` DataItems in each round, and miners need to package these DataItems into blocks during mining. Once a miner generates a new block, the Environment will generate new DataItems for miners to use before the start of the next round, ensuring that DataItems are sufficient to fill the block.
+
+
 ## Simulator Input Parameters
 The input parameters of the simulator can be specified in two ways: command line and configuration file. Generally, you can modify the configuration file system_config.ini that comes with ChainXim to change the simulation parameters, or you can specify individual simulation parameters through the command line. The command line supports fewer parameters than the configuration file, but once specified, they take precedence over the configuration file. You can view the command line help information by using the command `python main.py --help`.
 
 ### EnvironmentSettings
 
-Configure the simulation environment
+Configure the simulation environment:
 
 | system_config      | Command Line Example                         | Type  | Description                                                  |
 | ------------------ | -------------------------------------------- | ----- | ------------------------------------------------------------ |
@@ -13,43 +100,46 @@ Configure the simulation environment
 | process_bar_type   | `--process_bar_type round`                   | str   | Progress bar display style (round or height)                 |
 | miner_num          | `--miner_num 80`                             | int   | Total number of miners in the network                        |
 | blocksize          | `--blocksize 8`                              | float | Block size, in MB                                            |
-| consensus_type     | `--consensus_type consensus.PoW`             | str   | Consensus type, currently only `consensus.PoW` is available  |
-| network_type       | `--network_type network.SynchronousNetwork ` | str   | Network type, should be one of `network.SynchronousNetwork`,<br/>`network.PropVecNetwork`, `network.BoundedDelayNetwork`,<br/>`network.TopologyNetwork`, `network.AdHocNetwork` |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | Consensus type, should be one of `consensus.PoW`, `consensus.VirutalPoW`, <br/>`consensus.SolidPoW` |
+| network_type       | `--network_type network.SynchronousNetwork ` | str   | Network type, should be one of `network.SynchronousNetwork`,<br/>`network.DeterPropNetwork`, `network.StochPropNetwork`,<br/>`network.TopologyNetwork`, `network.AdHocNetwork` |
 | show_fig           | `--show_fig`                                 | bool  | Whether to display images during the simulation              |
+| show_fig           | `--show_fig`                                 | bool  | Show figures during simulation                               |
+| log_level          | `--log_level error`                          | str   | The level of log files（error, warning, info, or debug）     |
 | compact_outputfile | `--no_compact_outputfile`                    | bool  | Whether to simplify log and result output to save disk space<br/>Set to False via `--no_compact_outputfile` |
 
 ### ConsensusSettings
 
-Configure consensus protocol parameters
+Configure consensus protocol parameters:
 
-| system_config | Command Line Example | Type | Description                                                  |
-| ------------- | -------------------- | ---- | ------------------------------------------------------------ |
-| q_ave         | `--q_ave 5`          | int  | Average hash rate of a single miner, i.e., the number of hash calculations per round |
-| q_distr       | `--q_distr equal`    | str  | Hash rate distribution mode<br>equal: All miners have the same hash rate;<br>rand: Hash rate follows a Gaussian distribution |
-| target        | None                 | str  | PoW target value in hexadecimal format                       |
-| None          | `--difficulty 12`    | int  | PoW difficulty represented by the length of the prefix zeros in the binary PoW target value,<br/>converted to the PoW target value in the main program |
+| system_config      | Command Line Example       | Type | Description                                                  |
+| ------------------ | -------------------------- | ---- | ------------------------------------------------------------ |
+| q_ave              | `--q_ave 5`                | int  | Average hash rate of a single miner, i.e., the number of hash calculations per round |
+| q_distr            | `--q_distr equal`          | str  | Hash rate distribution mode<br>equal: All miners have the same hash rate;<br>rand: Hash rate follows a Gaussian distribution |
+| target             | None                       | str  | PoW target value in hexadecimal format                       |
+| None               | `--difficulty 12`          | int  | PoW difficulty represented by the length of the prefix zeros in the binary PoW target value,<br/>converted to the PoW target value in the main program |
+| average_block_time | `--average_block_time 400` | int  | The average number of rounds required for the entire network to generate a block, if not zero, then `target` will be overwritten according to `q` and `miner_num` |
 
 ### AttackModeSettings
 
-Configure attack mode parameters
+Configure attack mode parameters:
 
-| system_config       | Command Line Example                     | Type       | Description                                                  |
-| ------------------- | ---------------------------------------- | ---------- | ------------------------------------------------------------ |
-| adver_num           | `--adver_num 0`                          | int        | Total number of attackers                                    |
-| adver_lists         | None                                     | tuple[int] | Attacker IDs e.g.(1,3,5)                                     |
-| attack_type         | `--attack_type SelfishMining`            | str        | Attack type<br>HonestMining,SelfishMining,DoubleSpending     |
+| system_config | Command Line Example          | Type       | Description                                                  |
+| ------------- | ----------------------------- | ---------- | ------------------------------------------------------------ |
+| adver_num     | `--adver_num 0`               | int        | Total number of attackers                                    |
+| adver_lists   | None                          | tuple[int] | Attacker IDs e.g.(1,3,5)                                     |
+| attack_type   | `--attack_type SelfishMining` | str        | Attack type<br>should be one of `HonestMining`,`SelfishMining`,<br />`DoubleSpending`, `EclipsedDoubleSpending` |
 
 ### DeterPropNetworkSettings
 
-Configure DeterPropNetwork parameters
+Configure DeterPropNetwork parameters:
 
 | system_config | Type        | Description                                                  |
 | ------------- | ----------- | ------------------------------------------------------------ |
-| prop_vector   | list[float] | Propagation vector (in list form) e.g.[0.1, 0.2, 0.4, 0.6, 1.0] where the elements represent the proportion of miners receiving the message after (1,2,3...) rounds, the last element must be 1.0 |
+| prop_vector   | list[float] | Propagation vector (in list form) e.g. [0.1, 0.2, 0.4, 0.6, 1.0] where the elements represent the proportion of miners receiving the message after (1,2,3...) rounds, the last element must be 1.0 |
 
 ### StochPropNetworkSettings
 
-Configure StochPropNetwork parameters
+Configure StochPropNetwork parameters:
 
 | system_config              | Command Line Example    | Type        | Description                                                  |
 | -------------------------- | ----------------------- | ----------- | ------------------------------------------------------------ |
@@ -59,7 +149,7 @@ Configure StochPropNetwork parameters
 
 ### TopologyNetworkSettings
 
-Configure TopologyNetwork parameters
+Configure TopologyNetwork parameters:
 
 | system_config          | Command Line Example      | Type        | Description                                                  |
 | ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
@@ -80,7 +170,7 @@ Configure TopologyNetwork parameters
 
 ### AdHocNetworkSettings
 
-Configure AdHocNetwork parameters
+Configure AdHocNetwork parameters:
 
 | system_config   | Command Line Example | Type        | Description                                                  |
 | --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
@@ -95,7 +185,7 @@ Configure AdHocNetwork parameters
 
 ### DataItemSettings
 
-Configure DataItem parameters
+Configure DataItem parameters:
 
 | system_config           | Command Line Example          | Type | Description                                                  |
 | ----------------------- | ----------------------------- | ---- | ------------------------------------------------------------ |
@@ -195,99 +285,12 @@ The meaning of the output simulation result files is as follows:
 | events.log                      | Simulation process log, recording important events such as block generation, network access, etc. |
 | parameters.txt                  | Simulation environment parameters                            |
 
-## Framework
-
-ChainXim is mainly composed of six components: Environment, Miner, Adversary, Network, Consensus, and Blockchain. Among them, the three major components, Consensus, Adversary, and Network, are configurable and replaceable to adapt to different types of consensus protocols, attack vectors, and network models. The relationships between the six abstract components are shown in the figure below:
-
-![framework](doc/framework.svg)
-
-Each abstract component is implemented by one or more corresponding classes. The Consensus class and the Network class corresponding to Consensus and Network are only abstract classes, and functional classes need to be derived to implement various consensus protocols and network models.
-
-Currently implemented consensus protocols (all options available for the consensus_type configuration):
-
-| Consensus Class (Derived from Consensus) | Description       |
-| ---------------------------------------- | ----------------- |
-| consensus.PoW                            | Proof of Work     |
-| consensus.VirtualPoW                     | Proof of Work simulated by uniformly distributed random numbers and block generation probability |
-| consensus.SolidPoW                       | Proof of Work with strictly constrained hash calculations per round |
-
-Currently implemented network models (all options available for the network_type configuration):
-
-| Network Class (Derived from Network) | Description                                                  |
-| ------------------------------------ | ------------------------------------------------------------ |
-| network.SynchronousNetwork           | Synchronous Network Model                                    |
-| network.DeterPropNetwork             | Network Model Based on Propagation Vector                    |
-| network.StochPropNetwork             | Network Model with Bounded Delay and Increasing Receiving Probability with Rounds |
-| network.TopologyNetwork              | Complex network model, the topology can be randomly generated. |
-
-Environment is the core of the simulator. Users execute the main program in main.py to start the simulation. The main program initializes the Environment object according to the simulation parameters, calls `exec` to start the simulation loop, and calls `view_and_write` to generate the simulation results and write them to the Results folder after the simulation ends.
-
-ChainXim discretizes time, abstracting it into "rounds" to simulate the behavior of each node in units of rounds. Each round sequentially activates miners to perform consensus operations. After all nodes have been activated once, the `diffuse` method in the network class is called to transmit messages between miner nodes. (See **Environment & Model Assumptions** section for details)
-
-
-## Environment & Model Assumptions
-The Environment component is the cornerstone of the ChainXim program, supporting the architecture of the simulator system model to interface with the other five major components. It also defines some key parameters in the simulator and encapsulates some functions needed by the other components of the simulator. To facilitate understanding of this part, the model assumptions of ChainXim will be introduced first.
-
-### Model Assumptions
-The system model design of ChainXim mainly refers to the following paper:
-
-* J. A. Garay, A. Kiayias and N. Leonardos, "The bitcoin backbone protocol: Analysis and applications", Eurocrypt, 2015. <https://eprint.iacr.org/2014/765.pdf>
-
-ChainXim divides continuous time into discrete rounds, and all nodes in the network (including honest miners and dishonest attackers) will perform a certain number of operations in each round to compete for the accounting rights and generate and propagate new blocks. The total number of miners in the network is defined as $n$, among which $t$ miners belong to dishonest attackers. In each round, all miners are awakened in sequence according to their numbers and take actions based on their identities. Honest miners will strictly follow the consensus protocol to generate blocks; attackers will choose to follow the protocol or launch attacks based on the actual situation. **Note that in each round, the attack module will only be triggered once, and each trigger will perform a complete attack action. In the current version, attackers will be randomly triggered when it is the turn of an attacker in each round. Although the order of awakening different miners is different, there is no actual order within the same round.**
-
-To simulate the specific operations of the above parties in the real blockchain system, ChainXim refers to two important methods proposed in the paper, namely the Random Oracle and Diffuse methods, which are defined in ChainXim as follows:
-
-- **Random Oracle**: Taking the PoW consensus as an example, each miner can perform up to $q$ hash actions in each round (the $q$ value may be different for different miners), i.e., $q$ opportunities to perform hash calculations. Each miner will perform $q$ random oracle operations, i.e., input a random number into the hash function and verify whether the result is less than the given difficulty value. If the miner successfully finds a result lower than the target value, it is considered that a block has been successfully generated. **Blocks generated by different miners in the same round are considered to be generated simultaneously.**
-- **Diffuse**: When a miner generates a new block, it will upload this block to the network, and the network layer will be responsible for message propagation. The propagation logic will vary depending on the configuration of the network layer. In addition, attackers may choose not to upload the blocks they mined in the current round. Only blocks uploaded to the network layer will be propagated through this method. **In the ChainXim model, it is assumed that miners controlled by attackers have a dedicated communication channel independent of the blockchain system, i.e., once any miner belonging to the attackers receives a block, all miners under the attacker's control will receive the block in the next round.**
-
-**Note that the above Diffuse method is implemented in the Network component, while the Random Oracle method is implemented in the Consensus component. The Random Oracle model was initially proposed for the PoW consensus protocol in Bitcoin. To make the simulator compatible with other consensus protocols, such as PBFT, which is a protocol based on interaction, ChainXim will consider overloading this method in the Consensus component in the future.**
-**The exec function in the Environment is set to complete the above two methods at once**: In each round, all miners will be awakened in sequence and perform the Random Oracle method: if the miner is honest, the exec function will call the Consensus component to perform related operations; if the attacker is activated, the Attacker component will be called to perform related operations (the Attacker component will only be called once in each round).
-When all miners have completed their actions, i.e., the round ends, the exec function will execute the Diffuse method in the Network component to propagate blocks in the network. A specific example is shown in the figure below:
-
-![environment](doc/environment.png)
-
-In this example, $n=4$, $t=1$. When the k-th round (Round $k$) begins, the four miners will be awakened in sequence according to their numbers and complete their $q$ actions. Among them, only Miner 2 successfully obtained the accounting rights and propagated the generated block (Diffuse method). Due to different propagation delays, Miner 1 and Miner 3 successfully received the block in round k+1, while Miner 4 received the block in round k+2. No miner completed block generation in round k+1. In round k+2, both Miner 1 and Miner 4 completed block generation, but Miner 4, being an attacker, adopted a selfish mining attack strategy, placing the block generated by the Random Oracle on a private chain and not propagating it to other miners during the Diffuse method. In round k+3, only Miner 4 completed block generation. At this point, in its view, its private chain is longer than the main chain, so it propagates the private chain to other miners through the Diffuse method, causing a fork in the blockchain. In the view of miners who received the private chain, the attacker's chain is the longest valid chain. In round k+4, if Miner 1 or Miner 2 did not receive the private chain and continued mining on the honest main chain, their interests might be harmed.
-
-In summary, ChainXim effectively abstracts the generation and propagation of blocks in the blockchain network using discrete rounds and limited actions.
-
-### Environment
-
-Overall, the Environment component completes the construction of the overall model. The initialization function sets the basic parameters according to the input parameters, calls other components for their respective initialization, sets $n$ miners, selects $t$ attackers, configures the global blockchain, network components, attack components, etc., for subsequent operation and evaluation. The main functions in the Environment component and their respective parameters are shown in the table below:
-
-| Function | Parameters | Description |
-| -------- | -------- | -------- |
-| select_adversary_random | - | Randomly select a certain number of miners as attackers |
-| select_adversary | \*Miner_ID:tuple | Set the corresponding miners as attackers by specifying their IDs |
-| envir_create_global_chain | - | Create the global blockchain in the environment |
-| attack_excute | round:int | Execute the attack type defined in the attack module |
-| exec | num_rounds:int, max_height:int, process_bar_type:str | Execute the simulation for the specified number of rounds or height; num_rounds sets the total number of rounds, max_height sets the termination height |
-| assess_common_prefix | - | Calculate and evaluate the common prefix property of the blockchain |
-| assess_common_prefix_k | - | Optimized method for calculating and evaluating the common prefix |
-| view | - | Output the simulation results in the terminal, including the generated blockchain structure diagram, throughput, growth rate (reflecting chain growth), fork rate, and evaluation of common prefix and chain quality |
-| view_and_write | - | Output the simulation results and save them in a txt file |
-| process_bar | - | Display the current simulation progress, outputting a real-time progress bar and percentage in the terminal |
-
-In the table above, envir_create_global_chain initializes and generates a global blockchain. After that, this chain will serve as the global blockchain tree and the global longest valid chain from a global view.
-The main program initializes the Environment object according to the simulation parameters, calls `exec` to start the simulation loop, and implements the random oracle method and diffusion method described in the paper. For attackers, the corresponding attacking operations needs to be executed through `attack_excute`. After the simulation ends, `view_and_write` is called to collect and output the simulation results.
-
-### DataItem Mechanism
-
-DataItem is an abstraction of on-chain data, with a data structure of 4 bytes for generation round + 4 bytes for a random number.
-
-When `dataitem_enable=True` is set in `system_config.ini`, the DataItem mechanism will be enabled with the following features:
-
-1. The TopologyNetwork and AdhocNetwork models will calculate block size and corresponding block propagation delay based on the number of DataItems stored in the block during simulation.
-2. During the evaluation stage, throughput will be calculated based on the number of DataItems in all blocks in the main chain.
-3. During the evaluation stage, the attack efficacy of attackers can be assessed based on the proportion of invalid DataItems on the chain (only DataItems generated in the Environment are valid, all others are invalid).
-
-In the current Environment implementation, each miner will be provided with `max_block_capacity` DataItems in each round, and miners need to package these DataItems into blocks during mining. Once a miner generates a new block, the Environment will generate new DataItems for miners to use before the start of the next round, ensuring that DataItems are sufficient to fill the block.
-
 
 ## Miner
 
 The Miner component defines the miner class, which is used to create miners and perform related operations. The functions defined in it are shown in the table below:
 
-| Function          | Parameters and Types                                           | Return Type       | Description                                                                 |
+| Method    | Parameters                                           | Returns      | Description                                                                 |
 | ----------------- | -------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
 | _join_network      | network:Network                                                | -                 | Miners join the network during network initialization and initialize the network interface |
 | forward           | msgs:list[Message], msg_source_type:str, forward_strategy:str, spec_targets:list, syncLocalChain:bool | -                 | Forward messages to other nodes through the network interface layer. `msgs` is the list of messages to be forwarded; `msg_source_type` is the message source type, `SELF_GEN_MSG` indicates generated by this miner, `OUTER_RCV_MSG` indicates received from the network; `forward_strategy` is the message forwarding strategy; `spec_targets` is the list of target nodes to forward to if `forward_strategy` is `SPECIFIC`; `syncLocalChain` indicates whether to synchronize the local chain with neighbors, preferably when a new block is generated. |
@@ -337,10 +340,10 @@ Block is used to define the data in the block. In addition to the block header b
 
 **Note that the blockhead attribute is read-only and cannot be modified after the Block object is constructed.** In addition, the Block class has two auxiliary methods:
 
-| Method               | Input Parameters and Types | Return Type | Description                                                                 |
-| -------------------- | -------------------------- | ----------- | --------------------------------------------------------------------------- |
-| get_height           | -                          | int         | Returns Block.height                                                        |
-| calculate_blockhash  | -                          | bytes       | Calls blockhead.calculate_blockhash, saves the hash value to blockhash, and returns the value of blockhash |
+| Method              | Parameters | Returns | Description                                                  |
+| ------------------- | ---------- | ------- | ------------------------------------------------------------ |
+| get_height          | -          | int     | Returns Block.height                                         |
+| calculate_blockhash | -          | bytes   | Calls blockhead.calculate_blockhash, saves the hash value to blockhash, and returns the value of blockhash |
 
 Finally, to enable the Block object to be transmitted in the Network, the Block class is derived from the Message class.
 
@@ -356,7 +359,7 @@ Chain is mainly used to store the root and end nodes of the blockchain and defin
 
 The Chain class has various methods that can be used to add new blocks, merge chains, search for blocks, visualize the blockchain, save blockchain data, and more, as shown in the table below:
 
-| Method                          | Input Parameters and Types                              | Return Type | Description                                                  |
+| Method                          | Parameters                                              | Returns     | Description                                                  |
 | ------------------------------- | ------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
 | search_block                    | block: Block                                            | Block\|None | Searches for the target block in the local block tree, returns the block if found, otherwise returns None |
 | search_block_by_hash            | blockhash: bytes                                        | Block\|None | Searches for the target block by hash in the local block tree, returns the block if found, otherwise returns None |
@@ -387,12 +390,12 @@ Each PoW object contains the following attributes:
 
 The PoW class simulates the block generation and validation behavior in the Proof of Work mechanism through the following methods and resolves forks using the longest chain rule:
 
-| Method              | Input Parameters and Types                                      | Return Type                   | Description                                                  |
-| ------------------- | --------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------ |
-| mining_consensus    | miner_id:int,<br>isadversary:bool,<br>x: Any,<br>round: int     | Block, bool \|<br>None, bool  | Executed once per round, modifies the nonce q times to calculate the block hash, if the hash is less than the target value, returns the Block object and True, otherwise returns None and False |
-| local_state_update  | -                                                               | Block, bool                   | Verifies the blocks in receive_tape one by one, merges the blocks into the local chain, finally determines the main chain using the longest chain rule, returns the tail of the main chain and a flag indicating whether the main chain has been updated if the new block is valid but cannot be merged into the local chain due to missing intermediate blocks, it is placed in the cache |
-| valid_chain         | lastblock: Block                                                | bool                          | Verifies the chain ending with lastblock                      |
-| valid_block         | block: Block                                                    | bool                          | Verifies whether the block is valid, i.e., whether the block hash is less than the target value |
+| Method             | Parameters                                                  | Returns                      | Description                                                  |
+| ------------------ | ----------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| mining_consensus   | miner_id:int,<br>isadversary:bool,<br>x: Any,<br>round: int | Block, bool \|<br>None, bool | Executed once per round, modifies the nonce q times to calculate the block hash, if the hash is less than the target value, returns the Block object and True, otherwise returns None and False |
+| local_state_update | -                                                           | Block, bool                  | Verifies the blocks in receive_tape one by one, merges the blocks into the local chain, finally determines the main chain using the longest chain rule, returns the tail of the main chain and a flag indicating whether the main chain has been updated if the new block is valid but cannot be merged into the local chain due to missing intermediate blocks, it is placed in the cache |
+| valid_chain        | lastblock: Block                                            | bool                         | Verifies the chain ending with lastblock                     |
+| valid_block        | block: Block                                                | bool                         | Verifies whether the block is valid, i.e., whether the block hash is less than the target value |
 
 ### Consensus Protocol and Block
 
@@ -677,31 +680,31 @@ Used to mark the channel status in TopologyNetwork and AdHocNetwork.
 
 ### Network Interface Abstract Base Class
 
-The abstract base class for network interfaces, defining the abstract interfaces that should be implemented. Located in `.\network\nic_abc.py`. First, it defines the member variables common to all network interfaces, as well as the abstract methods that each network interface needs to implement.
+The abstract base class for network interfaces, defining the abstract interfaces that should be implemented. Located in `.\network\nic_abc.py`. First, it defines the attributes common to all network interfaces, as well as the abstract methods that each network interface needs to implement.
 
-| Member Variable   | Type                   | Description                                                  |
-| ----------------- | ---------------------- | ------------------------------------------------------------ |
-| miner             | Miner                  | The miner holding this network interface                     |
-| miner_id          | int                    | The ID of the miner holding this network interface           |
-| _network          | Network                | The network instance in the environment                      |
-| _receive_buffer   | list[Packet]           | Buffer for packets received from the network in the current round |
-| _forward_buffer   | dict[str, list[Block]] | Queue of messages to be sent to the network (currently only Block); the key indicates the source of the message, OUTER and SELF |
+| Attribute       | Type                   | Description                                                  |
+| --------------- | ---------------------- | ------------------------------------------------------------ |
+| miner           | Miner                  | The miner holding this network interface                     |
+| miner_id        | int                    | The ID of the miner holding this network interface           |
+| _network        | Network                | The network instance in the environment                      |
+| _receive_buffer | list[Packet]           | Buffer for packets received from the network in the current round |
+| _forward_buffer | dict[str, list[Block]] | Queue of messages to be sent to the network (currently only Block); the key indicates the source of the message, OUTER and SELF |
 
-| Member Method           | Input Parameters                                        | Description                                                  |
-| ----------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
-| append_forward_buffer   | msg:Message, type:str, strategy: str, spec_target:list  | Adds the message msg to be forwarded to _forward_buffer, specifying the message type type (OUTER/SELF), forwarding strategy strategy (default FLOODING), and specific target spec_target only effective in SPEC_TARGETS strategy. |
-| nic_join_network        | network:Network                                         | Abstract method. Initializes the network interface when the miner is initialized and joins the network. |
-| nic_receive             | packet: Packet                                          | Abstract method. Receives packets from the network and passes them to the miner. |
-| nic_forward             | list[Packet]                                            | Abstract method. Sends messages in _forward_buffer to the network according to the rules. |
+| Method                | Parameters                                             | Description                                                  |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| append_forward_buffer | msg:Message, type:str, strategy: str, spec_target:list | Adds the message msg to be forwarded to _forward_buffer, specifying the message type type (OUTER/SELF), forwarding strategy strategy (default FLOODING), and specific target spec_target only effective in SPEC_TARGETS strategy. |
+| nic_join_network      | network:Network                                        | Abstract method. Initializes the network interface when the miner is initialized and joins the network. |
+| nic_receive           | packet: Packet                                         | Abstract method. Receives packets from the network and passes them to the miner. |
+| nic_forward           | list[Packet]                                           | Abstract method. Sends messages in _forward_buffer to the network according to the rules. |
 
 The following methods need to be implemented only by TopologyNetwork and AdHocNetwork:
 
-| Member Method     | Input Parameters                      | Description                                                  |
-| ----------------- | ------------------------------------- | ------------------------------------------------------------ |
-| remove_neighbor   | remove_id:int                         | Abstract method. Removes the specified neighbor.             |
-| add_neighbor      | add_id:int                            | Abstract method. Adds the specified neighbor.                |
-| getdata           | inv:INVMsg                            | Abstract method. Responds to inv messages, requesting missing blocks. |
-| get_reply         | msg_name, target:int, err:str, round  | Abstract method. The original miner gets the result of the message sent to the target miner, whether it was successful or failed. |
+| Method          | Parameters                           | Description                                                  |
+| --------------- | ------------------------------------ | ------------------------------------------------------------ |
+| remove_neighbor | remove_id:int                        | Abstract method. Removes the specified neighbor.             |
+| add_neighbor    | add_id:int                           | Abstract method. Adds the specified neighbor.                |
+| reply_getdata   | inv:INVMsg                           | Abstract method. Responds to inv messages, requesting missing blocks. |
+| get_reply       | msg_name, target:int, err:str, round | Abstract method. The original miner gets the result of the message sent to the target miner, whether it was successful or failed. |
 
 
 ### NICWithoutTp
@@ -713,7 +716,7 @@ The general process of interaction between miners and the network through the ne
 
 For network interfaces without topology information, `NICWithoutTp`, in the above process 2, only the messages generated by itself, i.e., the contents of the `SELF` message queue in `_forward_buffer`, are forwarded. The main member methods are as follows:
 
-| Member Method        | Input Parameters                             | Description                                                         |
+| Method        | Parameters                             | Description                                                         |
 | --------------- | ------------------------------------ | ------------------------------------------------------------ |
 | nic_receive           | packet: Packet                                         | Receives packets from the network and passes them to the miner.                 |
 | nic_forward           | list[Packet]                                           | Sends the contents of the `SELF` message queue in `_forward_buffer` to the network through `access_network`.    |
@@ -721,13 +724,13 @@ For network interfaces without topology information, `NICWithoutTp`, in the abov
 
 ### NICWithTp
 
-| Member Method              | Input Parameters                                               | Description                                                         |
+| Method              | Parameters                                               | Description                                                         |
 | --------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
 | nic_receive           | packet: Packet                                         | Receives packets from the network and passes them to the miner.                 |
 | nic_forward           | list[Packet]                                           | Sends the messages in `_forward_buffer` to the network according to rules, the specific process is introduced later.    |
 | remove_neighbor | remove_id:int                        |Removes the specified neighbor.                                   |
 | add_neighbor    | add_id:int                           |Adds the specified neighbor.                                   |
-| getdata         | inv:INVMsg                           |Responds to `inv` messages, requesting missing blocks.                      |
+| reply_getdata   | inv:INVMsg                           |Responds to `inv` messages, requesting missing blocks.                      |
 | get_reply       | msg_name, target:int, err:str, round |The original miner gets the result of the message sent to the target miner, whether it was successful or failed. |
 
 ## Network
@@ -736,7 +739,7 @@ The main function of the network layer is to receive new blocks generated in the
 ### Network Base Class
 The Network base class defines three interfaces, and external modules can only interact with the network module through these three interfaces. It also specifies the input parameters, which derived classes cannot change.
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs     | Sets network parameters. The environment class sets network parameters during initialization. The main program loads network parameter information into the environment from the configuration file.    |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int     | Receives all newly generated message objects into the network, waiting for propagation. It also encapsulates each message object and propagation-related information into a [Packet](#BlockPacket).   |
@@ -777,7 +780,7 @@ class PacketPVNet(Packet):
 ### SynchronousNetwork
 All miners receive newly generated messages at the beginning of the next round, except for the miner who generated the message.
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs       | No parameters needed for synchronous network    |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int    | Encapsulate the message object, miner id, and current round into PacketSyncNet and add it to network_tape. |
@@ -795,17 +798,17 @@ After new messages enter the network, they are received by miners with an increa
 
 For example, with rcvprob_start=rcvprob_inc=0.2, all other miners will definitely receive the message within 5 rounds after it enters the network.
 
-**Interface Functions**:
+**Interface Methods**:
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | Set rcvprob_start, rcvprob_inc    |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int     | Encapsulate the message object, miner id, and current round into PacketBDNet and add it to network_tape. Initialize the reception probability of the packet and record the propagation process. |
 | diffuse   | round:int     | Each Packet in network_tape is received by miners with an increasing probability, and the current reception probability is updated in PacketBDNet. When all miners have received it, remove it from network_tape and save the propagation process in network log.txt.<br>**Note: When sent to an attacker, the other attackers also receive it immediately** |
 
-**Important Functions**
+**Important Methods**
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 |record_block_propagation_time|- |Record message propagation time|
 |save_trans_process|-|Save propagation process|
@@ -820,17 +823,17 @@ Given a propagation vector, the network sends message objects to a fixed proport
 | -------- | -------- |
 | prop_vector (list)     | Propagation vector. For example, prop_vector=[0.1, 0.2, 0.4, 0.6, 0.8, 1.0] means that the proportion of miners receiving the message before the next round starts is 0.1, then 0.2 after another round, until all miners receive the message after five rounds. |
 
-**Interface Functions**:
+**Interface Methods**:
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | Set prop_vector   |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int     | Encapsulate all new messages, miner id, and current round into data packets (PacketPVNet) and add them to network_tape. Initialize the propagation vector of the data packet and record the propagation process. |
 | diffuse   | round:int     | According to the propagation vector, propagate the data packet to a fixed proportion of miners in each round.<br>**Note: When sent to an attacker, the other attackers also receive it immediately, which may result in an inconsistent receiving proportion at some rounds.** |
 
-**Important Functions**
+**Important Methods**
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | record_block_propagation_time | - | Record message propagation time |
 | save_trans_process | - | Save the propagation process |
@@ -854,9 +857,9 @@ Generate network topology and bandwidth between miners through a CSV file or ran
 | save_routing_graph (bool) | Whether to save the routing propagation graph of each message. It is recommended to turn it off when the network scale is large                                                                                        |
 |enable_resume_transfer (bool)|Whether to enable link interruption recovery. When enable_resume_transfer=True, after a link interruption, the sender will resend only the remaining messages; otherwise, it will resend the entire message. When a link is disconnected due to dynamic topology changes, if it recovers later, the entire message will be resent|
 
-**Interface Functions**:
+**Interface Methods**:
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | Set the above network parameters |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int       | Encapsulate new messages, miner id, and current round into Packet and add them to network_tape |
@@ -902,9 +905,9 @@ def forward_process(self, round):
         m._NIC.nic_forward(round)
 ```
 
-**Other Important Functions**:
+**Other Important Methods**:
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | cal_delay   |  msg:Message, sourceid:int, targetid:int    | Calculate the delay between two miners, including transmission delay and processing delay. <br>The calculation formula is: `delay=trans_delay+process_delay, trans_delay=(blocksize*8)/bandwidth` |
 | generate_network | -     | Generate the network according to network parameters. |
@@ -930,9 +933,9 @@ Each message will be segmented before transmission, and each segment's transmiss
 | move_variance(float) | Variance of the xy coordinate movement distance when nodes perform Gaussian random walks |
 | outage_prob(float)   | Link outage probability                                     |
 
-**Interface Functions**:
+**Interface Methods**:
 
-| Function | Parameters | Description |
+| Method | Parameters | Description |
 | -------- | -------- | -------- |
 | set_net_param   | \*args, \*\*kargs      | Set the above network parameters |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int       | Encapsulate new messages, miner id, and current round into Packet and add them to network_tape |
@@ -1009,10 +1012,8 @@ The following figure shows an example of the operation of the attack module in a
 
 _adversary.py provides the abstract parent class Adversary, which is inherited by the Adversary provided in adversary.py. The environment creates an Adversary object, then initializes all Adversary settings based on the environment parameters. This Adversary object acts as the abstraction of all attackers and executes attacks.
 
-#### >>> _adversary.py & adversary.py Member Variables
-##### Internal Member Variables
-
-| Member Variable         | Type               | Explanation                                                  |
+#### >>> _adversary.py & adversary.py Attributes
+| Attribute | Type               | Explanation                                                  |
 | ----------------------- | ------------------ | ------------------------------------------------------------ |
 | __Miner_ID              | int                | Value is -1, unchanged. During initialization, similar to ordinary miners, Adversary also needs to initialize consensus, so a unique ID is required. |
 | __adver_num             | int                | Records the number of attackers.                             |
@@ -1025,20 +1026,20 @@ _adversary.py provides the abstract parent class Adversary, which is inherited b
 | __consensus_type        | class: Consensus   | Creates a consensus object based on the settings.            |
 | __attack_arg            | dict               | Records the attack parameters. (Currently, only DoubleSpending requires this parameter.) |
 
-#### >>> _adversary.py & adversary.py Member Methods
+#### >>> _adversary.py & adversary.py Methods
 
-##### Internal Methods
+##### Private Methods
 
-| Member Method | Input Parameters (Type) | Return Value (Type) | Description |
+| Method | Parameters | Returns | Description |
 | --- | --- | --- | --- |
-| __adver_setter() | **args: any | None | Member method automatically executed during the initialization phase when the environment creates the Adversary object, setting all member variables based on the passed parameters. |
+| __adver_setter() | **args: any | None | Member method automatically executed during the initialization phase when the environment creates the Adversary object, setting all attributes based on the passed parameters. |
 | __adver_gener() | None | __adver_list: list[class: Miner] | Generates random or specified attackers among all miners based on the settings. |
 | __consensus_q_init() | None | None | Recalculates the computing power q of the attacker group abstract object Adversary (accumulating the computing power of all attackers). |
-| __attack_type_init() | None | None | Initializes the member variables of the attack type object, determined by the above member variables. |
+| __attack_type_init() | None | None | Initializes the attributes of the attack type object, determined by the above attributes. |
 
-##### External Methods
+##### Public Methods
 
-| Member Method | Input Parameters (Type) | Return Value (Type) | Description |
+| Method | Parameters | Returns | Description |
 | --- | --- | --- | --- |
 | get_adver_ids() | None | __adver_ids: list[int] | Returns the list of attacker IDs. |
 | get_adver_num() | None | __adver_num: int | Returns the number of attackers. |
@@ -1050,7 +1051,7 @@ _adversary.py provides the abstract parent class Adversary, which is inherited b
 | get_info() | None | None or __attack_type.info_getter() | Calls the corresponding attack type object's member method to get the current information, usually including success rate (or main chain quality) and the corresponding theoretical value. |
 
 ### _atomization_behavior.py & atomization_behavior.py
-_atomization_behavior.py is the parent class, and atomization_behavior.py inherits from it, implementing specific Atomization Behavior (AB). The parent class is defined because AB has behaviors that must be implemented, providing a behavior standard that forms the basis of the attack. Additional functionalities can be added directly in the inheriting class. Since this inheriting class is a method class without member variables, the following paragraphs details the methods of AB (not in table form).
+_atomization_behavior.py is the parent class, and atomization_behavior.py inherits from it, implementing specific Atomization Behavior (AB). The parent class is defined because AB has behaviors that must be implemented, providing a behavior standard that forms the basis of the attack. Additional functionalities can be added directly in the inheriting class. Since this inheriting class is a method class without attributes, the following paragraphs details the methods of AB (not in table form).
 
 #### Atomization Behavior
 
@@ -1096,11 +1097,11 @@ Clear the input and communication content of all miners in the attacker. The pur
 wait allows the attack module to wait until the next round to continue running. Therefore, no specific behavior is designed for the wait part, and no actual action will be taken when the attack instance executes these operations.
 
 ### attack_type.py & honest_mining.py, selfish_mining.py, eclipsed_double_spending.py
-#### >>> Member Variables in attack_type.py
-##### External Variables
-Unspecified member variables have the same meaning as previously described.
+#### >>> Attributes in attack_type.py
+##### Public Attributes
+Unspecified attributes have the same meaning as previously described.
 
-| Member Variable | Type | Description |
+| Attribute | Type | Description |
 | -------- | -------- | -------- |
 | behavior | class: AtomizationBehavior | Records the AtomizationBehavior type method class object. |
 | honest_chain | class: Chain | The honest chain updated from the Adversary's perspective. The Adversary generally does not perform additional operations on it other than updating the blocks of honest nodes. It is also the reference for updating adver_chain when the Adversary gives up the attack. |
@@ -1110,22 +1111,22 @@ Unspecified member variables have the same meaning as previously described.
 | adver_consensus | class: Consensus | -------- |
 | attack_arg | dict | -------- |
 
-#### >>> Member Methods in attack_type.py
-##### Internal Methods
+#### >>> Methods in attack_type.py
+##### Private Methods
 
-| Member Method | Input Parameters: Type | Return Parameters: Type | Description |
+| Method | Parameters | Returns | Description |
 | -------- | -------- | -------- | -------- |
 | __set_behavior_init() | None | None | Creates an AtomizationBehavior type method class object. |
 
-##### External Methods
+##### Public Methods
 
-| Member Method | Input Parameters: Type | Return Parameters: Type | Description |
+| Method | Parameters | Returns | Description |
 | -------- | -------- | -------- | -------- |
-| set_init() | adver_list:list[Miner], miner_list:list[Miner], network_type: Network, adver_consensus: Consensus, attack_arg:dict, eclipsed_list_ids:list[int] | None | Assigns values to all member variables of the attack type object. |
+| set_init() | adver_list:list[Miner], miner_list:list[Miner], network_type: Network, adver_consensus: Consensus, attack_arg:dict, eclipsed_list_ids:list[int] | None | Assigns values to all attributes of the attack type object. |
 
 ##### Abstract Methods
 
-| Member Method | Input Parameters: Type | Return Parameters: Type | Description |
+| Method | Parameters | Returns | Description |
 | -------- | -------- | -------- | -------- |
 | renew_stage(round) | round: int | newest_block: Block, mine_input: any | Executes the update stage. |
 | attack_stage(round,mine_input) | round: int | None | Executes the attack stage. |
@@ -1233,13 +1234,13 @@ Regarding the explanation of the three indicators of common prefix, chain qualit
 | Chain Quality | In any sufficiently long segment of the chain of honest miners, the proportion of blocks produced by malicious miners will not exceed t/(n-t) (n is the total number of miners, t is the number of malicious miners) |
 | Chain Growth | The chain of honest miners always grows at least at a certain rate |
 
-The corresponding function implementations in `external.py` are as follows:
+The corresponding implementations in `external.py` are as follows:
 
-| Function | Input Parameters | Output Parameters | Description |
+| Function | Parameters | Returns | Description |
 | - | - | - | - |
-| common_prefix | prefix1:Block, prefix2:Chain | Common prefix prefix1 | Calculate the common prefix of two blockchains |
-| chain_quality | blockchain:Chain | Dictionary cq_dict; index chain_quality_property | Statistics on the proportion of blocks produced by malicious nodes |
-| chain_growth | blockchain:Chain | Blockchain height | Obtain the growth rate  of the blockchain (i.e., blockchain height) |
+| common_prefix | prefix1:Block, prefix2:Chain | common_prefix: Block | Calculate the common prefix of two blockchains |
+| chain_quality | blockchain:Chain | cq_dict: dict,  chain_quality: float | Calculate the proportion of blocks produced by malicious nodes |
+| chain_growth | blockchain:Chain | block_height: int | Obtain the growth rate  of the blockchain, i.e., blockchain height |
 
 Note that both `common_prefix` and `chain_growth` only implement part of the corresponding properties: `common_prefix` only calculates the common prefix of two blockchains, while the consistency rate is calculated with the log generated during the simulation, and `chain_growth` only returns the blockchain height, while the calculation of the chain growth rate is completed in the `CalculateStatistics` function. 
 

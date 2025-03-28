@@ -22,8 +22,11 @@ Git clone command: `git clone https://github.com/XinLab-SEU/ChainXim.git`
 
 Or you can download the master branch from the ChainXim code repository: [master.zip](https://github.com/XinLab-SEU/ChainXim/archive/refs/heads/master.zip)
 
-### File Structure
+<details markdown>
+<summary> File Structure </summary>
+
 The file structure after extracting the zip file or cloning the repository is as follows:
+
 ```
 chain-xim
 ├── attack
@@ -107,7 +110,9 @@ chain-xim
 | errors\.py                 | Error classes for throwing errors in the simulator |
 | global_var\.py             | Global variables                                   |
 
-### Configuration Environment
+</details>
+
+### Environment Setup
 1. Install Anaconda. [Anaconda download link](https://www.anaconda.com/download)
 2. Open Anaconda Prompt from the Start menu.
 3. Create a conda environment and activate it, choosing Python version 3.10.
@@ -132,7 +137,7 @@ cd <project_directory>
 python main.py
 ```
 
-## Test Examples
+## An Example for Beginners
 Pass the following parameters to the main program, which will make ChainXim randomly generate a miner network with 10 nodes, 2 of which are attackers, using the TopologyNetwork model, and the simulation will last for 3000 rounds.
 ```
 python main.py --total_round 3000 --miner_num 10 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
