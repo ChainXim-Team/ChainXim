@@ -13,21 +13,23 @@
 | process_bar_type   | `--process_bar_type round`                   | str   | 进度条显示风格（round或height）                              |
 | miner_num          | `--miner_num 80`                             | int   | 网络中的矿工总数                                             |
 | blocksize          | `--blocksize 8`                              | float | 区块大小，单位MB                                             |
-| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，目前仅`consensus.PoW`可选                          |
-| network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`四选一 |
-| show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                     |
+| consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、<br/>`consensus.VirutalPoW`、`consensus.SolidPoW`三选一                          |
+| network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`、`network.AdHocNetwork`五选一 |
+| show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                      |
+| log_level          | `--log_level error`                          | str   | 日志文件的级别（error、warning、debug或info）                                      |
 | compact_outputfile | `--no_compact_outputfile`                    | bool  | 是否简化log和result输出以节省磁盘空间<br/>通过`--no_compact_outputfile`设置为False |
 
 ### ConsensusSettings
 
 配置共识协议参数
 
-| system_config | 命令行示例        | 类型 | 说明                                                         |
-| ------------- | ----------------- | ---- | ------------------------------------------------------------ |
-| q_ave         | `--q_ave 5`       | int  | 单个矿工的平均哈希率，即每轮能计算哈希的次数                 |
-| q_distr       | `--q_distr equal` | str  | 哈希率的分布模式<br>equal：所有矿工哈希率相同；<br>rand：哈希率满足高斯分布 |
-| target        | 无                | str  | 16进制格式的PoW目标值                                        |
-| 无            | `--difficulty 12` | int  | 用二进制PoW目标值前缀零的长度表示的PoW难度，<br/>在主程序转换为PoW目标值 |
+| system_config      | 命令行示例                  | 类型 | 说明                                                         |
+| ------------------ | -------------------------- | ---- | ------------------------------------------------------------ |
+| q_ave              | `--q_ave 5`                | int  | 单个矿工的平均哈希率，即每轮能计算哈希的次数                 |
+| q_distr            | `--q_distr equal`          | str  | 哈希率的分布模式<br>equal：所有矿工哈希率相同；<br>rand：哈希率满足高斯分布 |
+| target             | 无                         | str  | 16进制格式的PoW目标值                                        |
+| 无                 | `--difficulty 12`          | int  | 用二进制PoW目标值前缀零的长度表示的PoW难度，<br/>在主程序转换为PoW目标值 |
+| average_block_time | `--average_block_time 400` | int  | 平均产生一个区块所需要的轮数，<br/>设置后根据q的数值自动设置target |
 
 ### AttackModeSettings
 
@@ -256,13 +258,11 @@ ChainXim将连续的时间划分为一个个离散的轮次，且网络中的全
 
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
-|select_adversary_random|-|随机选取一定数量的矿工作为攻击者|
-|select_adversary|\*Miner_ID:tuple|通过输入指定ID，设置相应矿工为攻击者|
 |envir_create_global_chain|-|创建环境中的全局区块链|
-|attack_excute|round:int|执行attack中定义的攻击类型|
+|configure_oracles|consensus_params:dict, adversary_ids:list|为所有矿工配置相应的预言机|
 |exec|num_rounds:int, max_height:int, process_bar_type:str|执行指定轮数或指定高度的仿真，通过num_rounds设置仿真运行的总轮数，通过max_height设置仿真终止的高度|
-|assess_common_prefix|-|计算评估区块链的共同前缀特性|
-|assess_common_prefix_k|-|优化的计算评估共同前缀的方法|
+|assess_common_prefix|type:str|计算评估区块链的共同前缀特性|
+|collect_until_next_round|-|统计当前轮次的事件集|
 |view|-|在终端窗口输出仿真结果，包含仿真生成的区块链结构图、吞吐量、增长率(反映链增长)、分叉率及共同前缀与链质量评估|
 |view_and_write|-|输出仿真结果并保存在txt文件中|
 |process_bar|-|显示当前仿真的进度，在终端输出实时变动的进度条与百分比|
