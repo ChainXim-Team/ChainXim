@@ -18,9 +18,9 @@ ChainXim is a blockchain simulator developed by XinLab to simulate and verify bl
 
 可以下载ChainXim的压缩包后解压，或者克隆位于Gitee上的软件仓库
 
-可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://github.com/XinLab-SEU/ChainXim/archive/refs/heads/master.zip)
+可在ChainXim的代码仓库下载master分支的压缩包：[master.zip](https://github.com/ChainXim-Team/ChainXim/archive/refs/heads/master.zip)
 
-git克隆命令：`git clone https://github.com/XinLab-SEU/ChainXim.git`
+git克隆命令：`git clone https://github.com/ChainXim-Team/ChainXim.git`
 
 <details markdown>
 <summary> 文件结构 </summary>
