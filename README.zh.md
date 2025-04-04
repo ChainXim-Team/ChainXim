@@ -199,23 +199,23 @@ Fail to generate routing gragh for each block from json.
 ## 贡献者 Contributors
 曹苇杭 Weihang Cao
 
-* 主要负责整体框架，共识层、评估层的代码编写，统筹项目进度   
+* 主要负责共识层与评估层的设计与代码编写
 
 陈炳文 Bingwen Chen
 
-* 主要负责网络层部分的代码编写  
+* 主要负责网络层的设计与代码编写，包括全部网络模型以及网络接口的开发
 
 陈阳 Yang Chen
 
-* 主要负责攻击者部分的代码编写  
+* 主要负责攻击层的设计与代码编写，包括全部攻击类型的开发
 
 崔自翔 Zixiang Cui
 
-* 主要负责对共识层和基础框架进行优化   
+* 主要负责优化性能、改进ChainXim框架并实现了DataItem机制
 
 陈喜年 Xinian Chen
 
-* 主要负责仿真器的测试与优化   
+* 主要负责ChainXim的测试与优化   
 
 凌昕彤 Xintong Ling
 

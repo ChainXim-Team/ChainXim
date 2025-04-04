@@ -222,23 +222,23 @@ See [developer-guide](developer-guide.en.md) for more details
 ## Contributors
 曹苇杭 Weihang Cao
 
-* Project leader, overall framework, coding for the consensus layer and the evaluation layer
+* Designed and developed the consensus layer and the evaluation layer
 
 陈炳文 Bingwen Chen
 
-* Coding for the network layer
+* Designed and developed the network layer, including the development of NetworkInterface and all network models
 
 陈阳 Yang Chen
 
-* Coding for the attack layer
+* Designed and developed the attack layer, including the development of all attack types
 
 崔自翔 Zixiang Cui
 
-* Optimization of the consensus layer and the underlying frameworks
+* Optimized performance, refined ChainXim framework, and implemented the DataItem mechanism
 
 陈喜年 Xinian Chen
 
-* Testing and optimization
+* Optimized perfermance and tested ChainXim
 
 凌昕彤 Xintong Ling
 
