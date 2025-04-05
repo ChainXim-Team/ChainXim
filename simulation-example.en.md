@@ -2,15 +2,14 @@
 In this document, we perform experiments with ChainXim, depict the results, and compare some of them with theoretical values.
 
 ### Relationship between the Number of Miners and Block Time in Synchronous Network
-Synchronous Network: X-axis represents the number of miners, Y-axis represents the block time.
 
 **Parameter settings:**
 
-* Simulation rounds: 200000 rounds * 1 time
+* Simulation rounds: 200000 rounds
 
 * Number of miners: 10-80
 
-* Consensus type: PoW
+* Consensus type: PoW/VirtualPoW/SolidPoW
 
 * Difficulty: 0000FF...
 
@@ -21,50 +20,60 @@ Synchronous Network: X-axis represents the number of miners, Y-axis represents t
 ![block_time](doc/block_time.png)
 
 
-### Double Spending Attack Success Rate
-**Parameter settings:**
+### Fork Rate, Stale Block Rate, and Consistency under Different Maximum Delays
 
-* Simulation rounds: 1200000 rounds * 1 time
-
-* Number of miners: 40
-
-* Consensus type: PoW
-
-* Difficulty: 000FFF...
-
-* q_ave = 1
-
-* Network parameters: default for all four network types
-
-![double_spend_success_rate](doc/double_spend_success_rate.png)
-
----
-
-
-**Advanced Performance Display**
-
-
-### Fork Rate, Stale Block Rate, Throughput, and Consistency under Different Maximum Delays in Various Networks
-
-- Rounds: 100000
-- Number of miners: 100
+- Rounds: 1000000
+- Number of miners: 20
 - Consensus type: PoW
 - q_ave: 10
-- Difficulty: 0002FF...
-- Network types: SynchronousNetwork and BoundedDelayNetwork
+- Difficulty: 000FFF...
+- Network types: StochPropNetwork
 - Network parameters: rcvprob_start=rcvprob_inc=1/maximum rounds
 
 ---
-Fork rate/Stale block rate and throughput variation with maximum propagation delay
+Fork rate/Stale block rate variation with maximum propagation delay
 
-![latency-throughput](doc/latency-throughput.svg)
+![latency-fork](doc/latency-fork.png)
 
 ---
 Consistency metrics variation with maximum propagation delay
 
-![cp_bounded_delay](doc/cp_bounded_delay.svg)
+![cp_bounded_delay](doc/cp_bounded_delay.png)
 
 In the figure, Common Prefix[0], [1], [2] represent the first three components of the common prefix PDF, where the ordinal number represents the difference between the common prefix and the main chain length (see the "Simulator Output" section for details).
+
+
+### Growth Rate under Different Single-Round Mining Power
+
+- Rounds: 1500000
+- Number of miners: 20
+- Consensus type: PoW/VirtualPoW/SolidPoW
+- q_ave: 2-16
+- Difficulty: 000FFF...
+- Network types: DeterPropNetwork
+- Network parameters: prop_vector=[0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+
+![miningpower-throughput](doc/miningpower-throughput.png)
+
+
+### Fork Rate under Different Mining Difficulty Targets
+
+- Rounds: 1000000
+- Number of miners: 32
+- Consensus type: PoW/VirtualPoW/SolidPoW
+- q_ave: 1
+- Difficulty: 0000FF...-000FFF...
+- Network types: TopologyNetwork
+- Network parameters: init_mode=coo; use round topology
+
+![target-fork](doc/target-fork.png)
+
+The theoretical curve in the figure is obtained by the following formula:
+
+$$ f=1 - (1 - t)^{mq\sum_{n=1}^{d} i_n} $$
+
+Here, $t$ represents the difficulty target shown on the horizontal axis of the graph, $m$ is the number of miners, and $q$ is the q_ave, denoting the average number of hash queries performed by each miner per round. $i_n$ represents the proportion of miners in the entire network that receive the block in the nth round after the block is propagated.
+
 
 ### Common Prefix Property of Blockchain under Topology Network
 
@@ -73,7 +82,7 @@ In the figure, Common Prefix[0], [1], [2] represent the first three components o
 - Consensus type: PoW
 - Difficulty: 000FFF...
 - Network type: TopologyNetwork
-- Network parameters: gen_net_approach=adj; bandwidth_honest=0.5
+- Network parameters: init_mode=adj；bandwidth_honest=0.5
 
 At the end of each round, the height difference of the local chains of all nodes relative to the common prefix and its impact on the Common Prefix PDF are shown in the figure below. The time axis below is the round in which the chain tail switch event occurred, the upper x-axis is the block height/common prefix followed by the block length (suffix length), and the y-axis is the miner ID. The heat value in the figure indicates the cumulative number of times each miner's local chain tail reaches the suffix length relative to the common prefix. BXX in the figure refers to the block number, representing the state of the miner's local chain tail in the current round, and the lower x-axis indicates the height of these blocks. Click Play to start the animation, where you can observe the block being generated to extend the common prefix, then propagating to other miners, and finally causing the common prefix height to increase by 1.
 
@@ -93,56 +102,44 @@ At the end of each round, the height difference of the local chains of all nodes
 </div>
 
 
-### Fork Rate, Stale Block Rate, Throughput, and Consistency under Different Block Sizes
+### Throughput and Fork Rate under Different Block Sizes
 
-- Rounds: 500000
-- Number of repetitions per point on the curve: 5
-- Number of miners: 20
-- Consensus type: PoW
-- Difficulty: 0000FF...
-- Network type: TopologyNetwork
-- Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-
----
-Fork rate/Stale block rate and throughput variation with block size
-![blocksize_simulation](doc/blocksize_simulation.png)
-
----
-Consistency metrics variation with block size
-![blocksize_common_prefix](doc/blocksize_common_prefix.png)
-
-In the figure, Common Prefix[0], [1], [2] represent the first three components of the common prefix PDF, where the ordinal number represents the difference between the common prefix and the main chain length (see the "Simulator Output" section for details).
-### Variation of Propagation Delay with Block Size
-
-- Rounds: 100000
-- Number of miners: 100
+- Rounds: 1000000
+- Number of miners: 40
 - Consensus type: PoW
 - q_ave: 10
-- Difficulty: 00008F...
-- Network type: TopologyNetwork
-- Network parameters: TTL=500; gen_net_approach=rand; ave_degree=8; bandwidth_honest=0.5; bandwidth_adv=5; block_prop_times_statistic=[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+- Blocksize: 2-20MB
+- Difficulty: 0000FF...
+- Network type: AdHocNetwork
+- Network parameters: ave_degree=3, region_width=100, comm_range=30, move_variance=5, outage_prob=0.01, 
+bandwidth_max=100, enable_large_scale_fading = True, path_loss_level = low/medium/high
 
 ---
-Variation of propagation delay and 90% effective throughput with block size
+Throughput variation with block size
 
-![latency_effective_throughput90](doc/latency_effective_throughput90.svg)
+![blocksize-throughput](doc/blocksize-throughput.png)
 
-**Note: X% effective throughput = block size / (X% block propagation delay)**
+---
+Fork rate variation with block size
+
+![blocksize-fork](doc/blocksize-fork.png)
+
 
 ### Attacker's Block Proportion under Different Attack Vectors
 
 #### 1. Honest Mining Attack
 
-![honest_mining](doc/honest_mining.svg)
+##### **Impact of Different Networks on Honest Mining Attack**
 
-##### **Impact of Four Different Networks on Honest Mining Attack**
-Definition of a successful attack: The attacker produces a block and is accepted by the network.
+![honestmining-network](doc/honestmining-network.png)
+
+Definition of a successful attack is that the attacker produces a block and is accepted by the network. The vertical axis represents the chain quality, defined as the difference between 1 and the proportion of blocks produced by the attackers that are included in the main chain.
 
 **Parameter settings:**
 
 * Rounds: 1000000 rounds
 
-* Number of miners: 20
+* Number of miners: 100
 
 * Consensus type: PoW
 
@@ -150,27 +147,27 @@ Definition of a successful attack: The attacker produces a block and is accepted
 
 * q_ave = 1
 
-* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology enabled. Other network parameters are set to default values.
+* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology enabled, and bandwidth_max=40 in `AdhocNetwork`. Other network parameters are set to default values.
 
 ---
 #### 2. Selfish Mining Attack
 ##### **Impact of Different Networks on Selfish Mining Attack**
 
-![selfish_mining](doc/selfish_mining.svg)
+![selfishmining-network](doc/selfishmining-network.png)
 
 The vertical axis represents the chain quality metric, i.e., the proportion of blocks produced by the attacker in the main chain
 
 **Parameter settings:**
 
-* Simulation rounds: 300000 rounds
+* Simulation rounds: 1000000 rounds
 
-* Number of miners: 20
+* Number of miners: 100
 
 * Consensus type: PoW
 
-* Difficulty: 000FFF...
+* Difficulty: 0000FF...
 
-* q_ave = 1
+* q_ave = 10
 
 * Network parameters: identical to that of honest mining
 
@@ -183,30 +180,32 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 
 ##### **Impact of Different Networks on Double Spending Attack**
 
-![doublespending_different_net](doc/doublespending_net.svg)
+![doublespending-netork](doc/doublespending-netork.png)
 
 **Parameter settings:**
 
 * Simulation rounds: 3000000 rounds
 
-* Number of miners: 20
+* Number of miners: 100
 
 * Consensus type: PoW
 
 * Difficulty: 000FFF...
 
-* q_ave = 1
+* q_ave = 3
 
 * Network parameters: identical to that of honest mining
+
+* Attack parameters: Ng=3, N=1
 
 ---
 ##### **Impact of Different Strategies on Double Spending Attack and Theoretical Comparison**
 
-![double_spending](doc/doublespending.svg)
+![double_spending](doc/doublespending.png)
 
 **Parameter settings:**
 
-* Simulation rounds: 3000000 rounds
+* Simulation rounds: 5000000 rounds
 
 * Number of miners: 20
 
@@ -217,6 +216,8 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 * q_ave = 1
 
 * Network parameters: SynchronousNetwork
+
+* Attack parameters: Ng=10, N=1/3/6
 
 The theoretical curve in the figure is obtained by the following formula:
 
@@ -234,8 +235,7 @@ $\beta$ is the ratio of the attacker's hash power to that of the honest miners, 
 
 ##### **Double Spending Attack under Eclipse Attack**
 
-![eclipse_doublespending](doc/eclipse_doublespending.svg)
-
+![eclipse_doublespending](doc/eclipse_doublespending.png)
 
 **Parameter settings:**
 
@@ -245,20 +245,20 @@ $\beta$ is the ratio of the attacker's hash power to that of the honest miners, 
 
 * Consensus type: PoW
 
-* Difficulty: 000FFF...
+* Difficulty: 0000FF...
 
-* q_ave = 1
+* q_ave = 10
 
 * Network type: TopologyNetwork
 
 * Block size: 0 MB
 
-* Network Parameters: Use the following topology:
+* Network Parameters: The network topologies used are similar to those shown in the following two figures:
 
-    ![eclipse_topology](doc/eclipse_topology.svg)
+  ![eclipse_topology1](doc/eclipse_topology1.svg)
 
-    The eclipse target is set to node 0, and attackers are designated as nodes 1, 2, 3, 4, etc. In short, node 0 is only connected to attackers, while all other nodes are fully connected.
+  ![eclipse_topology2](doc/eclipse_topology2.svg)
+
+  In all topologies, the attacked node is only connected to the attacker, while the attacker is fully connected to all other nodes.
         
-
-**Note: When setting attackers, please avoid isolated nodes and set them manually.**
 
