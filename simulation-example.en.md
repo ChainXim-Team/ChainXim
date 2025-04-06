@@ -75,33 +75,6 @@ $$ f=1 - (1 - t)^{mq\sum_{n=1}^{d} i_n} $$
 Here, $t$ represents the difficulty target shown on the horizontal axis of the graph, $m$ is the number of miners, and $q$ is the q_ave, denoting the average number of hash queries performed by each miner per round. $i_n$ represents the proportion of miners in the entire network that receive the block in the nth round after the block is propagated.
 
 
-### Common Prefix Property of Blockchain under Topology Network
-
-- Rounds: 16189
-- Number of miners: 10
-- Consensus type: PoW
-- Difficulty: 000FFF...
-- Network type: TopologyNetwork
-- Network parameters: init_mode=adj；bandwidth_honest=0.5
-
-At the end of each round, the height difference of the local chains of all nodes relative to the common prefix and its impact on the Common Prefix PDF are shown in the figure below. The time axis below is the round in which the chain tail switch event occurred, the upper x-axis is the block height/common prefix followed by the block length (suffix length), and the y-axis is the miner ID. The heat value in the figure indicates the cumulative number of times each miner's local chain tail reaches the suffix length relative to the common prefix. BXX in the figure refers to the block number, representing the state of the miner's local chain tail in the current round, and the lower x-axis indicates the height of these blocks. Click Play to start the animation, where you can observe the block being generated to extend the common prefix, then propagating to other miners, and finally causing the common prefix height to increase by 1.
-
-<style>
-	.iframe-body-sty{position: relative;overflow: hidden;height:850px;width: 850px;background-color: white;
-    transform: scale(0.8); transform-origin:0 0; margin-bottom: -170px}
-</style>
-
-<div class="iframe-body-sty">
-<iframe
- height=850px
- width=850px
- src="/chainxim-documentation/doc/cp_pdf.html"  
- frameborder=0 
- display:block>
- </iframe>
-</div>
-
-
 ### Throughput and Fork Rate under Different Block Sizes
 
 - Rounds: 1000000

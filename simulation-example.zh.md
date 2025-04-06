@@ -96,34 +96,6 @@ $i_n$表示在区块发出后的第n个轮次，收到该区块的矿工在全�
 
 
 
-### 拓扑网络下区块链的共同前缀性质
-
-- 轮数：16189
-- 矿工数：10
-- 共识类型：PoW
-- 难度：000FFF...
-- 网络类型：TopologyNetwork
-- 网络参数：init_mode=adj；bandwidth_honest=0.5
-
-每轮结束时，所有节点的本地链相对共同前缀的高度差以及其对Common Prefix PDF的影响如下图所示。下方时间轴是发生链尾切换事件的轮次，上x轴是区块高度/common prefix后的区块长度（suffix length），y轴是矿工ID。图中的热度值指代的是每个矿工本地链链尾与共同前缀的距离达到Suffix Length的累积次数。图中BXX指代区块编号，代表矿工在当前轮次本地链链尾的状态，下x轴指代这些区块所在的高度。点击Play开始播放动画，可以观察到区块在共同前缀的下一高度产生，然后扩散到其他矿工，最后导致共同前缀高度+1。
-
-<style>
-	.iframe-body-sty{position: relative;overflow: hidden;height:850px;width: 850px;background-color: white;
-    transform: scale(0.8); transform-origin:0 0; margin-bottom: -170px}
-</style>
-
-<div class="iframe-body-sty">
-<iframe
- height=850px
- width=850px
- src="/chainxim-documentation/doc/cp_pdf.html"  
- frameborder=0 
- display:block>
- </iframe>
-</div>
-
-
-
 ### 不同区块大小下的吞吐量与分叉率
 * 轮数：1000000
 
