@@ -244,6 +244,7 @@ Count of data sending: 93
 | Ratio of dataitems contributed by malicious players | = 主链上有效DataItem数量 / 主链上总DataItem数量              |
 | Ratio of blocks contributed by malicious players    | 恶意节点出块比例                                             |
 | Upper Bound t/(n-t)                                 | 恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)         |
+| Double spending success times                       | 双花攻击成功次数                                              |
 | Block propagation times                             | 区块传播时间（分布）                                         |
 
 
