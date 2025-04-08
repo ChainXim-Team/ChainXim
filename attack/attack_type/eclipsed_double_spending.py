@@ -38,6 +38,7 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._eclipse_block: Message = None # 记录 eclipse对象的newestblock状况
         self._eclipse_block_from: Message = None # 记录 eclipse最新区块的来源
         self._syn_blocks: dict = {} # 记录 已向邻居同步过的区块
+        self._incoming_eclipse_block = []
 
     
     def renew_stage(self, round):
@@ -52,8 +53,10 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._eclipse_block = self._eclipse_block if self._eclipse_block!= None else self.honest_chain.head
         newest_block_from_eclipse = self._eclipse_block
         eclipse_update = False
+        self._incoming_eclipse_block = []
         if len(imcoming_block_from_eclipse) >0:
             for hash,block in imcoming_block_from_eclipse.items():
+                    self._incoming_eclipse_block.append(block.name)
                     if block.get_height() > newest_block_from_eclipse.get_height():
                         # 说明存在比adver掌握的eclipse最新状态 更新的状态
                         eclipse_update = True
@@ -80,7 +83,10 @@ class EclipsedDoubleSpending(aa.AttackType):
                     break
                 if not from_block.isAdversaryBlock and from_block.blockhead.miner not in self.eclipsed_list_ids:
                     break
-                from_block = from_block.parentblock
+                temp_block = self.adver_chain.search_block_by_hash(from_block.blockhead.prehash)
+                if from_block.parentblock == None:
+                    from_block.parentblock = temp_block
+                from_block = temp_block
             from_block = from_block if from_block != None else self.adver_chain.head
             self._eclipse_block_from = from_block
         else:
@@ -315,6 +321,7 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._log['adver_chain']=self.adver_chain.last_block.name,self.adver_chain.last_block.height
         self._log['fork_block']=self._fork_block.name  if self._fork_block != None else self.honest_chain.head.name
         self._log['attacked_block'] = self._lastattackblock.name if self._lastattackblock != None else None
+        self._log['_incoming_eclipse_block'] = self._incoming_eclipse_block
         bh.clear(adver_list = self.adver_list)# 清空
         self.resultlog2txt(round)
         
