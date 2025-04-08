@@ -3,7 +3,7 @@ import random
 from .pow import PoW
 from functions import HASH_LEN, BYTE_ORDER
 
-class VirutalPoW(PoW):
+class VirtualPoW(PoW):
 
     class BlockHead(PoW.BlockHead):
         '''适用于PoW共识协议的区块头'''
@@ -58,9 +58,9 @@ class VirutalPoW(PoW):
         if random_float < self.target_value:
             pow_success = True
             self.ctr = random_float
-            blockhead = VirutalPoW.BlockHead(b_last, round, x, int.from_bytes(miner_id, self.BYTEORDER, signed=False),
+            blockhead = VirtualPoW.BlockHead(b_last, round, x, int.from_bytes(miner_id, self.BYTEORDER, signed=False),
                                            self.target, self.ctr)
-            blocknew = VirutalPoW.Block(blockhead, b_last, isadversary, global_var.get_blocksize())
+            blocknew = VirtualPoW.Block(blockhead, b_last, isadversary, global_var.get_blocksize())
             return (blocknew, pow_success)
         return (None, pow_success)
 
