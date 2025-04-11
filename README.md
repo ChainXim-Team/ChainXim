@@ -140,7 +140,7 @@ python main.py
 ## An Example for Beginners
 Pass the following parameters to the main program, which will make ChainXim randomly generate a miner network with 10 nodes, 2 of which are attackers, using the TopologyNetwork model, and the simulation will last for 3000 rounds.
 ```
-python main.py --total_round 3000 --miner_num 10 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
+python main.py --total_round 3000 --miner_num 10 --average_block_time 400 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
 ```
 After the simulation starts, it will output the simulation parameters and display a progress bar during the simulation.
 ```

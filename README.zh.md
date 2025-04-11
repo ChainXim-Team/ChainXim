@@ -115,7 +115,7 @@ python main.py
 ## 测试用例 An Example for Beginners
 将以下参数传递给主程序，将会使ChainXim随机生成一个包含10个节点的矿工网络，其中2个节点为攻击者，采用的网络模型为TopologyNetwork，仿真总共持续3000轮次。
 ```
-python main.py --total_round 3000 --miner_num 10 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
+python main.py --total_round 3000 --miner_num 10 --average_block_time 400 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
 ```
 仿真开始后会输出仿真参数，并在仿真进行时显示进度条。
 ```
