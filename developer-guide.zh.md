@@ -568,13 +568,13 @@ MyConsensus.local_state_update需要根据_receive_tape中缓存的Message对象
 
 ```python
     def local_state_update(self):
-        for incoming_block in self.receive_tape:
-            if isinstance(incoming_block, Consensus.Block):# 处理Block
-                if not self.valid_block(incoming_block):
+        for message in self.receive_tape:
+            if isinstance(message, Consensus.Block):# 处理Block
+                if not self.valid_block(message):
                     continue
-                prehash = incoming_block.blockhead.prehash
+                prehash = message.blockhead.prehash
                 if insert_point := self.local_chain.search_block_by_hash(prehash):
-                    conj_block = self.local_chain.add_blocks(blocks=[incoming_block], insert_point=insert_point)
+                    conj_block = self.local_chain.add_blocks(blocks=[message], insert_point=insert_point)
                     fork_tip, _ = self.synthesize_fork(conj_block)
                     depthself = self.local_chain.get_height()
                     depth_incoming_block = fork_tip.get_height()
@@ -584,7 +584,7 @@ MyConsensus.local_state_update需要根据_receive_tape中缓存的Message对象
                         self.state = NEXT_STATE # 接收到新区块时的状态转移
                 else:
                     self._block_buffer.setdefault(prehash, [])
-                    self._block_buffer[prehash].append(incoming_block)
+                    self._block_buffer[prehash].append(message)
 
             elif isinstance(message, ExtraMessage): # 处理ExtraMessage
                 DEAL_WITH_OTHER_INCOMING_MESSAGES
