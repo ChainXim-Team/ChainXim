@@ -88,7 +88,7 @@ In the current Environment implementation, each miner will be provided with `max
 
 
 ## Simulator Input Parameters
-The input parameters of the simulator can be specified in two ways: command line and configuration file. Generally, you can modify the configuration file system_config.ini that comes with ChainXim to change the simulation parameters, or you can specify individual simulation parameters through the command line. The command line supports fewer parameters than the configuration file, but once specified, they take precedence over the configuration file. You can view the command line help information by using the command `python main.py --help`.
+The input parameters of the simulator can be specified in two ways: command line and configuration file. Generally, you can create a new configuration file based on `system_config.ini`, or you can specify individual simulation parameters through the command line. The command line supports fewer parameters than the configuration file, but once specified, they take precedence over the configuration file. You can view the command line help information by using the command `python main.py --help` and specify the relative path to the configuration file with `python --config CONFIG_FILE_PATH`.
 
 ### EnvironmentSettings
 
@@ -151,22 +151,23 @@ Configure StochPropNetwork parameters:
 
 Configure TopologyNetwork parameters:
 
-| system_config          | Command Line Example      | Type        | Description                                                  |
-| ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
-| init_mode              | `--init_mode rand`        | str         | Network initialization method, 'adj' adjacency matrix, 'coo' sparse adjacency matrix, 'rand' randomly generated. 'adj' and 'coo' network topologies are given via csv files. 'rand' requires specifying bandwidth, degree, etc. |
-| bandwidth_honest       | `--bandwidth_honest 0.5`  | float       | Network bandwidth between honest miners and between honest miners and attackers, in MB/round |
-| bandwidth_adv          | `--bandwidth_adv 5`       | float       | Bandwidth between attackers, in MB/round                     |
-| rand_mode              | `--rand_mode homogeneous` | str         | Random network topology generation mode<br />'homogeneous': Generate network based on ave_degree and try to keep each node's degree the same<br />'binomial': Use Erdős-Rényi algorithm, randomly establish links between nodes with probability `ave_degree/(miner_num-1)` |
-| ave_degree             | `--ave_degree 8`          | float       | When the network generation method is 'rand', set the topology average degree |
-| stat_prop_times        | None                      | list[float] | Block propagation times corresponding to the proportion of receiving miners |
-| outage_prob            | `--outage_prob 0.1`       | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
-| dynamic                | `--dynamic`               | bool        | Whether to make the network dynamic, if dynamic, links between nodes will be added or deleted with a certain probability |
-| avg_tp_change_interval | None                      | float       | When dynamic=true, set the average round interval for topology changes |
-| edge_remove_prob       | None                      | float       | When dynamic=true, set the probability of removing existing edges during topology changes |
-| edge_add_prob          | None                      | float       | When dynamic=true, set the probability of establishing new connections for non-existing edges during topology changes |
-| max_allowed_partitions | None                      | int         | When dynamic=true, set the maximum number of partitions allowed during topology changes |
-| save_routing_graph     | `--save_routing_graph`    | bool        | Whether to save the routing propagation graph of each message, recommended to turn off when the network scale is large |
-| show_label             | `--show_label`            | bool        | Whether to display labels on the topology or routing propagation graph, recommended to turn off when the network scale is large |
+| system_config          | Command Line Example                              | Type        | Description                                                  |
+| ---------------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode              | `--init_mode rand`                                | str         | Network initialization method, 'adj' adjacency matrix, 'coo' sparse adjacency matrix, 'rand' randomly generated. 'adj' and 'coo' network topologies are given via csv files. 'rand' requires specifying bandwidth, degree, etc. |
+| topology_path          | `--topology_path conf/topologies/default_adj.csv` | str         | The path to the topology file in a csv format that matches `init_mode` (relative to current path) |
+| bandwidth_honest       | `--bandwidth_honest 0.5`                          | float       | Network bandwidth between honest miners and between honest miners and attackers, in MB/round |
+| bandwidth_adv          | `--bandwidth_adv 5`                               | float       | Bandwidth between attackers, in MB/round                     |
+| rand_mode              | `--rand_mode homogeneous`                         | str         | Random network topology generation mode<br />'homogeneous': Generate network based on ave_degree and try to keep each node's degree the same<br />'binomial': Use Erdős-Rényi algorithm, randomly establish links between nodes with probability `ave_degree/(miner_num-1)` |
+| ave_degree             | `--ave_degree 8`                                  | float       | When the network generation method is 'rand', set the topology average degree |
+| stat_prop_times        | None                                              | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+| outage_prob            | `--outage_prob 0.1`                               | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
+| dynamic                | `--dynamic`                                       | bool        | Whether to make the network dynamic, if dynamic, links between nodes will be added or deleted with a certain probability |
+| avg_tp_change_interval | None                                              | float       | When dynamic=true, set the average round interval for topology changes |
+| edge_remove_prob       | None                                              | float       | When dynamic=true, set the probability of removing existing edges during topology changes |
+| edge_add_prob          | None                                              | float       | When dynamic=true, set the probability of establishing new connections for non-existing edges during topology changes |
+| max_allowed_partitions | None                                              | int         | When dynamic=true, set the maximum number of partitions allowed during topology changes |
+| save_routing_graph     | `--save_routing_graph`                            | bool        | Whether to save the routing propagation graph of each message, recommended to turn off when the network scale is large |
+| show_label             | `--show_label`                                    | bool        | Whether to display labels on the topology or routing propagation graph, recommended to turn off when the network scale is large |
 
 ### AdHocNetworkSettings
 

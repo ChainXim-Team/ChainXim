@@ -45,7 +45,7 @@ def main(**args):
     # 读取配置文件
     config = configparser.ConfigParser()
     config.optionxform = lambda option: option
-    config.read('system_config.ini',encoding='utf-8')
+    config.read(args.get('config'),encoding='utf-8')
     env_config = dict(config['EnvironmentSettings'])
     #设置全局变量
     miner_num = args.get('miner_num') or int(env_config['miner_num'])
@@ -126,6 +126,8 @@ def main(**args):
         network_param.update({
             'init_mode': (args.get('init_mode') or 
                           config.get(net_setting, 'init_mode')),
+            'topology_path': (args.get('topology_path') or 
+                              config.get(net_setting, 'topology_path', fallback=None)),
             'stat_prop_times': (args.get('stat_prop_times') or 
                                 eval(config.get(net_setting, 'stat_prop_times'))),
             'rand_mode': (args.get('rand_mode') or
@@ -220,6 +222,7 @@ if __name__ == '__main__':
 under different network conditions. Security evaluation of blockchain systems \
 could be performed with attackers designed in the simulator'
     parser = argparse.ArgumentParser(description=program_description)
+    parser.add_argument('--config', '-c', help='The path to the config file.', type=str, default='system_config.ini')
     # EnvironmentSettings
     env_setting = parser.add_argument_group('EnvironmentSettings','Settings for Environment')
     env_setting.add_argument('--process_bar_type', help='Set the style of process bar: round/height',type=str)
@@ -246,7 +249,7 @@ could be performed with attackers designed in the simulator'
                     If average_block_time=0, then target is set as the difficulty.', type=float)
     # AttackModeSettings
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
-    attack_setting.add_argument('-adver_num',help='The total number of attackers. If adver_num is non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
+    attack_setting.add_argument('--adver_num',help='The total number of attackers. If adver_num is non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
     attack_setting.add_argument('--attack_type', help='The name of attack type defined in attack mode.',type=str)
     # StochPropNetworkSettings
     stoch_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
@@ -254,11 +257,12 @@ could be performed with attackers designed in the simulator'
     stoch_setting.add_argument('--rcvprob_inc',help='Increment of rreceive probability per round.', type=float)
     # CommonSettings for both TopologyNetwork and AdhocNetwork
     common_setting = parser.add_argument_group('CommonSettings', 'Common settings for both TopologyNetwork and AdhocNetwork')
-    init_mode_help_text = '''Options:coo/adj/rand.
-    coo: load adjecent matrix from network/topolpgy_coo.csv in COOrdinate format.
-    adj: load adjecent matrix from network/topolpgy.csv.
+    init_mode_help_text = ''' Options:coo/adj/rand.
+    coo: load adjecent matrix in COOrdinate format.
+    adj: load adjecent matrix.
     rand: randomly generate a network. AdhocNetwork only support this.'''
-    common_setting.add_argument('--init_mode', help='Initialization mode for the network.', type=str)
+    common_setting.add_argument('--init_mode', help='Initialization mode for the network.' + init_mode_help_text, type=str)
+    common_setting.add_argument('--topology_path', help='The relative path to the topology file in a csv format specified by init_mode.', type=str)
     common_setting.add_argument('--ave_degree', help='Set the average degree of the network.', type=float)
     common_setting.add_argument('--outage_prob', help='The outage probability of each link.', type=float)
     # TopologyNetworkSettings

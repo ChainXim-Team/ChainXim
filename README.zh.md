@@ -29,43 +29,71 @@ git克隆命令：`git clone https://github.com/ChainXim-Team/ChainXim.git`
 
 ```
 chain-xim
-    ├── Attack.py
-    ├── Environment.py
-    ├── README.md
-    ├── data
-    │   ├── __init__.py
-    │   ├── block.py
-    │   ├── chain.py
-    │   └── message.py
-    ├── consensus
-    │   ├── __init__.py
-    │   ├── consensus_abc.py
-    │   └── pow.py
-    ├── errors.py
-    ├── external.py
-    ├── functions.py
-    ├── global_var.py
-    ├── main.py
-    ├── miner
-    │   ├── __init__.py
-    │   ├── _consts.py
-    │   ├── miner.py.py
-    │   ├── network_interface
-    │       ├── nic_abc.py
-    │       ├── nic_with_tp.py
-    │       └── nic_without_tp.py
-    ├── network
-    │   ├── __init__.py
-    │   ├── adhoc.py
-    │   ├── deterprop.py
-    │   ├── network_abc.py
-    │   ├── stochprop.py
-    │   ├── synchronous.py
-    │   ├── topology.py
-    │   ├── topolpgy.csv
-    │   ├── topolpgy_coo.csv
-    │   └── topology_eclipse_sample.csv
-    └── system_config.ini
+├── attack
+│   ├── _adversary.py
+│   ├── adversary.py
+│   ├── attack_type
+│   │   ├── _atomization_behavior.py
+│   │   ├── atomization_behavior.py
+│   │   ├── attack_type.py
+│   │   ├── double_spending.py
+│   │   ├── eclipse_alpha.py
+│   │   ├── eclipsed_double_spending.py
+│   │   ├── eclipsed_double_spending_research_backup.py
+│   │   ├── eclipse_network_cutting.py
+│   │   ├── honest_mining.py
+│   │   ├── __init__.py
+│   │   └── selfish_mining.py
+│   └── __init__.py
+├── conf
+│   └── topologies
+│       ├── circular16_coo.csv
+│       ├── default_adj.csv
+│       └── ...
+│   └── ...
+├── consensus
+│   ├── consensus_abc.py
+│   ├── __init__.py
+│   ├── pow.py
+│   ├── solidpow.py
+│   └── virtualpow.py
+│   ├── ...
+├── data
+│   ├── block.py
+│   ├── chain.py
+│   ├── __init__.py
+│   └── message.py
+├── developer-guide.en.md
+├── developer-guide.zh.md
+├── environment.py
+├── errors.py
+├── external.py
+├── functions.py
+├── global_var.py
+├── main.py
+├── miner
+│   ├── _consts.py
+│   ├── __init__.py
+│   ├── miner.py
+│   └── network_interface
+│       ├── __init__.py
+│       ├── nic_abc.py
+│       ├── nic_without_tp.py
+│       └── nic_with_tp.py
+├── network
+│   ├── adhoc.py
+│   ├── deterprop.py
+│   ├── __init__.py
+│   ├── network_abc.py
+│   ├── stochprop.py
+│   ├── synchronous.py
+│   ├── topology.py
+├── README.md
+├── README.zh.md
+├── requirements.txt
+├── simulation-example.en.md
+├── simulation-example.zh.md
+├── system_config.ini
 ```
 
 | 文件或目录 | 功能描述 | 

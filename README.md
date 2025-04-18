@@ -45,13 +45,19 @@ chain-xim
 │   │   ├── __init__.py
 │   │   └── selfish_mining.py
 │   └── __init__.py
+├── conf
+│   └── topologies
+│       ├── circular16_coo.csv
+│       ├── default_adj.csv
+│       └── ...
+│   └── ...
 ├── consensus
 │   ├── consensus_abc.py
 │   ├── __init__.py
 │   ├── pow.py
-│   ├── ...
 │   ├── solidpow.py
 │   └── virtualpow.py
+│   ├── ...
 ├── data
 │   ├── block.py
 │   ├── chain.py
@@ -61,7 +67,6 @@ chain-xim
 ├── developer-guide.zh.md
 ├── environment.py
 ├── errors.py
-├── experiment.py
 ├── external.py
 ├── functions.py
 ├── global_var.py
@@ -82,10 +87,7 @@ chain-xim
 │   ├── network_abc.py
 │   ├── stochprop.py
 │   ├── synchronous.py
-│   ├── topology_eclipse_sample.csv
 │   ├── topology.py
-│   ├── topolpgy_coo.csv
-│   └── topolpgy.csv
 ├── README.md
 ├── README.zh.md
 ├── requirements.txt

@@ -557,7 +557,7 @@ class AdHocNetwork(Network):
         # 第一行是行(from)
         # 第二行是列(to)(在无向图中无所谓from to)
         # 第三行是bandwidth:bit/round
-        tp_coo_dataframe = pd.read_csv('network/topolpgy_coo.csv', header=None, index_col=None)
+        tp_coo_dataframe = pd.read_csv('conf/topologies/circular16_coo.csv', header=None, index_col=None)
         tp_coo_ndarray = tp_coo_dataframe.values
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
@@ -577,7 +577,7 @@ class AdHocNetwork(Network):
     def read_adj_from_csv_undirected(self):
         """读取无向图的邻接矩阵adj"""
         # 读取csv文件并转化为ndarray类型,行是from 列是to
-        topology_ndarray  = pd.read_csv('network/topolpgy.csv', header=None, index_col=None).values
+        topology_ndarray  = pd.read_csv('conf/topologies/default_adj.csv', header=None, index_col=None).values
         # 判断邻接矩阵是否规范
         if np.isnan(topology_ndarray).any():
             raise errors.NetAdjError('无向图邻接矩阵不规范!(存在缺失)')

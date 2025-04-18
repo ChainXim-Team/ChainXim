@@ -97,6 +97,7 @@ class TopologyNetwork(Network):
 
         # parameters, set by set_net_param()
         self._init_mode = None
+        self._topology_path = None
         self._ave_degree = None
         self._bandwidth_honest = 0.5 # default 0.5 MB
         self._bandwidth_adv = 5 # default 5 MB
@@ -136,6 +137,7 @@ class TopologyNetwork(Network):
 
 
     def set_net_param(self, init_mode = None, 
+                      topology_path = None, 
                       ave_degree = None, 
                       bandwidth_honest = None, 
                       bandwidth_adv = None,
@@ -170,6 +172,8 @@ class TopologyNetwork(Network):
             self._bandwidth_honest = bandwidth_honest 
         if bandwidth_adv is not None: # default 5 MB/round
             self._bandwidth_adv = bandwidth_adv 
+        if topology_path is not None:
+            self._topology_path = topology_path
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -628,7 +632,8 @@ class TopologyNetwork(Network):
         # 第一行是行(from)
         # 第二行是列(to)(在无向图中无所谓from to)
         # 第三行是bandwidth:bit/round
-        tp_coo_dataframe = pd.read_csv('network/topolpgy_coo.csv', header=None, index_col=None)
+        csv_file = self._topology_path or 'conf/topologies/circular16_coo.csv'
+        tp_coo_dataframe = pd.read_csv(csv_file, header=None, index_col=None)
         tp_coo_ndarray = tp_coo_dataframe.values
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
@@ -648,7 +653,8 @@ class TopologyNetwork(Network):
     def read_adj_from_csv_undirected(self):
         """读取无向图的邻接矩阵adj"""
         # 读取csv文件并转化为ndarray类型,行是from 列是to
-        topology_ndarray  = pd.read_csv('network/topolpgy.csv', header=None, index_col=None).values
+        csv_file = self._topology_path or 'conf/topologies/default_adj.csv'
+        topology_ndarray  = pd.read_csv(csv_file, header=None, index_col=None).values
         # 判断邻接矩阵是否规范
         if np.isnan(topology_ndarray).any():
             raise errors.NetAdjError('无向图邻接矩阵不规范!(存在缺失)')

@@ -85,7 +85,7 @@ DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 
 
 
 ## 仿真器输入参数 Input
-仿真器的输入参数可以通过两种方式指定：命令行以及配置文件。一般情况下可以修改ChainXim附带的配置文件system_config.ini以改变仿真参数，也可以通过命令行指定个别仿真参数。命令行支持的参数少于配置文件，但是一旦被指定，优先级高于配置文件，可以通过`python main.py --help`命令查看命令行帮助信息。
+仿真器的输入参数可以通过两种方式指定：命令行以及配置文件。一般情况下可以参考ChainXim附带的配置文件system_config.ini产生新的仿真配置文件，也可以通过命令行指定个别仿真参数。命令行支持的参数少于配置文件，但是一旦被指定，优先级高于配置文件，可以通过`python main.py --help`命令查看命令行帮助信息，通过`python --config CONFIG_FILE_PATH`指定配置文件的路径。
 
 ### EnvironmentSettings
 
@@ -147,22 +147,23 @@ DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 
 
 配置TopologyNetwork参数:
 
-| system_config          | 命令行示例                | 类型        | 说明                                                         |
-| ---------------------- | ------------------------- | ----------- | ------------------------------------------------------------ |
-| init_mode              | `--init_mode rand`        | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
-| bandwidth_honest       | `--bandwidth_honest 0.5`  | float       | 诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round |
-| bandwidth_adv          | `--bandwidth_adv 5`       | float       | 攻击者之间的带宽，单位MB/round                               |
-| rand_mode              | `--rand_mode homogeneous` | str         | 随机网络拓扑的生成模式<br />'homogeneous'：根据ave_degree生成网络并尽可能保持每个节点的度相同<br />'binomial'：采用Erdős-Rényi算法，以`ave_degree/(miner_num-1)`概率在节点之间随机建立链接 |
-| ave_degree             | `--ave_degree 8`          | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
-| stat_prop_times        | 无                        | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
-| outage_prob            | `--outage_prob 0.1`       | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
-| dynamic                | `--dynamic`               | bool        | 是否使网络动态变化，如果动态变化，会以一定概率添加或者删除节点之间的链接 |
-| avg_tp_change_interval | 无                        | float       | dynamic=true时，设置拓扑变化的平均轮次                       |
-| edge_remove_prob       | 无                        | float       | dynamic=true时，设置拓扑变化时，已存在的每条边移除的概率     |
-| edge_add_prob          | 无                        | float       | dynamic=true时，设置拓扑变化时，未存在的条边新建立连接的概率 |
-| max_allowed_partitions | 无                        | int         | dynamic=true时,设置拓扑变化时，最大可存在的分区数量          |
-| save_routing_graph     | `--save_routing_graph`    | bool        | 是否保存各消息的路由传播图，建议网络规模较大时关闭           |
-| show_label             | `--show_label`            | bool        | 是否显示拓扑图或路由传播图上的标签，建议网络规模较大时关闭   |
+| system_config          | 命令行示例                                        | 类型        | 说明                                                         |
+| ---------------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode              | `--init_mode rand`                                | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
+| topology_path          | `--topology_path conf/topologies/default_adj.csv` | str         | csv格式拓扑文件的路径，文件格式需要和`init_mode`匹配（路径相对于当前路径） |
+| bandwidth_honest       | `--bandwidth_honest 0.5`                          | float       | 诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round |
+| bandwidth_adv          | `--bandwidth_adv 5`                               | float       | 攻击者之间的带宽，单位MB/round                               |
+| rand_mode              | `--rand_mode homogeneous`                         | str         | 随机网络拓扑的生成模式<br />'homogeneous'：根据ave_degree生成网络并尽可能保持每个节点的度相同<br />'binomial'：采用Erdős-Rényi算法，以`ave_degree/(miner_num-1)`概率在节点之间随机建立链接 |
+| ave_degree             | `--ave_degree 8`                                  | float       | 网络生成方式为'rand'时，设置拓扑平均度                       |
+| stat_prop_times        | 无                                                | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
+| outage_prob            | `--outage_prob 0.1`                               | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
+| dynamic                | `--dynamic`                                       | bool        | 是否使网络动态变化，如果动态变化，会以一定概率添加或者删除节点之间的链接 |
+| avg_tp_change_interval | 无                                                | float       | dynamic=true时，设置拓扑变化的平均轮次                       |
+| edge_remove_prob       | 无                                                | float       | dynamic=true时，设置拓扑变化时，已存在的每条边移除的概率     |
+| edge_add_prob          | 无                                                | float       | dynamic=true时，设置拓扑变化时，未存在的条边新建立连接的概率 |
+| max_allowed_partitions | 无                                                | int         | dynamic=true时,设置拓扑变化时，最大可存在的分区数量          |
+| save_routing_graph     | `--save_routing_graph`                            | bool        | 是否保存各消息的路由传播图，建议网络规模较大时关闭           |
+| show_label             | `--show_label`                                    | bool        | 是否显示拓扑图或路由传播图上的标签，建议网络规模较大时关闭   |
 
 ### AdHocNetworkSettings
 
