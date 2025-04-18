@@ -1,4 +1,4 @@
-## 仿真实例 Simulation Examples
+## 精选示例 Featured Examples
 在本文档中，我们使用ChainXim进行实验，展示结果，并将其中一些结果与理论值进行比较。
 
 ### 同步网络中矿工数量与出块时间的关系

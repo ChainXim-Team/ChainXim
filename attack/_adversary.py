@@ -101,9 +101,6 @@ class Adversary(metaclass=ABCMeta):
     def get_attack_type(self):
         return self.__attack_type
     
-    def get_eclipse(self):
-        return self.__eclipse
-    
     def get_adver_q(self):
         return self.__consensus_type.q
     

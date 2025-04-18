@@ -1,4 +1,4 @@
-## Simulation Examples
+## Featured Examples
 In this document, we perform experiments with ChainXim, depict the results, and compare some of them with theoretical values.
 
 ### Relationship between the Number of Miners and Block Time in Synchronous Network

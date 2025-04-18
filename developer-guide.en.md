@@ -141,11 +141,11 @@ Configure DeterPropNetwork parameters:
 
 Configure StochPropNetwork parameters:
 
-| system_config              | Command Line Example    | Type        | Description                                                  |
-| -------------------------- | ----------------------- | ----------- | ------------------------------------------------------------ |
-| rcvprob_start              | `--rcvprob_start 0.001` | float       | Initial message reception probability                        |
-| rcvprob_inc                | `--rcvprob_inc 0.001`   | float       | Incremental message reception probability per round          |
-| block_prop_times_statistic | None                    | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+| system_config   | Command Line Example    | Type        | Description                                                  |
+| --------------- | ----------------------- | ----------- | ------------------------------------------------------------ |
+| rcvprob_start   | `--rcvprob_start 0.001` | float       | Initial message reception probability                        |
+| rcvprob_inc     | `--rcvprob_inc 0.001`   | float       | Incremental message reception probability per round          |
+| stat_prop_times | None                    | list[float] | The block propagtion times for different rates of received miners that required statistics |
 
 ### TopologyNetworkSettings
 
@@ -172,16 +172,19 @@ Configure TopologyNetwork parameters:
 
 Configure AdHocNetwork parameters:
 
-| system_config   | Command Line Example | Type        | Description                                                  |
-| --------------- | -------------------- | ----------- | ------------------------------------------------------------ |
-| init_mode       | `--init_mode rand`   | str         | Network initialization method, only 'rand' is valid for AdhocNetwork |
-| ave_degree      | `--ave_degree 3`     | float       | When the network generation method is 'rand', set the topology average degree |
-| segment_size    | `--ave_degree 8`     | float       | Message segment size; divide the complete message into several segments, each segment takes one round to propagate |
-| region_width    | `--region_width 100` | float       | Width of the square region, nodes perform Gaussian random walks within this region |
-| comm_range      | `--comm_range 30`    | float       | Node communication range, automatically establish connections between nodes within the communication range |
-| move_variance   | `--move_variance 5`  | float       | Variance of the xy coordinate movement distance when nodes perform Gaussian random walks |
-| outage_prob     | `--outage_prob 0.1`  | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
-| stat_prop_times | None                 | list[float] | Block propagation times corresponding to the proportion of receiving miners |
+| system_config             | Command Line Example | Type        | Description                                                  |
+| ------------------------- | -------------------- | ----------- | ------------------------------------------------------------ |
+| init_mode                 | `--init_mode rand`   | str         | Network initialization method, only 'rand' is valid for AdhocNetwork |
+| ave_degree                | `--ave_degree 3`     | float       | When the network generation method is 'rand', set the topology average degree |
+| segment_size              | `--ave_degree 8`     | float       | Message segment size; divide the complete message into several segments, each segment takes one round to propagate |
+| region_width              | `--region_width 100` | float       | Width of the square region, nodes perform Gaussian random walks within this region |
+| comm_range                | `--comm_range 30`    | float       | Node communication range, automatically establish connections between nodes within the communication range |
+| move_variance             | `--move_variance 5`  | float       | Variance of the xy coordinate movement distance when nodes perform Gaussian random walks |
+| outage_prob               | `--outage_prob 0.1`  | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
+| enable_large_scale_fading | None                 | bool        | If large-scale fading is enabled, the segment size will be adjusted automatically according to the fading model |
+| path_loss_level           | None                 | str         | low/medium/high path loss level                              |
+| bandwidth_max             | None                 | float       | MB/round; The max bandwidth is the bandwidth within the range of comm_range/100 |
+| stat_prop_times           | None                 | list[float] | Block propagation times corresponding to the proportion of receiving miners |
 
 ### DataItemSettings
 
@@ -282,7 +285,7 @@ The meaning of the output simulation result files is as follows:
 | block_interval_distribution.svg | block_interval_distribution                                  |
 | blockchain visualisation.svg    | Blockchain visualization                                     |
 | blockchain_visualization/       | Blockchain visualization using Graphviz                      |
-| evaluation results.txt          | Evaluation results                                           |
+| evaluation results.txt          | Evaluation results, contains all the results displayed in the terminal |
 | events.log                      | Simulation process log, recording important events such as block generation, network access, etc. |
 | parameters.txt                  | Simulation environment parameters                            |
 
@@ -360,19 +363,19 @@ Chain is mainly used to store the root and end nodes of the blockchain and defin
 
 The Chain class has various methods that can be used to add new blocks, merge chains, search for blocks, visualize the blockchain, save blockchain data, and more, as shown in the table below:
 
-| Method                          | Parameters                                              | Returns     | Description                                                  |
-| ------------------------------- | ------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
-| search_block                    | block: Block                                            | Block\|None | Searches for the target block in the local block tree, returns the block if found, otherwise returns None |
-| search_block_by_hash            | blockhash: bytes                                        | Block\|None | Searches for the target block by hash in the local block tree, returns the block if found, otherwise returns None |
-| get_last_block                  | -                                                       | Block       | Returns Chain.last_block                                     |
-| set_last_block                  | block: Block                                            | -           | Checks if the block is in the chain, then sets the block as last_block |
-| add_blocks                      | blocks: Block \| list[block], <br />insert_point: Block | Block       | Deep copies the block and adds it to the chain. Blocks can be of type list[Block] or Block, insert_point is the position to insert the block, starting from its back, default is last_block |
-| ShowStructure1                  | -                                                       | -           | Prints the entire multi-way tree with head as the root node to stdout |
-| ShowStructure                   | miner_num:int                                           | -           | Generates blockchain visualisation.svg, showing the round in which each block was generated and the parent-child relationship |
-| ShowStructureWithGraphviz       | -                                                       | -           | Generates a blockchain visualization graph in the blockchain_visualization directory using Graphviz |
-| get_block_interval_distribution | -                                                       | -           | Generates a block interval distribution graph block interval distribution.svg |
-| printchain2txt                  | chain_data_url:int                                      | -           | Saves the structure and information of all blocks in the chain to chain_data_url, default is 'Chain Data/chain_data.txt' |
-| CalculateStatistics             | rounds:int                                              | dict        | Generates blockchain statistics and returns the statistics through a dictionary, rounds is the total number of simulation rounds |
+| Method                       | Parameters                                              | Returns     | Description                                                  |
+| ---------------------------- | ------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| search_block                 | block: Block                                            | Block\|None | Searches for the target block in the local block tree, returns the block if found, otherwise returns None |
+| search_block_by_hash         | blockhash: bytes                                        | Block\|None | Searches for the target block by hash in the local block tree, returns the block if found, otherwise returns None |
+| get_last_block               | -                                                       | Block       | Returns Chain.last_block                                     |
+| set_last_block               | block: Block                                            | -           | Checks if the block is in the chain, then sets the block as last_block |
+| add_blocks                   | blocks: Block \| list[block], <br />insert_point: Block | Block       | Deep copies the block and adds it to the chain. Blocks can be of type list[Block] or Block, insert_point is the position to insert the block, starting from its back, default is last_block |
+| ShowStructure1               | -                                                       | -           | Prints the entire multi-way tree with head as the root node to stdout |
+| ShowStructure                | miner_num:int                                           | -           | Generates blockchain visualisation.svg, showing the round in which each block was generated and the parent-child relationship |
+| ShowStructureWithGraphviz    | -                                                       | -           | Generates a blockchain visualization graph in the blockchain_visualization directory using Graphviz |
+| GetBlockIntervalDistribution | -                                                       | -           | Generates a block interval distribution graph 'block_interval_distribution.svg' |
+| printchain2txt               | chain_data_url:int                                      | -           | Saves the structure and information of all blocks in the chain to chain_data_url, default is 'Chain Data/chain_data.txt' |
+| CalculateStatistics          | rounds:int                                              | dict        | Generates blockchain statistics and returns the statistics through a dictionary, rounds is the total number of simulation rounds |
 
 ## Consensus
 
@@ -1046,7 +1049,7 @@ _adversary.py provides the abstract parent class Adversary, which is inherited b
 | get_adver_num() | None | __adver_num: int | Returns the number of attackers. |
 | get_attack_type_name() | None | __attack_type.__class__.__name__: str | Returns the name of the attack type. |
 | get_attack_type() | None | __attack_type: AttackType | Returns the attack type object. |
-| get_eclipse() | None | __eclipse: bool | Returns whether the eclipse attack is enabled. |
+| get_eclipsed_ids() | None | __eclipsed_list_ids: list[int] | Returns the ID of the eclipsed miners. |
 | get_adver_q() | None | __consensus_type.q: int | Returns the computing power q of the attacker group. |
 | excute_per_round(round) | round: int | None | The main method of Adversary, executing the attack, will call the corresponding attack type object's member methods. |
 | get_info() | None | None or __attack_type.info_getter() | Calls the corresponding attack type object's member method to get the current information, usually including success rate (or main chain quality) and the corresponding theoretical value. |
@@ -1198,7 +1201,7 @@ After `Environment.exec` is completed, `Environment.view_and_write` will be exec
 
 * Finally, `view_and_write` outputs the evaluation results to a file.
 
-The following is an explanation of the statistical parameters in `stat`, which correspond to the final output results of the simulator (see the user manual for details):
+The following is an explanation of the statistical parameters in `stat`, which correspond to the final output results of the simulator (see [Simulator Output](#Simulator-Output) for more details):
 
 | Dictionary Entry | Explanation/Calculation Method |
 | --- | --- |
