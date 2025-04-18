@@ -184,7 +184,7 @@ Configure AdHocNetwork parameters:
 | outage_prob               | `--outage_prob 0.1`  | float       | Probability of each link outage per round, messages will be retransmitted in the next round if the link is down |
 | enable_large_scale_fading | None                 | bool        | If large-scale fading is enabled, the segment size will be adjusted automatically according to the fading model |
 | path_loss_level           | None                 | str         | low/medium/high path loss level                              |
-| bandwidth_max             | None                 | float       | MB/round; The max bandwidth is the bandwidth within the range of comm_range/100 |
+| bandwidth_max             | None                 | float       | The max bandwidth is the bandwidth within the range of comm_range/100 in MB/round |
 | stat_prop_times           | None                 | list[float] | Block propagation times corresponding to the proportion of receiving miners |
 
 ### DataItemSettings

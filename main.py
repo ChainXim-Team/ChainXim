@@ -154,18 +154,19 @@ def main(**args):
 
     # 设置attack参数
     attack_setting = dict(config['AttackSettings'])
-    global_var.set_attack_execute_type(args.get('attack_type') or 
-                                       attack_setting['attack_type'])
+    global_var.set_attack_execute_type(args.get('attack_type') or attack_setting.get('attack_type', 'HonestMining'))
     attack_param = {
         'adver_num'    : (args.get('adver_num') if args.get('adver_num') is not None 
                           else int(attack_setting['adver_num'])),
         'attack_type'  : (args.get('attack_type') if args.get('attack_type') is not None
-                          else attack_setting['attack_type']),
-        'attack_arg'   : attack_setting.get('attack_arg') if attack_setting.get('attack_arg') is not None
-                          else None,
+                          else attack_setting.get('attack_type', 'HonestMining')),
+        'attack_arg'   : eval(attack_setting.get('attack_arg')) if attack_setting.get('attack_arg') is not None
+                          else {},
         'adversary_ids': (args.get('adver_lists') if args.get('adver_lists') is not None
                           else eval(attack_setting.get('adver_lists') or 'None')),
     }
+    if attack_param.get('attack_arg') is not None:
+        attack_param['attack_arg'].update(args.get('attack_arg', {}))
 
     # 设置dataitem相关的配置
     dataitem_setting = dict(config['DataItemSettings'])
@@ -250,7 +251,11 @@ could be performed with attackers designed in the simulator'
     # AttackModeSettings
     attack_setting = parser.add_argument_group('AttackModeSettings','Settings for Attack')
     attack_setting.add_argument('--adver_num',help='The total number of attackers. If adver_num is non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
+    attack_setting.add_argument('--adver_lists', help='Specify id of adversaries. If adversary_ids is set, `adver_num` will not take effect.', type=str)
     attack_setting.add_argument('--attack_type', help='The name of attack type defined in attack mode.',type=str)
+    attack_setting.add_argument('-N', help='Parameter N for DoubleSpending', type=int)
+    attack_setting.add_argument('-Ng', help='Parameter Ng for DoubleSpending', type=int)
+    attack_setting.add_argument('--eclipse_target', help='The target miner id for eclipse attack.', type=str)
     # StochPropNetworkSettings
     stoch_setting = parser.add_argument_group('StochPropNetworkSettings','Settings for StochPropNetwork')
     stoch_setting.add_argument('--rcvprob_start', help='Initial receive probability when a block access network.',type=float)
@@ -285,6 +290,9 @@ could be performed with attackers designed in the simulator'
     adhoc_setting.add_argument('--region_width', help='Width of the region for the network.', type=float)
     adhoc_setting.add_argument('--comm_range', help='Communication range.', type=float)
     adhoc_setting.add_argument('--move_variance', help='Variance of the movement when position updates in Gaussian random walk.', type=float)
+    adhoc_setting.add_argument('--enable_large_scale_fading', help='If large-scale fading is enabled, the segment size will be adjusted automatically according to the fading model.', action='store_true')
+    adhoc_setting.add_argument('--path_loss_level', help='Path loss level. low/medium/high', type=float)
+    adhoc_setting.add_argument('--bandwidth_max', help='The max bandwidth is the bandwidth within the range of comm_range/100 in MB/round.', type=float)
     # DataItemSettings
     dataitem_setting = parser.add_argument_group('DataItemSettings', 'Settings for DataItem')
     dataitem_setting.add_argument('--dataitem_enable', help='Enable dataitem generation.', action='store_true')
@@ -303,5 +311,15 @@ could be performed with attackers designed in the simulator'
         args['target'] = f"{target_bin:0>64X}"
     else:
         args['target'] = None
+
+    if args.get('adver_lists') is not None:
+        args['adver_lists'] = eval(args.get('adver_lists', 'None'))
+    args['attack_arg'] = {}
+    if args.get('Ng') is not None:
+        args['attack_arg']['Ng'] = args.get('Ng')
+    if args.get('N') is not None:
+        args['attack_arg']['N'] = args.get('N')
+    if args.get('eclipse_target') is not None:
+        args['attack_arg']['eclipse_target'] = eval(args.get('eclipse_target'))
 
     main(**args)

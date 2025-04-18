@@ -180,7 +180,7 @@ DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 
 | outage_prob               | `--outage_prob 0.1`  | float       | 每条链路每轮的中断概率，链路中断后消息将在下一轮重发         |
 | enable_large_scale_fading | 无                   | bool        | 启用大尺度衰落之后，分片大小会自动根据衰落模型调整           |
 | path_loss_level           | 无                   | str         | low/medium/high三档衰落幅度                                  |
-| bandwidth_max             | 无                   | float       | 距离在comm_range/100以内所能取得的最大带宽                   |
+| bandwidth_max             | 无                   | float       | 距离在comm_range/100以内所能取得的最大带宽，以MB/round为单位 |
 | stat_prop_times           | 无                   | list[float] | 需统计的区块传播时间对应的接收矿工比例                       |
 
 ### DataItemSettings

@@ -216,12 +216,12 @@ Fail to generate routing gragh for each block from json.
 图中相邻节点之间标记了传输带宽，单位为MB/round。
 
 
-## 仿真实例 Simulation Examples
-详见[simulation-example](simulation-example.zh.md)
+## 精选示例 Featured Examples
+详见[精选示例 Featured Examples](simulation-example.zh.md)
 
 
-## 开发者文档 Developer's Document
-详见[developer-guide](developer-guide.zh.md)
+## 开发者文档 Developer Guide
+详见[开发者文档 Developer Guide](developer-guide.zh.md)
 
 
 ## 贡献者 Contributors

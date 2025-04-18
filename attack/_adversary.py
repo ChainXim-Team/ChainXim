@@ -43,7 +43,7 @@ class Adversary(metaclass=ABCMeta):
 
         self.__consensus_type: consensus.Consensus = for_name(args.get('consensus_type'))(self.__Miner_ID, self.__adver_consensus_param)
 
-        self.__attack_arg:dict = eval(args.get('attack_arg')) if args.get('attack_arg') is not None else None
+        self.__attack_arg:dict = args.get('attack_arg', None)
         
 
        

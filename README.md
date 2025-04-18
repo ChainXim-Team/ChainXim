@@ -214,11 +214,11 @@ Network topology diagram ([Network Results/network topology.svg](doc/network-top
 The transmission bandwidth between adjacent nodes is marked in the figure, with the unit being MB/round.
 
 ## Simulation Examples
-See [simulation-example](simulation-example.en.md) for more details
+See [Featured Examples](simulation-example.en.md) for more details
 
 
 ## Developer's Document
-See [developer-guide](developer-guide.en.md) for more details
+See [Developer Guide](developer-guide.en.md) for more details
 
 
 ## Contributors
