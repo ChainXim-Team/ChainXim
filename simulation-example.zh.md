@@ -1,9 +1,9 @@
 ## 精选示例 Featured Examples
-在本文档中，我们使用ChainXim进行实验，展示结果，并将其中一些结果与理论值进行比较。
+本示例展示了ChainXim仿真系统不同网络模块、共识模块，以及攻击模块运行所得的部分结果，通过构建各模块协同运行的场景，系统验证了仿真结果与理论模型的拟合度。该示例主要提供了六个互不交叉的模块化组合仿真实例，每个实例均多维度展示了ChainXim仿真结果的合理性。
 
-### 同步网络中矿工数量与出块时间的关系
+### 1. 同步网络中矿工数量与出块时间的关系
 
-**参数设置如下：**
+这个例子演示了同步网络模块的运行方式，同步网络假设所有消息都能在发出后立刻被全网同步，是最简单的网络模型，出块频率也相对稳定。其具体参数设置如下：
 
 * 仿真次数：200000轮
 
@@ -18,17 +18,22 @@
 * 网络参数：SynchronousNetwork
 
 
-使用配置文件[synchronous_noadv.ini](conf/synchronous_noadv.ini)，执行以下命令（需要相应修改矿工数和共识类型）：
+使用配置文件[synchronous_noadv.ini](conf/synchronous_noadv.ini)，执行以下命令（需要相应修改矿工数和共识类型），即可快速复现不同共识下各个点的仿真结果：
 
 ```bash
 python main.py -c conf/synchronous_noadv.ini --consensus_type consensus.PoW --miner_num 10
 ```
 
+下图展示了网络中矿工数量与平均出块间隔之间的关系，随着矿工数量增多，系统出块间隔将持续降低。几种不同的PoW共识核心机理相同，只有应用场景的区别，因此它们得到的结果基本一致：
+
 ![block_time](doc/block_time.png)
 
 
 
-### 不同网络最大时延下的分叉率、孤块率与一致性
+### 2. 不同网络最大时延下的分叉率、孤块率与一致性
+
+这个例子演示了随机性传播网络模块的运行方式，随机性传播网络给所有消息设置了初始接收参数，规定消息在发出后第一轮会以一定概率被矿工接收，若未收到，则后续每一轮各矿工接收概率将提升增长参数规定的数值，初始接收参数和增长参数事实上共同规定了网络的最大时延。其具体参数设置如下：
+
 * 轮数：1000000
 
 * 矿工数：20
@@ -49,20 +54,27 @@ python main.py -c conf/synchronous_noadv.ini --consensus_type consensus.PoW --mi
 python main.py -c conf/stochprop_noadv.ini --rcvprob_start 0.05 --rcvprob_inc 0.05
 ```
 
+下图展示了系统分叉率与孤块率随最大传播时延的变化情况，两种指标都反映了系统不一致的情况，只是在统计方式上略有差异。可见两者都随时延增大而增大，且彼此差异较小：
+
 ---
 分叉率/孤块率随最大传播时延的变化示意图
 
 ![latency-fork](doc/latency-fork.png)
+
+下图展示了系统一致性随最大传播时延的变化情况，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量,其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节），可见一致性指标总是随时延增大而下降。
 
 ---
 一致性指标随最大传播时延的变化示意图
 
 ![cp_bounded_delay](doc/cp_bounded_delay.png)
 
-图中，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量,其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节）。
+本例的绘图代码详见文件[result_plot.py](util/result_plot.py)
 
 
-### 不同单轮哈希算力下的增长率
+### 3. 不同单轮哈希算力下的增长率
+
+这个例子演示了确定性传播网络模块的运行方式，确定性传播网络给消息设置了接收向量，规定消息在发出后各个轮次会被相应比例的矿工接收。由于传播函数完全确定，这一网络各性能指标变化情况会更加稳定。其具体参数设置如下：
+
 * 轮数：1500000
 
 * 矿工数：20
@@ -84,9 +96,14 @@ python main.py -c conf/stochprop_noadv.ini --rcvprob_start 0.05 --rcvprob_inc 0.
 python main.py -c conf/deterprop_noadv.ini --consensus_type consensus.PoW --q_ave 10
 ```
 
+下图展示了系统吞吐量随单一节点平均算力的变化情况。可以看到其将随算力提高而相应增大：
+
 ![miningpower-throughput](doc/miningpower-throughput.png)
 
-### 不同挖矿难度目标下的分叉率
+### 4. 不同挖矿难度目标下的分叉率
+
+这个例子演示了拓扑网络模块的运行方式，拓扑网络考虑具体的节点与边，将节点连接设置为环形拓扑，并假设每条边上的消息都能在一轮内传完，则网络的消息传播情况易于确定，此时可以通过理论模型得到分叉率的近似解进行对照验证。其具体参数设置如下：
+
 * 轮数：1000000
 
 * 矿工数：32
@@ -110,6 +127,8 @@ python main.py -c conf/deterprop_noadv.ini --consensus_type consensus.PoW --q_av
 python main.py -c conf/topology_noadv.ini --consensus_type consensus.PoW --difficulty 12
 ```
 
+下图展示了分叉率随难度目标的变化情况。难度目标即为哈希函数输出需要小于的数值，因此其增大会导致系统出块率增大，分叉率也随之增大：
+
 ![target-fork](doc/target-fork.png)
 
 图中的理论曲线由以下公式得到：
@@ -119,7 +138,10 @@ $$ f=1 - (1 - t)^{mq\sum_{n=1}^{d} i_n} $$
 $t$即为图中横坐标展示的难度目标，$m$为矿工数量，$q$即为q_ave，表示平均每个矿工每一轮进行哈希查询的次数。
 $i_n$表示在区块发出后的第n个轮次，收到该区块的矿工在全网的占比。
 
-### 不同区块大小下的吞吐量与分叉率
+### 5. 不同区块大小下的吞吐量与分叉率
+
+这个例子演示了无线自组织网络模块的运行方式，无线自组织网络下节点可以自由运动，链路连接情况也会因此而改变。这一网络下，区块大小会直接影响到整个网络的消息传播时延。其具体参数设置如下：
+
 * 轮数：1000000
 
 * 矿工数：40
@@ -142,27 +164,33 @@ bandwidth_max=100, enable_large_scale_fading = True, path_loss_level = low/mediu
 ```bash
 python main.py -c conf/adhoc_noadv.ini --consensus_type consensus.PoW --blocksize 2
 ```
+下图展示了吞吐量随区块大小的变化情况，区块增大会导致时延变长，从而降低区块链的增长率，致使以MB为单位的吞吐量的增长逐渐减缓：
 
 ---
 吞吐量随区块大小的变化示意图
 
 ![blocksize-throughput](doc/blocksize-throughput.png)
 
+下图展示了分叉率随区块大小的变化情况，更差的网络时延条件会导致更高的分叉率：
+
 ---
 分叉率随区块大小的变化示意图
 
 ![blocksize-fork](doc/blocksize-fork.png)
 
-### 不同攻击向量下的攻击者出块占比示意图
+### 6. 不同攻击向量下的攻击者出块占比示意图
 
+这个例子依次演示了四种可用攻击模块的运行方式：
 
-#### 1. 算力攻击（honest mining）
+#### a. 算力攻击（honest mining）
+
+算力攻击实际上为攻击者联合算力进行诚实挖矿，网络中攻击者块的占比将近似等于攻击者的算力占比，这一占比可能会因为网络时延情况不同而存在细微差异：
 
 ##### **不同网络对算力攻击的影响示意图**
 
 ![honestmining-network](doc/honestmining-network.png)
 
-一次攻击成功的定义为攻击者产出区块，并被网络接受。
+对于算力攻击和自私挖矿，一次攻击成功的定义为攻击者产出区块，并被网络接受。
 图中纵坐标为链质量指标，即攻击者产出区块在主链中的占比与1之差。
 
 **参数设置如下：**
@@ -182,11 +210,15 @@ python main.py -c conf/pow_doublespending.ini --total_round 1000000 --q_ave 1 --
 ```
 
 ---
-#### 2. 区块截留攻击（selfish mining）
+#### b. 区块截留攻击（selfish mining）
 
 ##### **不同网络对区块截留攻击的影响示意图**
 
+发动区块截留攻击的矿工选择延迟发布自己挖出的区块以期获得更大利益，在时延较大的情况下，这样的攻击方式更容易成功：
+
 ![selfishmining-network](doc/selfishmining-network.png)
+
+同步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
 
 **参数设置如下：**
 
@@ -207,12 +239,18 @@ python main.py -c conf/pow_doublespending.ini --total_round 1000000 --difficulty
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
 
+其中$\alpha$表示攻击者的占比。
+
 ---
-#### 3. 双花攻击（double spending）
+#### c. 双花攻击（double spending）
+
+双花攻击使得交易历史被回滚的成功率也将受到网络时延影响，这一影响是复杂且值得思考的：
 
 ##### **不同网络对双花攻击的影响示意图**
 
 ![doublespending-netork](doc/doublespending-netork.png)
+
+与自私挖矿的结果有些许类似，时延条件越差的网络，攻击成功率就越高。
 
 **参数设置如下：**
 
@@ -230,10 +268,14 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 python main.py -c conf/pow_doublespending.ini --network_type network.SynchronousNetwork --adver_num 5
 ```
 
+除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。它们可以选择落后几个块才放弃攻击，或者是等待几个块才发布自己的区块：
+
 ---
 ##### **不同策略对双花攻击的影响与理论对比示意图**
 
 ![double_spending](doc/doublespending.png)
+
+同步网络下，这一攻击的成功率可以理论求得，而在其它网络下，成功率会依照各自网络的时延情况产生高低不一的上升。
 
 **参数设置如下：**
 
@@ -262,11 +304,22 @@ $N_g$表示当攻击者落后诚实链$N_g$个区块时放弃当前攻击。
 $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ---
-#### 4. 日蚀攻击（eclipsed double spending）
+#### d. 日蚀攻击（eclipsed double spending）
+
+发动日蚀攻击的节点会控制被攻击节点的信息获取情况，使它们只能收到自己的块。为模拟这一攻击，网络拓扑需要专门设计。两个作为示例的拓扑如下图所示：
+
+![eclipse_topology1](doc/eclipse_topology1.svg)
+
+![eclipse_topology2](doc/eclipse_topology2.svg)
+
+可以看到各拓扑中被攻击节点只与攻击者链接，便于攻击者发动攻击，而攻击者与其它所有节点则是全连接，便于与全连接拓扑网络进行对照仿真。
 
 ##### **受日蚀攻击影响下的双花攻击示意图**
 
 ![eclipse_doublespending](doc/eclipse_doublespending.png)
+
+攻击顺利进行时，被攻击节点只会在攻击节点的区块后挖掘，可以视为其算力完全被攻击者所用。因此，这种情况下双花攻击的成功率会等于两者算力之和在全连接网络下发动攻击的成功率。
+本例的绘图代码详见文件[result_plot.py](util/result_plot.py)
 
 **参数设置如下：**
 
@@ -298,10 +351,4 @@ python main.py -c conf/topology_eclipsed.ini --topology_path conf/topologies/ecl
 python main.py -c conf/topology_eclipsed.ini --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_list "(2,3)"
 python main.py -c conf/topology_eclipsed.ini --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_list "(3,)"
 ```
-
-![eclipse_topology1](doc/eclipse_topology1.svg)
-
-![eclipse_topology2](doc/eclipse_topology2.svg)
-
-所有拓扑中，被攻击节点只能与攻击者链接，而攻击者与其它所有节点是全连接。
 
