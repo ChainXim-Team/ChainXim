@@ -291,7 +291,7 @@ could be performed with attackers designed in the simulator'
     adhoc_setting.add_argument('--comm_range', help='Communication range.', type=float)
     adhoc_setting.add_argument('--move_variance', help='Variance of the movement when position updates in Gaussian random walk.', type=float)
     adhoc_setting.add_argument('--enable_large_scale_fading', help='If large-scale fading is enabled, the segment size will be adjusted automatically according to the fading model.', action='store_true')
-    adhoc_setting.add_argument('--path_loss_level', help='Path loss level. low/medium/high', type=float)
+    adhoc_setting.add_argument('--path_loss_level', help='Path loss level. low/medium/high', type=str)
     adhoc_setting.add_argument('--bandwidth_max', help='The max bandwidth is the bandwidth within the range of comm_range/100 in MB/round.', type=float)
     # DataItemSettings
     dataitem_setting = parser.add_argument_group('DataItemSettings', 'Settings for DataItem')
