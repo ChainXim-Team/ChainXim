@@ -1,9 +1,9 @@
 ## 精选示例 Featured Examples
-本示例展示了ChainXim仿真系统不同网络模块以及攻击模块运行所得的部分结果，通过构建各模块协同运行的场景，系统验证了仿真结果与理论模型的拟合度。该示例主要提供了六个互不交叉的模块化组合仿真实例，每个实例均多维度展示了ChainXim仿真结果的合理性。
+ChainXim仿真系统在共识、网络以及攻击模块上均提供了多个可拔插的组件类型，可支持模拟多种现实场景。本示例主要提供了六个互不交叉的模块化组合仿真实例，每个实例均多维度展示了ChainXim仿真结果的合理性。各示例均提供了两种方案以供复现，可以直接在仿真系统的配置文件[system_config.ini](system_config.ini)中按照给定的参数进行配置，也可以在命令行窗口直接输入提供的代码。
 
 ### 1. 同步网络中矿工数量与出块时间的关系
 
-这个例子演示了同步网络模块的运行方式，同步网络假设所有消息都能在发出后立刻被全网同步，是最简单的网络模型，出块频率也相对稳定。其具体参数设置如下：
+ChainXim的同步网络组件可以模拟没有时延存在的场景，本示例通过这一组件来探究理想状态下节点数量对出块时间的影响，并对照验证不同的共识组件，其具体参数设置如下：
 
 * 仿真次数：600000轮
 
@@ -26,13 +26,16 @@ python main.py -c conf/synchronous_noadv.ini --total_round 600000 --consensus_ty
 
 下图展示了网络中矿工数量与平均出块间隔之间的关系，随着矿工数量增多，系统出块间隔将持续降低。几种不同的PoW共识核心机理相同，只有应用场景的区别，因此它们得到的结果基本一致：
 
+---
+平均出块间隔随矿工数量的变化示意图
+
 ![block_time](doc/block_time.png)
 
 
 
 ### 2. 不同网络最大时延下的分叉率、孤块率与一致性
 
-这个例子演示了随机性传播网络模块的运行方式，随机性传播网络给所有消息设置了初始接收参数，规定消息在发出后第一轮会以一定概率被矿工接收，若未收到，则后续每一轮各矿工接收概率将提升增长参数规定的数值，初始接收参数和增长参数事实上共同规定了网络的最大时延。其具体参数设置如下：
+ChainXim的随机性传播网络组件配置了初始接收概率rcvprob_start与增长概率rcvprob_inc两个参数，规定消息在发出后第一轮会以一定概率被矿工接收，若未收到，则后续每一轮各矿工接收概率将提升增长参数规定的数值，可模拟确定上界但具有一定随机性的时延场景。本示例通过这一组件探究了不同的最大时延对区块链系统性能的影响，其具体参数设置如下：
 
 * 轮数：3000000
 
@@ -73,7 +76,7 @@ python main.py -c conf/stochprop_noadv.ini --total_round 3000000 --rcvprob_start
 
 ### 3. 不同单轮哈希算力下的增长率
 
-这个例子演示了确定性传播网络模块的运行方式，确定性传播网络给消息设置了接收向量，规定消息在发出后各个轮次会被相应比例的矿工接收。由于传播函数完全确定，这一网络各性能指标变化情况会更加稳定。其具体参数设置如下：
+ChainXim的确定性传播网络组件可设置接收向量来规定每轮矿工收到消息的比例，从而模拟更为确切的网络时延条件。本示例利用这一组件来仿真分析时延下区块链的增长率，其具体参数设置如下：
 
 * 轮数：4000000
 
@@ -98,11 +101,14 @@ python main.py -c conf/deterprop_noadv.ini --total_round 4000000 --consensus_typ
 
 下图展示了系统吞吐量随单一节点平均算力的变化情况。可以看到其将随算力提高而相应增大：
 
+---
+吞吐量随节点平均算力的变化示意图
+
 ![miningpower-throughput](doc/miningpower-throughput.png)
 
 ### 4. 不同挖矿难度目标下的分叉率
 
-这个例子演示了拓扑网络模块的运行方式，拓扑网络考虑具体的节点与边。将节点连接设置为环形拓扑，并假设每条边上的消息都能在一轮内传完，则网络的消息传播情况易于确定，此时可以通过理论模型得到分叉率的近似解进行对照验证。其具体参数设置如下：
+ChainXim的拓扑网络组件可以模拟节点与边构成的网络拓扑，从而实现更具象的网络仿真。本示例展示了这一组件的使用方式，其将节点连接为环形拓扑，并设置可以在一轮内传完的区块大小，使网络的时延情况可以完全确定，此时可以通过理论模型得到分叉率的近似解进行对照验证。其具体参数设置如下：
 
 * 轮数：4000000
 
@@ -129,6 +135,9 @@ python main.py -c conf/topology_noadv.ini --total_round 4000000 --consensus_type
 
 下图展示了分叉率随难度目标的变化情况。难度目标即为哈希函数输出需要小于的数值，因此其增大会导致系统出块率增大，分叉率也随之增大：
 
+---
+分叉率随难度目标的变化示意图
+
 ![target-fork](doc/target-fork.png)
 
 图中的理论曲线由以下公式得到：
@@ -140,7 +149,7 @@ $i_n$表示在区块发出后的第n个轮次，收到该区块的矿工在全�
 
 ### 5. 不同区块大小下的吞吐量与分叉率
 
-这个例子演示了无线自组织网络模块的运行方式，无线自组织网络下节点可以自由运动，链路连接情况也会因此而改变。这一网络下，区块大小会直接影响到整个网络的消息传播时延。其具体参数设置如下：
+ChainXim的无线自组织网络组件模拟了更加真实的网络场景，其节点可以移动，从而不断改变网络拓扑。本示例展示了这一组件的使用方法，并探究了区块大小对区块链系统性能的影响，其具体参数设置如下：
 
 * 轮数：4000000
 
@@ -164,6 +173,7 @@ bandwidth_max=100, enable_large_scale_fading = True, path_loss_level = low/mediu
 ```bash
 python main.py -c conf/adhoc_noadv.ini --total_round 4000000 --path_loss_level low --blocksize 2
 ```
+
 下图展示了吞吐量随区块大小的变化情况，区块增大会导致时延变长，从而降低区块链的增长率，致使以MB为单位的吞吐量的增长逐渐减缓。更大的路径损失也会导致吞吐量的下降：
 
 ---
@@ -180,18 +190,11 @@ python main.py -c conf/adhoc_noadv.ini --total_round 4000000 --path_loss_level l
 
 ### 6. 不同攻击向量下的攻击者出块占比示意图
 
-这个例子依次演示了四种可用攻击模块的运行方式：
+本示例依次演示了四种可用攻击组件的使用方法：
 
 #### a. 算力攻击（honest mining）
 
-算力攻击实际上为攻击者联合算力进行诚实挖矿，网络中攻击者块的占比将近似等于攻击者的算力占比，这一占比可能会因为网络时延情况不同而存在细微差异：
-
-##### **不同网络对算力攻击的影响示意图**
-
-![honestmining-network](doc/honestmining-network.png)
-
-对于算力攻击和自私挖矿，一次攻击成功的定义为攻击者产出区块，并被网络接受。
-图中纵坐标为链质量指标，即攻击者产出区块在主链中的占比与1之差。
+ChainXim的算力攻击组件模拟了最简单的攻击手段，即攻击者联合算力进行诚实挖矿，通常，网络中攻击者块的占比将近似等于攻击者的算力占比。本例结合不同网络组件，探究了不同时延场景下这一攻击的成功率：
 
 **参数设置如下：**
 
@@ -210,15 +213,17 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --
 ```
 
 ---
+不同网络对算力攻击的影响示意图
+
+![honestmining-network](doc/honestmining-network.png)
+
+对于算力攻击和自私挖矿，一次攻击成功的定义为攻击者产出区块，并被网络接受。
+图中纵坐标为链质量指标，即攻击者产出区块在主链中的占比与1之差。
+
+---
 #### b. 区块截留攻击（selfish mining）
 
-发动区块截留攻击的矿工选择延迟发布自己挖出的区块以期获得更大利益，在时延较大的情况下，这样的攻击方式更容易成功：
-
-##### **不同网络对区块截留攻击的影响示意图**
-
-![selfishmining-network](doc/selfishmining-network.png)
-
-同步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
+ChainXim的区块截留攻击组件模拟了自私矿工的攻击手段，即选择延迟发布自己挖出的区块以获得更大利益。本例结合不同网络组件，探究了不同时延场景下这一攻击的成功率：
 
 **参数设置如下：**
 
@@ -235,6 +240,13 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.SynchronousNetwork --adver_num 5
 ```
 
+---
+不同网络对区块截留攻击的影响示意图
+
+![selfishmining-network](doc/selfishmining-network.png)
+
+同步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
+
 图中的理论曲线由以下公式得到：
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
@@ -244,13 +256,7 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 ---
 #### c. 双花攻击（double spending）
 
-双花攻击使得交易历史被回滚的成功率也将受到网络时延影响，这一影响是复杂且值得思考的：
-
-##### **不同网络对双花攻击的影响示意图**
-
-![doublespending-netork](doc/doublespending-netork.png)
-
-与自私挖矿的结果有些许类似，时延条件越差的网络，攻击成功率就越高。
+ChainXim的双花攻击组件模拟了这一经典的回滚交易历史的攻击手段，本例展示了这一组件的使用方法，并结合不同网络组件仿真攻击成功率：
 
 **参数设置如下：**
 
@@ -268,14 +274,15 @@ $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.SynchronousNetwork --adver_num 5
 ```
 
-除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。它们可以选择落后几个块才放弃攻击，或者是等待几个块才发布自己的区块：
+---
+不同网络对双花攻击的影响示意图
+
+![doublespending-netork](doc/doublespending-netork.png)
+
+与自私挖矿的结果较为类似，网络条件越差，攻击成功率就越高。
 
 ---
-##### **不同策略对双花攻击的影响与理论对比示意图**
-
-![double_spending](doc/doublespending.png)
-
-同步网络下，这一攻击的成功率可以理论求得，可见等待确认的区块数量越少，攻击越容易成功。
+除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。可以使用同步网络组件直观地探究这一因素的影响：
 
 **参数设置如下：**
 
@@ -293,6 +300,13 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_ty
 python main.py -c conf/synchronous_doublespending.ini --total_round 5000000 -N 1 --adver_num 5
 ```
 
+---
+不同策略对双花攻击的影响与理论对比示意图
+
+![double_spending](doc/doublespending.png)
+
+同步网络下，这一攻击的成功率可以理论求得，可见等待确认的区块数量越少，攻击越容易成功。
+
 图中的理论曲线由以下公式得到：
 
 $$P(N,N_g,\beta)=1-\sum_{n=0}^{N}\begin{pmatrix}n+N-1\\
@@ -306,20 +320,13 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 ---
 #### d. 日蚀攻击（eclipsed double spending）
 
-发动日蚀攻击的节点会控制被攻击节点的消息接收情况，使它们只能收到自己的块。为模拟这一攻击，网络拓扑需要专门设计。两个作为示例的拓扑如下图所示：
+本例将展示日蚀攻击组件的使用方法。发动日蚀攻击的节点会控制被攻击节点的消息接收情况，使它们只能收到自己的块。在使用ChainXim的这一攻击组件时，需要将网络模块设置为拓扑网络组件，并设计专门的静态拓扑。两个作为示例的拓扑如下图所示：
 
 ![eclipse_topology1](doc/eclipse_topology1.svg)
 
 ![eclipse_topology2](doc/eclipse_topology2.svg)
 
 可以看到各拓扑中被攻击节点只与攻击者链接，便于攻击者发动攻击，而攻击者与其它所有节点则是全连接，便于与全连接拓扑网络进行对照仿真。
-
-##### **受日蚀攻击影响下的双花攻击示意图**
-
-![eclipse_doublespending](doc/eclipse_doublespending.png)
-
-攻击顺利进行时，被攻击节点只会在攻击节点的区块后挖掘，可以视为其算力完全被攻击者所用。因此，这种情况下双花攻击的成功率会等于两者算力之和在全连接网络下发动攻击的成功率。
-本例的绘图代码详见文件[result_plot.py](util/result_plot.py)
 
 **参数设置如下：**
 
@@ -350,4 +357,12 @@ python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_pa
 python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_list "(2,3)"
 python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_list "(3,)"
 ```
+
+---
+受日蚀攻击影响下的双花攻击示意图
+
+![eclipse_doublespending](doc/eclipse_doublespending.png)
+
+攻击顺利进行时，被攻击节点只会在攻击节点的区块后挖掘，可以视为其算力完全被攻击者所用。因此，这种情况下双花攻击的成功率会等于两者算力之和在全连接网络下发动攻击的成功率。
+本例的绘图代码详见文件[result_plot.py](util/result_plot.py)
 

@@ -1,9 +1,9 @@
 ## Featured Examples
-This example shows some of the results obtained from the operation of different network modules, consensus modules, and attack modules in the ChainXim simulation system. By constructing scenarios where modules run concurrently, the simulation results were systematically verified for their conformity to the theoretical model. This example provides six non-intersecting modularized combined simulation cases, and each of them demonstrates the rationality of the ChainXim simulation results from multiple dimensions.
+The ChainXim simulation system offers multiple pluggable component types across consensus, network, and attack modules, enabling simulation of diverse real-world scenarios. This example provides six distinct modular combination simulation cases without functional overlaps, each comprehensively validating the rationality of ChainXim's simulation results from multiple dimensions. For reproducibility, two implementation schemes are provided for each case: configurations can be applied either through modifying parameter settings in the simulation system's [system_config.ini](system_config.ini) file, or by directly executing provided code snippets in the command-line interface.
 
 ### 1. Relationship between the Number of Miners and Block Time in Synchronous Network
 
-This example demonstrates the operation of the synchronous network module, which assumes all messages can be instantly synchronized across the entire network upon transmission, represents the simplest network architecture and maintains relatively stable block generation time. The specific parameters are configured as follows:
+ChainXim's synchronous network component can simulate scenarios with zero latency. This example employs this component to investigate the impact of node quantity on block generation time under ideal conditions, while also providing comparative validation of different consensus components. The specific parameter configurations are as follows:
 
 **Parameter settings:**
 
@@ -27,12 +27,15 @@ python main.py -c conf/synchronous_noadv.ini --total_round 600000 --consensus_ty
 
 The figure illustrates the relationship between the number of miners in the network and the average block interval. As the number of miners increases, the system's block interval continues to decrease. Different PoW consensus modules share the same core mechanisms, only differing in their application scenarios, thus the results they yield are largely consistent.
 
+---
+Average block time variation with number of miners
+
 ![block_time](doc/block_time.png)
 
 
 ### 2. Fork Rate, Stale Block Rate, and Consistency under Different Maximum Delays
 
-This example demonstrates the operation of the stochastic propagation network module. The stochastic propagation network sets initial reception probability for all messages, stipulating that messages will be received by miners with a certain probability in the first round after being sent. If not received, the reception probability for each miner will continuously increase by the value specified in the increment probability parameter during subsequent rounds. The initial reception parameter and increment parameter collectively determine the maximum network latency. The specific parameter settings are as follows:
+ChainXim's stochastic propagation network component is configured with two parameters: initial reception probability 'rcvprob_start' and growth probability 'rcvprob_inc'. It specifies that after a message is sent, it has a certain probability of being received by miners in the first round. If it is not received, the reception probability for each miner in subsequent rounds increases by the value specified by the growth parameter. This simulates a delay scenario with a deterministic upper bound but a certain degree of randomness. In this example, the component is used to investigate the impact of different maximum delays on the performance of the blockchain system. The specific parameter settings are as follows:
 
 - Rounds: 3000000
 - Number of miners: 20
@@ -66,7 +69,7 @@ The plotting code for this example can be found in the file [result_plot.py](uti
 
 ### 3. Growth Rate under Different Single-Round Mining Power
 
-This example demonstrates the operation of the deterministic propagation network module. The deterministic propagation network assigns a propagation vector to all messages, specifying that a corresponding proportion of miners will receive the message in each round after it is broadcast. Since the propagation function is fully deterministic, the variations in the network's performance metrics will be relatively stable. The specific parameter settings are as follows:
+ChainXim's deterministic propagation network component allows the configuration of a reception vector to specify the proportion of miners receiving the message in each round, thereby simulating more precise network latency conditions. This example utilizes this component to simulate and analyze blockchain growth rates under different latency scenarios. The specific parameter settings are as follows:
 
 - Rounds: 4000000
 - Number of miners: 20
@@ -84,12 +87,15 @@ python main.py -c conf/deterprop_noadv.ini --total_round 4000000 --consensus_typ
 
 The figure below illustrates the variation of system throughput with the average computing power of a single node. As can be observed, the throughput increases correspondingly with the enhancement in computing power:
 
+---
+Throughput variation with average node computing power
+
 ![miningpower-throughput](doc/miningpower-throughput.png)
 
 
 ### 4. Fork Rate under Different Mining Difficulty Targets
 
-This example demonstrates the operational mechanism of the topological network module. The topological network considers specific nodes and edges. By configuring the node connections as a ring topology and assuming that messages on each edge can be transmitted within a single round, the network's message transmission route can be easily determined. In this scenario, an approximate solution for the fork rate can be derived through theoretical models for cross-verification. The specific parameter settings are as follows:
+ChainXim's topology network component can simulate network topologies composed of nodes and edges, enabling more concrete network emulation. This example demonstrates the usage of this component. By connecting nodes in a ring topology and configuring a block size that can be fully propagated within a single round, deterministic network latency conditions are ensured, allowing the theoretical model's approximate solution for fork rate to be used as a reference for validation.
 
 - Rounds: 4000000
 - Number of miners: 32
@@ -107,6 +113,9 @@ python main.py -c conf/topology_noadv.ini --total_round 4000000 --consensus_type
 
 The figure illustrates how the fork rate changes with the difficulty target. The difficulty target refers to the threshold value that the hash function output must be below. As this target increases, it leads to a higher block generation rate in the system, which in turn causes the fork rate to rise accordingly.
 
+---
+​​Fork rate variation with difficulty target
+
 ![target-fork](doc/target-fork.png)
 
 The theoretical curve in the figure is obtained by the following formula:
@@ -118,7 +127,7 @@ Here, $t$ represents the difficulty target shown on the horizontal axis of the g
 
 ### 5. Throughput and Fork Rate under Different Block Sizes
 
-This example demonstrates the operation of ad-hoc network module. In an ad-hoc network, nodes can move freely, and link connectivity may change dynamically as a result. Under this network architecture, the block size directly impacts message propagation latency across the entire network. The specific parameter configurations are as follows:
+ChainXim's ad-hoc network component simulates a more realistic networking scenario, where mobile nodes dynamically alter the network topology. This example demonstrates the usage of this component and investigates the impact of block size on blockchain system performance. The specific parameter configurations are as follows:
 
 - Rounds: 4000000
 - Number of miners: 40
@@ -153,17 +162,11 @@ Fork rate variation with block size
 
 ### 6. Attacker's Block Proportion under Different Attack Vectors
 
-This example demonstrates the operation methods of four available attack modules in sequence.
+This example sequentially demonstrates the usage of four available attack modules:
 
 #### a. Honest Mining Attack
 
-This attack essentially involves attackers pooling their computing resources to engage in honest mining. In this scenario, the proportion of blocks contributed by the attackers within the network will approximate their share of the total computational power. However, this proportion may exhibit minor variations depending on network latency conditions.
-
-##### **Impact of Different Networks on Honest Mining Attack**
-
-![honestmining-network](doc/honestmining-network.png)
-
-Definition of a successful attack is that the attacker produces a block and is accepted by the network. The vertical axis represents the chain quality, defined as the difference between 1 and the proportion of blocks produced by the attackers that are included in the main chain.
+ChainXim's honest mining attack component simulates the most basic attack method, where attackers combine their hash power to conduct honest mining. Typically, the proportion of blocks mined by attackers in the network will approximately equal their share of the total computing power. This example investigates the success rate of such attacks under various network latency scenarios by combining different network components:
 
 **Parameter settings:**
 
@@ -186,15 +189,16 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --
 ```
 
 ---
+Impact of Different Networks on Honest Mining Attack
+
+![honestmining-network](doc/honestmining-network.png)
+
+Definition of a successful attack is that the attacker produces a block and is accepted by the network. The vertical axis represents the chain quality, defined as the difference between 1 and the proportion of blocks produced by the attackers that are included in the main chain.
+
+---
 #### b. Selfish Mining Attack
 
-Miners initiating a selfish mining attack choose to delay releasing the blocks they have mined in pursuit of greater profits, and such attacks are more likely to succeed under conditions of higher network latency.
-
-##### **Impact of Different Networks on Selfish Mining Attack**
-
-![selfishmining-network](doc/selfishmining-network.png)
-
-Under synchronous network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
+ChainXim's selfish mining attack component simulates the strategy that malicious miners deliberately delay broadcasting newly mined blocks to gain unfair advantages. This example examines the attack's success rate under varying network latency conditions by integrating different network modules. The specific experimental parameters are configured as follows:
 
 **Parameter settings:**
 
@@ -217,6 +221,13 @@ By using the configuration file [pow_doublespending.ini](conf/pow_doublespending
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.SynchronousNetwork --adver_num 5
 ```
 
+---
+Impact of Different Networks on Selfish Mining Attack
+
+![selfishmining-network](doc/selfishmining-network.png)
+
+Under synchronous network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
+
 The theoretical curve in the figure is obtained by the following formula:
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
@@ -226,13 +237,7 @@ Here $\alpha$ represents the attackers' proportion.
 ---
 #### c. Double Spending Attack
 
-The success rate of a double-spending attack causing the transaction history to be rolled back will also be affected by network latency, the impact of which is complex and thought-provoking.
-
-##### **Impact of Different Networks on Double Spending Attack**
-
-![doublespending-netork](doc/doublespending-netork.png)
-
-This result is somewhat similar to that of selfish mining, where networks with poorer latency conditions exhibit higher attack success rates.
+ChainXim's double-spend attack component simulates this classic blockchain attack that rewrites transaction history. This case demonstrates the component's operation methodology while evaluating attack success rates through integration with various network components.
 
 **Parameter settings:**
 
@@ -256,14 +261,15 @@ By using the configuration file [pow_doublespending.ini](conf/pow_doublespending
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.SynchronousNetwork --adver_num 5
 ```
 
-Besides latency, the attacker's strategy is also a critical factor affecting the success rate of a double-spending attack. They can choose to abandon the attack after lagging behind by several blocks or wait for several blocks before publishing their own block.
+---
+Impact of Different Networks on Double Spending Attack
+
+![doublespending-netork](doc/doublespending-netork.png)
+
+This result is somewhat similar to that of selfish mining, where networks with poorer latency conditions exhibit higher attack success rates.
 
 ---
-##### **Impact of Different Strategies on Double Spending Attack and Theoretical Comparison**
-
-![double_spending](doc/doublespending.png)
-
-Under a synchronous network, the success rate of this attack can be theoretically derived, indicating that the fewer the number of block confirmations awaited, the higher the likelihood of a successful attack.
+Besides latency, the attacker's strategy is also a critical factor affecting the success rate of a double-spending attack. The synchronous network component can be employed to directly investigate this influencing.
 
 **Parameter settings:**
 
@@ -287,6 +293,13 @@ By using the configuration file [synchronous_doublespending.ini](conf/synchronou
 python main.py -c conf/synchronous_doublespending.ini --total_round 5000000 -N 1 --adver_num 5
 ```
 
+---
+Impact of Different Strategies on Double Spending Attack and Theoretical Comparison
+
+![double_spending](doc/doublespending.png)
+
+Under a synchronous network, the success rate of this attack can be theoretically derived, indicating that the fewer the number of block confirmations awaited, the higher the likelihood of a successful attack.
+
 The theoretical curve in the figure is obtained by the following formula:
 
 $$P(N,N_g,\beta)=1-\sum_{n=0}^{N}\begin{pmatrix}n+N-1\\
@@ -298,22 +311,15 @@ $N_g$ indicates that the attacker abandons the current attack when it is $N_g$ b
 $\beta$ is the ratio of the attacker's hash power to that of the honest miners, $0\leqslant\beta\leqslant1$.
 
 ---
-
 #### d. Eclipsed Double Spending
 
-Nodes launching an eclipse attack will control the message reception of the attacked nodes, causing them to only receive blocks from the attacker. To simulate this attack, the network topology needs to be specifically designed. Two example network topologies are shown in the following diagrams：
+This example shows how to use the eclipse attack component. The attacking nodes control the victim's message reception, making it only receive blocks from the attackers. When using this attack component in ChainXim, set the network module to the topology network component and design a specific static topology. Two sample topologies are shown below:​
 
   ![eclipse_topology1](doc/eclipse_topology1.svg)
 
   ![eclipse_topology2](doc/eclipse_topology2.svg)
 
   In each topology, the attacked node is only connected to the attacker, facilitating the attacker's ability to launch attacks, while the attacker maintains full connections with all other nodes. This configuration enables comparative simulations with fully-connected topology networks.
-
-##### **Double Spending Attack under Eclipse Attack**
-
-![eclipse_doublespending](doc/eclipse_doublespending.png)
-
-When the attack proceeds smoothly, the attacked node will only mine after the attacker's block, meaning its computing power is effectively utilized by the attacker. Consequently, the success rate of the eclipsed double-spending attack becomes equivalent to that of the double-spending attack launched under a fully connected network scenario with the combined computing power of both parties. The plotting code for this example can be found in the file [result_plot.py](util/result_plot.py).
 
 **Parameter settings:**
 
@@ -350,5 +356,12 @@ python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_pa
 python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_list "(2,3)"
 python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_list "(3,)"
 ```
+
+---
+Double Spending Attack under Eclipse Attack
+
+![eclipse_doublespending](doc/eclipse_doublespending.png)
+
+When the attack proceeds smoothly, the attacked node will only mine after the attacker's block, meaning its computing power is effectively utilized by the attacker. Consequently, the success rate of the eclipsed double-spending attack becomes equivalent to that of the double-spending attack launched under a fully connected network scenario with the combined computing power of both parties. The plotting code for this example can be found in the file [result_plot.py](util/result_plot.py).
         
 
