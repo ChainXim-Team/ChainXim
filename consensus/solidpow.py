@@ -66,15 +66,13 @@ class SolidPoW(PoW):
         return:
             chain_vali 合法标识 type:bool
         '''
-        # xc = external.R(blockchain)
-        # chain_vali = external.V(xc)
-        chain_vali = True
-        if chain_vali and lastblock:
+        chain_vali = False
+        if lastblock:
             blocktmp = lastblock
             if blocktmp.blockhead.miner == self.miner_id:
-                self.valid_block_self(blocktmp)
+                chain_vali = self.valid_block_self(blocktmp)
             else:
-                self.valid_block(blocktmp)
+                chain_vali = self.valid_block(blocktmp)
             ss = blocktmp.blockhash
             while chain_vali and blocktmp is not None:
                 if blocktmp.blockhead.miner == self.miner_id:
@@ -90,9 +88,10 @@ class SolidPoW(PoW):
 
     def valid_block_self(self, block:PoW.Block):
         # validate whether the block is really mined by the miner
-        blockhead_local = self.serialize_blockhead(self.local_chain.search_block(block))
+        block_local = self.local_chain.search_block(block)
+        blockhead_local = self.serialize_blockhead(block_local.blockhead)
         blockhead_incoming = self.serialize_blockhead(block.blockhead)
-        if blockhead_local == blockhead_incoming and block.blockhash < self.target:
+        if blockhead_local == blockhead_incoming and block.blockhash < self.target or block_local.isGenesis:
             return True
         else:
             return False

@@ -196,7 +196,23 @@ class Environment(object):
         else:
             self.input_dataitem = round.to_bytes(INT_LEN, BYTE_ORDER)
 
-    def exec(self, num_rounds, max_height, process_bar_type):
+    def post_verification(self):
+        '''post verification of the longest chain in the global_chain'''
+        # construct consensus object with no verification limit
+        consensus_obj:consensus.Consensus = copy.copy(self.miners[self.honest_miner_ids[0]].consensus)
+        consensus_obj.miner_id = -1
+        consensus_name = type(consensus_obj).__name__
+        if consensus_name == 'SolidPoW':
+            consensus_obj.set_random_oracle(None, self.oracle_root.get_verifying_oracle([]))
+        # check the longest chain in the global chain
+        longest_chain = self.global_chain.get_last_block()
+        # check if the longest chain is valid
+        if not consensus_obj.valid_chain(longest_chain):
+            return False
+        else:
+            return True
+
+    def exec(self, num_rounds, max_height, process_bar_type, post_verification):
 
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -249,6 +265,8 @@ class Environment(object):
                 self.process_bar(current_height, max_height, t_0, 'block/s')
 
         self.total_round = self.total_round + round
+        assert post_verification or self.post_verification(), "Post verification failed"
+        print(f"\nSimulation finished, global chain reach block height {self.global_chain.get_height()} in {round} rounds")
 
     def assess_common_prefix(self, type:str = 'cdf'):
         def assess_common_prefix_pdf_per_round(self:Environment, miner_local_chain_tip:list[Block], longest_honest_chain:Block):
