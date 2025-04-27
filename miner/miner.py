@@ -25,6 +25,7 @@ class Miner(object):
         self.round = -1
         #网络接口
         self._NIC:NetworkInterface =  None
+        self.__auto_forwarding = True
         self.receive_history = dict()
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
@@ -64,7 +65,13 @@ class Miner(object):
         '''
         self._isAdversary = _isAdversary
     
-    
+    def set_auto_forwarding(self, auto_forwarding:bool):
+        '''
+        设置是否自动转发消息
+        auto_forwarding=True为自动转发
+        '''
+        self.__auto_forwarding = auto_forwarding
+
     def receive(self, source:int, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
         rcvSuccess = self.consensus.receive_filter(msg)
@@ -72,7 +79,7 @@ class Miner(object):
             return rcvSuccess
         else:
             self.receive_history[msg.name] = source
-        if (not self._isAdversary or (self._isAdversary and 'Eclipse' not in global_var.get_attack_execute_type())):
+        if self.__auto_forwarding:
             self.forward([msg], OUTER_RCV_MSG)
         return rcvSuccess
     

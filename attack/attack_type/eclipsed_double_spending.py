@@ -40,6 +40,10 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._syn_blocks: dict = {} # 记录 已向邻居同步过的区块
         self._incoming_eclipse_block = []
 
+    def set_init(self, honest_chain, adver_list, adver_consensus, attack_arg, eclipsed_list_ids):
+        super().set_init(honest_chain, adver_list, adver_consensus, attack_arg, eclipsed_list_ids)
+        for miner in self.adver_list:
+            miner.set_auto_forwarding(False)
     
     def renew_stage(self, round):
         ## 1. renew stage
