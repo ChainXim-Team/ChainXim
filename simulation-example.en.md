@@ -25,7 +25,7 @@ By using the configuration file [synchronous_noadv.ini](conf/synchronous_noadv.i
 python main.py -c conf/synchronous_noadv.ini --total_round 600000 --consensus_type consensus.PoW --miner_num 10
 ```
 
-The figure illustrates the relationship between the number of miners in the network and the average block interval. As the number of miners increases, the system's block interval continues to decrease. Different PoW consensus modules share the same core mechanisms, only differing in their application scenarios, thus the results they yield are largely consistent.
+The figure illustrates the relationship between the number of miners in the network and the average block interval. As the number of miners increases, the system's block interval continues to decrease. Different PoW consensus modules share the same core mechanisms, only differing in their simulation of the hash computation, thus the results they yield are largely consistent.
 
 ---
 Average block time variation with number of miners
