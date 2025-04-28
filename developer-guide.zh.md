@@ -219,11 +219,9 @@ The simulation data of SelfishMining is as follows :
 Double spending success times: 1
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.222, 0.5: 3.182, 0.6: 3.455, 0.7: 4.0, 0.8: 4.5, 0.9: 5.4, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 257
-Count of full chain synchronization: 25
-Count of data sending: 93
 ```
 
-终端显示的仿真结果含义如下：
+终端显示的仿真结果含义如下（更详细的解释可以参考[Evaluation](#评估-Evaluation)）：
 
 | 输出项目                                            | 解释                                                         |
 | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -248,8 +246,9 @@ Count of data sending: 93
 | Ratio of dataitems contributed by malicious players | = 主链上有效DataItem数量 / 主链上总DataItem数量              |
 | Ratio of blocks contributed by malicious players    | 恶意节点出块比例                                             |
 | Upper Bound t/(n-t)                                 | 恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)         |
-| Double spending success times                       | 双花攻击成功次数                                              |
+| Double spending success times                       | 双花攻击成功次数                                             |
 | Block propagation times                             | 区块传播时间（分布）                                         |
+| Count of INV interactions                           | 使用带拓扑的网络（TopologyNetwork和AdhocNetwork）时，所有矿工发送的INV包的总和 |
 
 
 仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
@@ -1230,10 +1229,23 @@ def clear_record_stage(self,round):
 |consistency_rate|一致性指标=common_prefix_pdf[0]|
 |average_chain_growth_in_honest_miners'_chain|诚实矿工链长的平均增加值|
 |chain_quality_property|链质量字典，记录诚实节点和恶意节点的出块数目|
+|double_spending_success_times|双花攻击成功次数|
 |valid_dataitem_rate|有效的DataItem占全部链上DataItem的比例|
 |ratio_of_blocks_contributed_by_malicious_players|恶意节点出块占比|
 |upper_bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |block_propagation_times|区块传播时间（分布）|
+
+对于分叉率以及废块率，它们的区别是：
+
+- 分叉率只看主链，看主链上出现分叉的区块（即有多个子区块的区块），将这个作为分叉数，除以主链的高度就是分叉率
+
+- 废块率看的是所有在仿真期间产生的废块，囊括了所有以主链上的区块作为父或者祖先区块但是本身不在主链上的区块，废块数量除以在仿真期间产生的总区块数量就是废块率
+
+为了评估攻击者的攻击能力，设计了若干个指标：
+
+- ratio_of_blocks_contributed_by_malicious_players，又称为链质量（Chain Quality）指标，就是恶意节点产生的区块在主链上的比重
+
+- double_spending_success_times，双花攻击的成功次数，一次成功的攻击被定义为：在一次因攻击者行为引发的分叉事件中，最终区块链主链选择了由攻击者引导产生的分支，并且该被采纳分支的第一个区块必须是由攻击者节点产生的。评估时将统计在整个仿真过程中满足此定义的攻击成功总次数。
 
 关于共同前缀、链质量和链增长三个指标的解释如下：
 

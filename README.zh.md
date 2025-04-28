@@ -141,7 +141,7 @@ python main.py
 
 
 ## 测试用例 An Example for Beginners
-将以下参数传递给主程序，将会使ChainXim随机生成一个包含10个节点的矿工网络，其中2个节点为攻击者，采用的网络模型为TopologyNetwork，仿真总共持续3000轮次。
+ChainXim是一个离散时间仿真器，以“轮次”为基本单位迭代进行矿工与攻击者行为的仿真。在这个测试用例中，将随机生成一个包含10个节点的网络，其中有两个攻击者，它们通过自私挖矿手段，意图在主链上插入尽可能多的块以最大化挖矿收益。将以下参数传递给主程序可以直接开始执行这个测试用例，仿真将总共持续3000轮次。
 ```
 python main.py --total_round 3000 --miner_num 10 --average_block_time 400 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
 ```
@@ -192,9 +192,6 @@ The simulation data of SelfishMining is as follows :
 Double spending success times: 0
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.0, 0.5: 2.556, 0.6: 3.727, 0.7: 3.667, 0.8: 4.308, 0.9: 4.769, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 267
-Count of full chain synchronization: 25
-Count of data sending: 89
-Fail to generate routing gragh for each block from json.
 ```
 
 各输出项的详细解释可以参考[仿真器输出](developer-guide.zh.md#仿真器输出-Simulator-Output). 此外，仿真过程中产生的各类数据将保存在Results文件夹，包括每个矿工的区块链记录、区块链可视化矢量图、区块链攻击者日志、路由历史、网络拓扑图、区块传播示意图等。以下是仿真器输出的部分图像的样例。

@@ -140,7 +140,7 @@ python main.py
 ```
 
 ## An Example for Beginners
-Pass the following parameters to the main program, which will make ChainXim randomly generate a miner network with 10 nodes, 2 of which are attackers, using the TopologyNetwork model, and the simulation will last for 3000 rounds.
+ChainXim is a discrete-time simulator that iteratively simulates the behaviors of miners and attackers by "rounds". In this example, a randomly generated network consisting of 10 nodes will be created. This network includes two attackers, who attempt to maximize their mining rewards by inserting as many blocks as possible into the main chain through selfish mining strategies. By passing the following parameters to the main program, the simulation will start and run for 3000 rounds.
 ```
 python main.py --total_round 3000 --miner_num 10 --average_block_time 400 --network_type network.TopologyNetwork --attack_type SelfishMining --blocksize 8 --no_compact_outputfile --show_label
 ```
@@ -191,9 +191,6 @@ The simulation data of SelfishMining is as follows :
 Double spending success times: 0
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.0, 0.5: 2.556, 0.6: 3.727, 0.7: 3.667, 0.8: 4.308, 0.9: 4.769, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 267
-Count of full chain synchronization: 25
-Count of data sending: 89
-Fail to generate routing gragh for each block from json.
 ```
 
 For detailed explanation of the metrics in the output, refer to [Simulator Output](developer-guide.en.md#Simulator-Output). In addition, various data generated during the simulation will be saved in the Results folder, including each miner's blockchain records, blockchain visualization graphics, blockchain attacker logs, routing history, network topology, block propagation diagrams, etc. The following are the examples of some output figures.
