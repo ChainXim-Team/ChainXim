@@ -415,7 +415,7 @@ class Chain(object):
             "block_throughput_total": 0,
             "throughput_total_MB": 0,
             "double_spending_success_times": 0,
-            "double_spending_success_times_ver2": 0,
+            # "double_spending_success_times_ver2": 0,
             "attack_fail": 0
         }
         q = [self.head]
@@ -446,17 +446,17 @@ class Chain(object):
                         break
             last_block = last_block.parentblock
 
-        ## 第二种静态计算双花攻击成功的方法
-        last_block = self.last_block
-        attack_flag = False if last_block.blockhead.miner  in honest_miner_ids else True
-        last_block = self.last_block.parentblock
-        while last_block:
-            if len(last_block.next) > 1 and attack_flag:
-                attack_flag = False
-                stats["double_spending_success_times_ver2"] += 1
-            if last_block.blockhead.miner not in honest_miner_ids and not attack_flag:
-                attack_flag = True
-            last_block = last_block.parentblock
+        # # 第二种静态计算双花攻击成功的方法
+        # last_block = self.last_block
+        # attack_flag = False if last_block.blockhead.miner  in honest_miner_ids else True
+        # last_block = self.last_block.parentblock
+        # while last_block:
+        #     if len(last_block.next) > 1 and attack_flag:
+        #         attack_flag = False
+        #         stats["double_spending_success_times_ver2"] += 1
+        #     if last_block.blockhead.miner not in honest_miner_ids and not attack_flag:
+        #         attack_flag = True
+        #     last_block = last_block.parentblock
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]
