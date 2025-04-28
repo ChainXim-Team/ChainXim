@@ -11,7 +11,7 @@ import consensus
 import global_var
 import network
 from data import Block, Chain, LocalChainTracker
-from external import chain_growth, chain_quality, common_prefix, R, MAX_SUFFIX
+from external import chain_growth, chain_quality, common_prefix, MAX_SUFFIX
 from functions import for_name, INT_LEN, BYTE_ORDER
 from miner import Miner, network_interface
 from attack.adversary import Adversary
@@ -43,6 +43,7 @@ class Environment(object):
         # load data item settings
         self.dataitem_params = dataitem_param
         if not dataitem_param['dataitem_enable']:
+            self.dataitem_validator = None
             self.dataitem_params['max_block_capacity'] = 0
         else:
             self.dataitem_validator = set()
@@ -363,7 +364,9 @@ class Environment(object):
         # print("End of Global Tree", "")
 
         # Evaluation Results
-        stats = self.global_chain.CalculateStatistics(self.total_round, self.honest_miner_ids)
+        honest_miners = filter(lambda x: x.miner_id in self.honest_miner_ids, self.miners)
+        stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners),
+                                                      self.dataitem_params, self.dataitem_validator)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
@@ -393,34 +396,6 @@ class Environment(object):
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
             'upper_bound t/(n-t)': round(self.adversary.get_adver_num() / (self.miner_num - self.adversary.get_adver_num()), 5)
         })
-        # Check the dataitems in the global chain
-        valid_item_count = 0
-        anomalous_item_count = 0
-        if self.dataitem_params['dataitem_enable']:
-            dataitem_set = set()
-            dataitems_reversed = R(self.global_chain)
-            previous_item = int.from_bytes((255).to_bytes(1, BYTE_ORDER) * 2 * INT_LEN, BYTE_ORDER)
-            for dataitem in dataitems_reversed:
-                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in self.dataitem_validator:
-                    if previous_item < dataitem and self.dataitem_params['dataitem_input_interval'] > 0:
-                        anomalous_item_count += 1
-                        logger.warning("A dataitem is out of order: %s", dataitem)
-                    else:
-                        valid_item_count += 1
-                        previous_item = dataitem
-                        if dataitem not in dataitem_set:
-                            dataitem_set.add(dataitem)
-                        else:
-                            logger.warning("A dataitem duplicates")
-                else:
-                    anomalous_item_count += 1
-            stats.update({
-                'valid_dataitem_rate': valid_item_count / (valid_item_count + anomalous_item_count),
-                'valid_dataitem_throughput': valid_item_count / self.total_round,
-                'block_average_size': (valid_item_count+anomalous_item_count) * self.dataitem_params['dataitem_size'] / stats['num_of_valid_blocks'],
-                'input_dataitem_rate': 1/self.dataitem_params['dataitem_input_interval'] \
-                    if self.dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / self.total_round
-            })
 
         # Network Property
         stats.update({'block_propagation_times': {} })

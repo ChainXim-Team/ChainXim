@@ -251,7 +251,7 @@ Count of INV interactions: 257
 | Count of INV interactions                           | 使用带拓扑的网络（TopologyNetwork和AdhocNetwork）时，所有矿工发送的INV包的总和 |
 
 
-仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
+需要注意的是，上表中Block throughput以及Throughput of valid dataitems只包含被全体诚实矿工确认的块和DataItem。仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
 ```
 Results/20230819-232107/
 ├── Attack Result
@@ -1210,6 +1210,7 @@ def clear_record_stage(self,round):
 |字典条目|解释/计算方式|
 |---|---|
 |num_of_generated_blocks|生成的区块总数|
+|height_of_longest_chain|仿真中出现的最长链的高度|
 |num_of_valid_blocks|主链中的区块总数（主链长度）|
 |num_of_stale_blocks|孤块数（不在主链中的区块）|
 |stale_rate|孤块率=孤块数/区块总数|
@@ -1234,6 +1235,8 @@ def clear_record_stage(self,round):
 |ratio_of_blocks_contributed_by_malicious_players|恶意节点出块占比|
 |upper_bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |block_propagation_times|区块传播时间（分布）|
+
+需要注意的是，上表中block_throughput_main以及valid_dataitem_throughput只包含被所有诚实矿工确认的块和DataItem
 
 对于分叉率以及废块率，它们的区别是：
 

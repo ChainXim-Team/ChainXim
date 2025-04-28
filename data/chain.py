@@ -1,4 +1,5 @@
 import copy
+import logging
 from collections import defaultdict
 
 import graphviz
@@ -7,7 +8,9 @@ import matplotlib.pyplot as plt
 import global_var
 
 from .block import Block
+from functions import INT_LEN, BYTE_ORDER
 
+logger = logging.getLogger(__name__)
 
 class Chain(object):
 
@@ -398,10 +401,11 @@ class Chain(object):
                     q.append(i)
 
 
-    def CalculateStatistics(self, rounds, honest_miner_ids: list[int]):
+    def CalculateStatistics(self, rounds, honest_miners: list, dataitem_params: dict, valid_dataitems: set):
         # 统计一些数据
         stats = {
             "num_of_generated_blocks": -1,
+            "height_of_longest_chain": 0,
             "num_of_valid_blocks": 0,
             "num_of_stale_blocks": 0,
             "stale_rate": 0,
@@ -422,11 +426,53 @@ class Chain(object):
         while q:
             stats["num_of_generated_blocks"] = stats["num_of_generated_blocks"] + 1
             blocktmp = q.pop(0)
-            if blocktmp.height > stats["num_of_valid_blocks"]:
-                stats["num_of_valid_blocks"] = blocktmp.height
+            if blocktmp.height > stats["height_of_longest_chain"]:
+                stats["height_of_longest_chain"] = blocktmp.height
             nextlist = blocktmp.next
             q.extend(nextlist)
 
+        from external import common_prefix
+        honest_cp = self.last_block
+        honest_miner_ids = set()
+        for miner in honest_miners:
+            honest_miner_ids.add(miner.miner_id)
+            honest_cp = common_prefix(honest_cp, miner.get_local_chain().get_last_block())
+        stats["num_of_valid_blocks"] = honest_cp.height
+
+        # Check the dataitems in the honest_cp
+        from external import R
+        valid_item_count = 0
+        anomalous_item_count = 0
+        if dataitem_params['dataitem_enable']:
+            dataitem_set = set()
+            dataitems_reversed = R(honest_cp)
+            previous_item = int.from_bytes((255).to_bytes(1, BYTE_ORDER) * 2 * INT_LEN, BYTE_ORDER)
+            for dataitem in dataitems_reversed:
+                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in valid_dataitems:
+                    if previous_item < dataitem and dataitem_params['dataitem_input_interval'] > 0:
+                        anomalous_item_count += 1
+                        logger.warning("A dataitem is out of order: %s", dataitem)
+                    else:
+                        valid_item_count += 1
+                        previous_item = dataitem
+                        if dataitem not in dataitem_set:
+                            dataitem_set.add(dataitem)
+                        else:
+                            logger.warning("A dataitem duplicates")
+                else:
+                    anomalous_item_count += 1
+            stats.update({
+                'valid_dataitem_throughput': valid_item_count / rounds,
+                'input_dataitem_rate': 1/dataitem_params['dataitem_input_interval'] \
+                    if dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / rounds
+            })
+            if stats['num_of_valid_blocks'] > 0:
+                stats['block_average_size'] = \
+                    (valid_item_count+anomalous_item_count) * dataitem_params['dataitem_size'] / stats['num_of_valid_blocks']
+                stats['valid_dataitem_rate'] = valid_item_count / (valid_item_count + anomalous_item_count)
+            else:
+                stats['valid_dataitem_rate'] = 0
+                stats['block_average_size'] = 0
 
         mainchain_block = set()
         current_block = self.last_block
@@ -458,15 +504,15 @@ class Chain(object):
         #         attack_flag = True
         #     last_block = last_block.parentblock
 
-        stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
-        stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]
+        stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["height_of_longest_chain"]
+        stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else -1
         stats["block_throughput_main"] = stats["num_of_valid_blocks"] / rounds
         blocksize = global_var.get_blocksize()
         stats["throughput_main_MB"] = blocksize * stats["block_throughput_main"]
         stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]
         stats["block_throughput_total"] = 1 / stats["average_block_time_total"]
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
-        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["num_of_valid_blocks"]
+        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["height_of_longest_chain"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats

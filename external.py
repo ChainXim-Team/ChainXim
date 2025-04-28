@@ -25,15 +25,15 @@ def I(round, input_tape:list):
                 break
     return x
 
-def R(blockchain:Chain):
+def R(last_block:Block):
     # chain reading functionality
     # 作用：把链的信息读取出来变成一个向量
     # 如果这是个树，就按照前序遍历读取（这是不对的后面可能要修改，但目前对程序无影响）
-    if blockchain is None:
+    if last_block is None:
         xc = array('Q')
     else:
         xc = array('Q')
-        block = blockchain.get_last_block()
+        block = last_block
         while block:
             xc.extend(reversed(array('Q', block.blockhead.content)))
             block = block.parentblock
