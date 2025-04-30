@@ -171,7 +171,7 @@ def main(**args):
     # 设置dataitem相关的配置
     dataitem_setting = dict(config['DataItemSettings'])
     dataitem_param = {
-        'dataitem_enable': config.getboolean('DataItemSettings','dataitem_enable'),
+        'dataitem_enable': args.get('dataitem_enable') or config.getboolean('DataItemSettings','dataitem_enable'),
         'max_block_capacity': (args.get('max_block_capacity') or 
                                int(dataitem_setting['max_block_capacity'])),
         'dataitem_size': (args.get('dataitem_size') or 
