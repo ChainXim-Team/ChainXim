@@ -2,7 +2,13 @@
 [中文](README.zh.md) | English
 
 ## Introduction
-ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance metrics.
+ChainXim is a blockchain simulator developed by XinLab for simulating and validating blockchain systems. While decentralization is a core feature of blockchain systems, it often leads to significant costs and engineering challenges in simulating and testing large-scale blockchain networks. ChainXim provides a novel solution for low-cost, large-scale blockchain deployment and testing, while also serving as a development foundation for blockchain applications.
+
+ChainXim can deploy a large-scale blockchain networks on a single machine, simulating node operations and interactions within a virtual environment. When the main chain reaches a predetermined block height, the environment terminates the simulation loop and generates performance reports. Beyond performance evaluation, ChainXim can simulate attackers' behaviors to test blockchain robustness against potential attack vectors and verify the security properties of consensus protocols. The multiple network models in ChainXim simulate propagation characteristics of messages in blockchain systems, and ChainXim supports both real-world topology-based networks and abstract network models stemming from theoretical blockchain research. This capability bridges theoretical studies with simulation outcomes, facilitating the development and optimization of new blockchain systems.
+
+Built upon Bitcoin Backbone Protocol, ChainXim features a highly extensible architecture. Its consensus layer theoretically supports diverse consensus protocols through modular implementations that can be integrated easily into the simulator. While configuring the five major network models can achieve desired network-layer behaviors, the network layer also allows developers to create new models using its message-passing framework and network interface, thereby expanding simulation scenarios. The attack layer leverages unified interfaces in miner modules to leverage consensus-layer and network-layer capabilities for executing various network attacks. Post-simulation evaluation modules calculate critical performance metrics including throughput, fork rate, and chain quality, each provides valuable insights into blockchain system's security and performance.
+
+![intro](doc/intro.svg)
 
 ## ChainXim-Based Projects
 

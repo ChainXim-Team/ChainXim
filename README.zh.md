@@ -2,9 +2,13 @@
 中文 | [English](README.md)
 ## 简介 Introduction
 
-ChainXim是一款由XinLab开发的区块链仿真器，用于对不同参数设置下的区块链系统进行仿真验证。我们希望ChainXim能够兼容不同的共识协议、网络模型，并可以设计不同的攻击者，从多个维度全方位评估区块链的安全、吞吐等性能指标。
+ChainXim是一款由XinLab开发的区块链仿真器，用于对区块链系统进行仿真验证。区块链系统以去中心化为核心特征，但这一特征通常导致大规模区块链网络的模拟与测试存在较大的成本与工程上的困难。ChainXim为低成本、大规模的区块链部署与测试提供了一种新的解决方案，并可充当区块链应用的开发基座。
 
-ChainXim is a blockchain simulator developed by XinLab to simulate and verify blockchain systems under different parameter settings. We hope that ChainXim can be compatible with different consensus protocols, network models, and can design different attackers to comprehensively evaluate the blockchain's security, throughput, and other performance metrics.
+ChainXim可以支持单机部署大规模的区块链网络，在一个虚拟环境中模拟区块链中各节点的运作与交互，并在环境检测到主链达到预定的区块高度后停止仿真并导出性能报告。除了性能评估外，ChainXim还可以模拟攻击者行为，从而测试区块链在潜在攻击向量下的稳健性，检验共识协议的安全特性。ChainXim目前通过五种不同网络模型以模拟网络传播特性，并同时支持基于拓扑的真实网络以及与现有区块链理论研究中的抽象网络模型，使得理论与仿真结果可以匹配，从而充当区块链理论与工程实践间的一座桥梁，促进新区块链系统的开发与优化。
+
+ChainXim以Bitcoin Backbone Protocol为理论基础构建，架构高度可扩展，理论上共识层支持各类共识协议，可以将协议实现为单独模块后插入到ChainXim中进行仿真。除了配置现有五大网络模型以获得预期的网络层行为，网络层亦可在消息传递框架与网络接口上开发新的网络模型，从而为ChainXim扩展更多的网络场景。攻击层可以通过矿工模块中的统一接口调用共识层与网络层中的能力对区块链实施多种网络攻击。环境中的评估模块会在仿真结束后计算吞吐量、分叉率、链质量等性能指标。
+
+![intro](doc/intro.svg)
 
 ## 基于ChainXim的项目 ChainXim-Based Projects
 
@@ -96,7 +100,7 @@ chain-xim
 ├── system_config.ini
 ```
 
-| 文件或目录 | 功能描述 | 
+| 文件或目录 | 功能描述 |
 | -------- | -------- |
 | main\.py  | 仿真器主程序 |
 | system_config\.ini | 配置文件 |
