@@ -480,17 +480,58 @@ class Chain(object):
             mainchain_block.add(current_block.name)
             current_block = current_block.parentblock
 
+        N_CONFIRMATIONS = dataitem_params.get('double_spending_N_param', 1)
 
-        last_block = self.last_block.parentblock
-        while last_block:
-            stats["num_of_forks"] += len(last_block.next) - 1
-            stats["num_of_heights_with_fork"] += (len(last_block.next) > 1)
-            if len(last_block.next) > 1:
-                for block in last_block.next:
-                    if block.blockhead.miner not in honest_miner_ids and block.name in mainchain_block:
-                        stats["double_spending_success_times"] += 1
+        last_block_iter = self.last_block.parentblock
+        while last_block_iter:
+            stats["num_of_forks"] += len(last_block_iter.next) - 1
+            stats["num_of_heights_with_fork"] += (len(last_block_iter.next) > 1)
+
+            if len(last_block_iter.next) > 1:  # 发生分叉
+                attacker_block_on_main = None
+                # 1. 确认攻击者的区块在主链上
+                for child_block in last_block_iter.next:
+                    if child_block.blockhead.miner not in honest_miner_ids and \
+                            child_block.name in mainchain_block:
+                        attacker_block_on_main = child_block
                         break
-            last_block = last_block.parentblock
+
+                if attacker_block_on_main:
+                    # 攻击者区块已在主链，现在检查是否有符合条件的被孤立分支
+                    found_qualifying_orphaned_branch = False
+                    for other_child_block in last_block_iter.next:
+                        if other_child_block == attacker_block_on_main:
+                            continue  # 跳过攻击者所在的主链分支
+
+                        # 条件1: 被孤立分支的第一个块 (other_child_block) 需要是诚实块
+                        if other_child_block.blockhead.miner in honest_miner_ids:  # 确保是被孤立的分支
+
+                            # 条件2: 这个被孤立的分支长度需要大于等于 N
+                            # DFS栈: (区块, 从other_child_block开始的当前路径长度)
+                            dfs_stack = [(other_child_block, 1)]
+
+                            # 记录这个孤立分支的最长路径
+                            # 这个DFS只关心路径长度，不关心路径上后续块的诚实性
+                            temp_longest_path_for_orphan = 0
+
+                            while dfs_stack:
+                                current_orphan_node, current_path_length = dfs_stack.pop()
+
+                                if current_path_length > temp_longest_path_for_orphan:
+                                    temp_longest_path_for_orphan = current_path_length
+
+                                for next_orphan_node_candidate in current_orphan_node.next:
+                                    dfs_stack.append((next_orphan_node_candidate, current_path_length + 1))
+
+                            # 现在 temp_longest_path_for_orphan 是这条以诚实块开始的孤立分支的最长长度
+                            if temp_longest_path_for_orphan >= N_CONFIRMATIONS:
+                                found_qualifying_orphaned_branch = True
+                                break  # 找到了一个符合条件的被孤立分支
+
+                    if found_qualifying_orphaned_branch:
+                        stats["double_spending_success_times"] += 1
+
+            last_block_iter = last_block_iter.parentblock
 
         # # 第二种静态计算双花攻击成功的方法
         # last_block = self.last_block
