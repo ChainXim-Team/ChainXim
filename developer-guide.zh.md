@@ -251,7 +251,7 @@ Count of INV interactions: 257
 | Count of INV interactions                           | 使用带拓扑的网络（TopologyNetwork和AdhocNetwork）时，所有矿工发送的INV包的总和 |
 
 
-需要注意的是，上表中Block throughput以及Throughput of valid dataitems只包含被全体诚实矿工确认的块和DataItem。仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
+需要注意的是，在ChainXim中，**主链**定义为：所有诚实矿工本地链的共同前缀，也就是所有诚实矿工已经达成共识的最长链。仿真过程中结果、日志、图像都保存在Results/\<date-time\>/目录下，date-time是仿真开始的日期时间。该目录的典型文件结构：
 ```
 Results/20230819-232107/
 ├── Attack Result
@@ -1236,7 +1236,7 @@ def clear_record_stage(self,round):
 |upper_bound t/(n-t)|恶意节点出块占比的上界(n为矿工总数，t为恶意矿工数目)|
 |block_propagation_times|区块传播时间（分布）|
 
-需要注意的是，上表中block_throughput_main以及valid_dataitem_throughput只包含被所有诚实矿工确认的块和DataItem
+需要注意的是，上表中的**主链**定义为：**所有诚实矿工本地链的共同前缀**。在共同前缀之后更长的链没有被全部诚实矿工接受，因此不算做主链。
 
 对于分叉率以及废块率，它们的区别是：
 

@@ -475,12 +475,12 @@ class Chain(object):
                 stats['block_average_size'] = 0
 
         mainchain_block = set()
-        current_block = self.last_block
+        current_block = honest_cp
         while current_block:
             mainchain_block.add(current_block.name)
             current_block = current_block.parentblock
 
-        last_block_iter = self.last_block.parentblock
+        last_block_iter = honest_cp.parentblock
         while last_block_iter:
             stats["num_of_forks"] += len(last_block_iter.next) - 1
             stats["num_of_heights_with_fork"] += (len(last_block_iter.next) > 1)
@@ -532,9 +532,9 @@ class Chain(object):
             last_block_iter = last_block_iter.parentblock
 
         # # 第二种静态计算双花攻击成功的方法
-        # last_block = self.last_block
+        # last_block = honest_cp
         # attack_flag = False if last_block.blockhead.miner  in honest_miner_ids else True
-        # last_block = self.last_block.parentblock
+        # last_block = honest_cp.parentblock
         # while last_block:
         #     if len(last_block.next) > 1 and attack_flag:
         #         attack_flag = False
@@ -543,7 +543,7 @@ class Chain(object):
         #         attack_flag = True
         #     last_block = last_block.parentblock
 
-        stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["height_of_longest_chain"]
+        stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else -1
         stats["block_throughput_main"] = stats["num_of_valid_blocks"] / rounds
         blocksize = global_var.get_blocksize()
@@ -551,7 +551,7 @@ class Chain(object):
         stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]
         stats["block_throughput_total"] = 1 / stats["average_block_time_total"]
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
-        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["height_of_longest_chain"]
+        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else 0
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
 
         return stats

@@ -253,7 +253,7 @@ The meaning of the simulation results displayed in the terminal is as follows (r
 | Count of INV interactions                           | When using a network with a topology (TopologyNetwork and AdhocNetwork), the total number of INV packets sent by the miners |
 
 
-Notably, in ChainXim, "Block throughput" and "Throughput of valid dataitems" only include the blocks and DataItems confirmed by all the honest miners. During the simulation, results, logs, and images are saved in the Results/\<date-time\>/ directory, where date-time is the date and time when the simulation starts. The typical file structure of this directory is as follows:
+Notably, in ChainXim, the main chain is defined as the common prefix of all the honest miners' local chain, a.k.a, the longest chain that honest miners reach consensus on. During the simulation, results, logs, and images are saved in the Results/\<date-time\>/ directory, where date-time is the date and time when the simulation starts. The typical file structure of this directory is as follows:
 ```
 Results/20230819-232107/
 ├── Attack Result
@@ -1232,7 +1232,7 @@ The following is an explanation of the statistical parameters in `stat`, which c
 | upper_bound t/(n-t) | Upper bound of the proportion of blocks produced by malicious nodes (n is the total number of miners, t is the number of malicious miners) |
 | block_propagation_times | Block propagation time (distribution) |
 
-Notably, in ChainXim, "Block throughput in the main chain" and "Throughput of valid DataItems" only include the blocks and DataItems confirmed by all the honest miners. 
+Notably, the main chain in the above table is defined as the common prefix of all the honest miners' local chain. Longer chains after the common prefix are not accepted by all the honest miners and should not be regarded as the main chain.
 
 The differences between fork rate and stale block rate are as follows:
 
