@@ -86,6 +86,7 @@ class Environment(object):
         # get honest miner IDs
         adversary_ids = self.adversary.get_adver_ids()
         self.honest_miner_ids = [miner.miner_id for miner in self.miners if miner.miner_id not in adversary_ids]
+        self.confirm_delay = consensus_param['N']
 
         # configure oracles
         if consensus_type_str == 'consensus.SolidPoW':
@@ -365,7 +366,7 @@ class Environment(object):
 
         # Evaluation Results
         honest_miners = filter(lambda x: x.miner_id in self.honest_miner_ids, self.miners)
-        stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners),
+        stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.confirm_delay,
                                                       self.dataitem_params, self.dataitem_validator)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property

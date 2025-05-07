@@ -83,7 +83,7 @@ def main(**args):
         else:
             target =  f"{round(2**256/miner_num/q_ave/average_block_time):064x}"
             global_var.set_PoW_target(target)
-        consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr}
+        consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr, 'N': args.get('N') or int(consensus_settings['N'])}
     else:
         consensus_param = {}
         for key, value in consensus_settings.items():
@@ -165,8 +165,8 @@ def main(**args):
         'adversary_ids': (args.get('adver_lists') if args.get('adver_lists') is not None
                           else eval(attack_setting.get('adver_lists') or 'None')),
     }
-    if attack_param.get('attack_arg') is not None:
-        attack_param['attack_arg'].update(args.get('attack_arg', {}))
+    attack_param['attack_arg'].update(args.get('attack_arg', {}))
+    attack_param['attack_arg'].update({'N': consensus_param.get('N', 1)})
 
     # 设置dataitem相关的配置
     dataitem_setting = dict(config['DataItemSettings'])
@@ -242,6 +242,7 @@ could be performed with attackers designed in the simulator'
     consensus_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
                         \'equal\': all miners have equal hash rate;\
                         \'rand\': q satisfies gaussion distribution.',type=str)
+    consensus_setting.add_argument('-N', help='The number of block confirmations required for the transactoins in a block to be considered valid. Used to calculate attack success rate.', type=int)
     # Ensure only one of difficulty and average_block_time can be set
     group = consensus_setting.add_mutually_exclusive_group()
     group.add_argument('--difficulty', help='The number of zero prefix of valid block hash.\
@@ -253,7 +254,6 @@ could be performed with attackers designed in the simulator'
     attack_setting.add_argument('--adver_num',help='The total number of attackers. If adver_num is non-zero and adversary_ids not specified, then attackers are randomly selected.',type=int)
     attack_setting.add_argument('--adver_lists', help='Specify id of adversaries. If adversary_ids is set, `adver_num` will not take effect.', type=str)
     attack_setting.add_argument('--attack_type', help='The name of attack type defined in attack mode.',type=str)
-    attack_setting.add_argument('-N', help='Parameter N for DoubleSpending', type=int)
     attack_setting.add_argument('-Ng', help='Parameter Ng for DoubleSpending', type=int)
     attack_setting.add_argument('--eclipse_target', help='The target miner id for eclipse attack.', type=str)
     # StochPropNetworkSettings
@@ -319,8 +319,6 @@ could be performed with attackers designed in the simulator'
     args['attack_arg'] = {}
     if args.get('Ng') is not None:
         args['attack_arg']['Ng'] = args.get('Ng')
-    if args.get('N') is not None:
-        args['attack_arg']['N'] = args.get('N')
     if args.get('eclipse_target') is not None:
         args['attack_arg']['eclipse_target'] = eval(args.get('eclipse_target'))
 

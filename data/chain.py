@@ -401,7 +401,7 @@ class Chain(object):
                     q.append(i)
 
 
-    def CalculateStatistics(self, rounds, honest_miners: list, dataitem_params: dict, valid_dataitems: set):
+    def CalculateStatistics(self, rounds, honest_miners: list, confirm_delay: int, dataitem_params: dict, valid_dataitems: set):
         # 统计一些数据
         stats = {
             "num_of_generated_blocks": -1,
@@ -480,8 +480,6 @@ class Chain(object):
             mainchain_block.add(current_block.name)
             current_block = current_block.parentblock
 
-        N_CONFIRMATIONS = dataitem_params.get('double_spending_N_param', 1)
-
         last_block_iter = self.last_block.parentblock
         while last_block_iter:
             stats["num_of_forks"] += len(last_block_iter.next) - 1
@@ -524,7 +522,7 @@ class Chain(object):
                                     dfs_stack.append((next_orphan_node_candidate, current_path_length + 1))
 
                             # 现在 temp_longest_path_for_orphan 是这条以诚实块开始的孤立分支的最长长度
-                            if temp_longest_path_for_orphan >= N_CONFIRMATIONS:
+                            if temp_longest_path_for_orphan >= confirm_delay:
                                 found_qualifying_orphaned_branch = True
                                 break  # 找到了一个符合条件的被孤立分支
 
