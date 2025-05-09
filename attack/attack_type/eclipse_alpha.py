@@ -118,7 +118,8 @@ class Eclipse(aa.AttackType):
                                  current_miner = current_miner,
                                  round = round,
                                  miner_list = self.adver_list,
-                                 fork_block = self._fork_block)
+                                 fork_block = self._fork_block,
+                                 syncLocalChain = True)
             for miner in self.adver_list:
                 miner.consensus.local_chain.add_block_forcibly(self.adver_chain.get_last_block())
         elif domain_flag:

@@ -91,7 +91,8 @@ class SelfishMining(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block= self._fork_block)
+                                 fork_block = self._fork_block,
+                                 syncLocalChain = True)
                         self._log['state']='0'
                     else:
                         # 否则等待至下一回合，进入match状态。
@@ -123,7 +124,8 @@ class SelfishMining(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block= self._fork_block)
+                                 fork_block = self._fork_block,
+                                 syncLocalChain = True)
                         attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,

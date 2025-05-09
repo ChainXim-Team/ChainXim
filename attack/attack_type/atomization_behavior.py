@@ -2,6 +2,7 @@
 AtomizationBehaviorGroup.py
 用于定义攻击者的行为
 '''
+from functools import reduce
 import attack.attack_type._atomization_behavior as aa
 import consensus
 import global_var
@@ -57,8 +58,8 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         if flag:
             newest_block = honest_chain.add_block_forcibly(block=newest_block)
 
-        for temp_miner in adver_list:
-            temp_miner.consensus.local_chain.add_block_forcibly(block=newest_block)
+        # for temp_miner in adver_list:
+        #     temp_miner.consensus.local_chain.add_block_forcibly(block=newest_block)
         mine_input:bytes = I(round, input_tape)
         if eclipse_list_ids is not None:
             return newest_block, mine_input, imcoming_block_from_eclipse
@@ -110,10 +111,12 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # upload_block = adver_chain.get_last_block()
         # miner_list
         if strategy == FLOODING:
-            current_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy =strategy, spec_targets=forward_target)
-            for adver_miner in adver_list:
-                # '''保证adverminer一定会收到'''
-                adver_miner.consensus.local_chain.add_block_forcibly(adver_chain.get_last_block())
+            current_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy = strategy,
+                                  spec_targets = forward_target, syncLocalChain = syncLocalChain)
+            adver_local_chain = current_miner.consensus.local_chain
+            adver_last_block = adver_local_chain.add_block_forcibly(adver_chain.get_last_block())
+            # 确保本地链同步时被同步的链是adver_chain
+            adver_local_chain.set_last_block(adver_last_block)
         elif strategy == "SPEC_TARGETS":
             neighbors = {}
             for target in forward_target:
@@ -122,9 +125,16 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                 for nb in adver_miner.neighbors:
                     if nb in neighbors and len(neighbors[nb])<1:
                         neighbors[nb].add(i)
+            uploading_adver = reduce(set.union, neighbors.values())
+            for i in uploading_adver:
+                adver_local_chain = adver_list[i].consensus.local_chain
+                adver_last_block = adver_local_chain.add_block_forcibly(adver_chain.get_last_block())
+                # 确保本地链同步时，被同步的链是adver_chain
+                adver_local_chain.set_last_block(adver_last_block)
             for target in forward_target:
                 if len(neighbors[target]) > 0:
-                    adver_list[neighbors[target].pop()].forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS, spec_targets=forward_target)
+                    adver_list[neighbors[target].pop()].forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS,
+                                                                spec_targets = forward_target, syncLocalChain = syncLocalChain)
         # upload_block: Block
         return upload_block_list
 

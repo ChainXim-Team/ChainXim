@@ -45,7 +45,8 @@ class HonestMining(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block = self._fork_block)
+                                 fork_block = self._fork_block,
+                                 syncLocalChain = True)
         else:
             self.behavior.wait()
 

@@ -89,7 +89,8 @@ class DoubleSpending(aa.AttackType):
                         current_miner = current_miner, 
                         round = round,
                         adver_list = self.adver_list,
-                        fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
+                        fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                        syncLocalChain = True)
                 if self._log['behavior'] != 'override':
                     self._attack_success_detect = True
 
@@ -107,7 +108,8 @@ class DoubleSpending(aa.AttackType):
                                  current_miner = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
+                                 fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                                 syncLocalChain = True)
                     self._lastattackblock = self.adver_chain.get_last_block()
                     if self._log['behavior'] != 'override':
                         self._attack_success_detect = True

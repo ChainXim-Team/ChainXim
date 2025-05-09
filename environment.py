@@ -507,7 +507,7 @@ class Environment(object):
                                              self.honest_miner_ids)
 
         # show or save figures
-        self.global_chain.ShowStructure(self.miner_num)
+        # self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
         self.miners[0].consensus.local_chain.GetBlockIntervalDistribution()
 
