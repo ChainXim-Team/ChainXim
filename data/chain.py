@@ -192,9 +192,10 @@ class Chain(object):
             block = block.parentblock
             local_tmp = self.search_block(block)
 
+        newest_block = None
         if local_tmp:
-            self.add_blocks(blocks=copylist,insert_point=local_tmp)
-        return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
+            newest_block = self.add_blocks(blocks=copylist,insert_point=local_tmp)
+        return newest_block  # 返回被添加到链中的、入参block深拷贝后的新区块，如果block的祖先区块不在链中则返回None
 
     def delete_block(self,block:Block=None):
         '''
