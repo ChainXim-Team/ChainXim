@@ -114,7 +114,7 @@ class Chain(object):
             return self.get_last_block().get_height()
 
     def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None):
-        if blocks == None:
+        if not blocks:
             return
         # 添加区块的功能 (深拷贝*)
         # item是待添加的内容 可以是list[Block]类型 也可以是Block类型
@@ -193,9 +193,15 @@ class Chain(object):
             local_tmp = self.search_block(block)
 
         newest_block = None
-        if local_tmp:
-            newest_block = self.add_blocks(blocks=copylist,insert_point=local_tmp)
-        return newest_block  # 返回被添加到链中的、入参block深拷贝后的新区块，如果block的祖先区块不在链中则返回None
+        if len(copylist) > 0 and local_tmp:
+            # 返回深拷贝的最后一个区块的指针
+            return self.add_blocks(blocks=copylist,insert_point=local_tmp)
+        elif len(copylist) == 0 and local_tmp:
+            # 如果没拷贝且block已经在链上，返回链上的block
+            return local_tmp
+        else:
+            # 链头不一致
+            return None
 
     def delete_block(self,block:Block=None):
         '''
