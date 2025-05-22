@@ -18,9 +18,10 @@ def get_time(f):
     return inner
 
 @get_time
-def run(Z:Environment, total_round: int, max_height: int, process_bar_type, post_verification:bool):
+def run(Z:Environment, total_round: int, max_height: int,
+        process_bar_type, post_verification:bool, quantile: float):
     Z.exec(total_round, max_height, process_bar_type, post_verification)
-    return Z.view_and_write()
+    return Z.view_and_write(quantile)
 
 def config_log(env_config:dict):
     """配置日志"""
@@ -192,7 +193,8 @@ def main(**args):
     process_bar_type = (args.get('process_bar_type') 
                         or env_config.get('process_bar_type'))
 
-    return run(Z, total_round, max_height, process_bar_type, args.get('disable_post_verification'))
+    return run(Z, total_round, max_height, process_bar_type, args.get('disable_post_verification'),
+               config.getfloat('EnvironmentSettings','consensus_miner_quantile'))
 
 def get_random_q_gaussian(miner_num,q_ave):
     '''

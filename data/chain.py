@@ -408,7 +408,8 @@ class Chain(object):
                     q.append(i)
 
 
-    def CalculateStatistics(self, rounds, honest_miners: list, confirm_delay: int, dataitem_params: dict, valid_dataitems: set):
+    def CalculateStatistics(self, rounds, honest_miners: list, adver_ids: list[int], confirm_delay: int,
+                            dataitem_params: dict, valid_dataitems: set, quantile: float):
         # 统计一些数据
         stats = {
             "num_of_generated_blocks": -1,
@@ -440,14 +441,18 @@ class Chain(object):
 
         from external import common_prefix
         honest_cp = self.last_block
-        honest_miner_ids = set()
-        for miner in honest_miners:
+        honest_miner_ids = set(miner.miner_id for miner in honest_miners)
+        honest_miner_sorted_by_height = honest_miners.copy()
+        honest_miner_sorted_by_height.sort(key=lambda x: x.get_local_chain().get_height(), reverse=True)
+        consensus_miner_num = int(len(honest_miners) * quantile) if quantile > 0 else 1
+        consensus_miner_num = max(consensus_miner_num, 1)
+        for miner in honest_miner_sorted_by_height[:consensus_miner_num]:
             honest_miner_ids.add(miner.miner_id)
             honest_cp = common_prefix(honest_cp, miner.get_local_chain().get_last_block())
         stats["num_of_valid_blocks"] = honest_cp.height
 
         # Check the dataitems in the honest_cp
-        from external import R
+        from external import R                                                                                                                                                                         
         valid_item_count = 0
         anomalous_item_count = 0
         if dataitem_params['dataitem_enable']:
@@ -496,7 +501,7 @@ class Chain(object):
                 attacker_block_on_main = None
                 # 1. 确认攻击者的区块在主链上
                 for child_block in last_block_iter.next:
-                    if child_block.blockhead.miner not in honest_miner_ids and \
+                    if child_block.blockhead.miner in adver_ids and \
                             child_block.name in mainchain_block:
                         attacker_block_on_main = child_block
                         break
@@ -546,9 +551,18 @@ class Chain(object):
         #     if len(last_block.next) > 1 and attack_flag:
         #         attack_flag = False
         #         stats["double_spending_success_times_ver2"] += 1
-        #     if last_block.blockhead.miner not in honest_miner_ids and not attack_flag:
+        #     if last_block.blockhead.miner in adver_ids and not attack_flag:
         #         attack_flag = True
         #     last_block = last_block.parentblock
+
+        # Chain Quality Property
+        from external import chain_quality
+        cq_dict, chain_quality_property = chain_quality(honest_cp, adver_ids)
+        stats.update({
+            'chain_quality_property': cq_dict,
+            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
+            'upper_bound t/(n-t)': round(len(adver_ids) / len(honest_miner_ids), 5)
+        })
 
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else -1

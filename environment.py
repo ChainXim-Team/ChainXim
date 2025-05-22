@@ -357,7 +357,7 @@ class Environment(object):
             yield events
             return
 
-    def view(self) -> dict:
+    def view(self, quantile) -> dict:
         # 展示一些仿真结果
         print('\n')
         # print("Global Tree Structure:", "")
@@ -366,8 +366,8 @@ class Environment(object):
 
         # Evaluation Results
         honest_miners = filter(lambda x: x.miner_id in self.honest_miner_ids, self.miners)
-        stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.confirm_delay,
-                                                      self.dataitem_params, self.dataitem_validator)
+        stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.adversary.get_adver_ids(),
+                                                      self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
@@ -390,13 +390,6 @@ class Environment(object):
                 'consistency_rate':cp_pdf[0,0]/(cp_pdf.sum()),
                 'common_prefix_cdf_k': cp_cdf_k/(len(self.honest_miner_ids)*timestamp_of_last_block)
             })
-        # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.global_chain, self.adversary.get_adver_ids())
-        stats.update({
-            'chain_quality_property': cq_dict,
-            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
-            'upper_bound t/(n-t)': round(self.adversary.get_adver_num() / (self.miner_num - self.adversary.get_adver_num()), 5)
-        })
 
         # Network Property
         stats.update({'block_propagation_times': {} })
@@ -455,8 +448,8 @@ class Environment(object):
             print(stats["common_prefix_cdf_k"])
         print("")
         # Chain Quality Property
-        print('Chain_Quality Property:', cq_dict)
-        print('Ratio of blocks contributed by malicious players:', chain_quality_property)
+        print('Chain_Quality Property:', stats["chain_quality_property"])
+        print('Ratio of blocks contributed by malicious players:', stats["ratio_of_blocks_contributed_by_malicious_players"])
         if self.dataitem_params['dataitem_enable']:
             print('Ratio of dataitems contributed by malicious players:', 1 - stats["valid_dataitem_rate"])
         # Attack Property
@@ -474,8 +467,8 @@ class Environment(object):
             print('Count of data sending:', send_data_count)
         return stats
 
-    def view_and_write(self):
-        stats = self.view()
+    def view_and_write(self, quantile):
+        stats = self.view(quantile)
         
         self.global_chain.printchain2txt()
 

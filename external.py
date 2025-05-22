@@ -66,7 +66,7 @@ def common_prefix(prefix1:Block, prefix2:Block):
     #     prefix1 = prefix1.parentblock
     # return prefix1
 
-def chain_quality(blockchain:Chain, adversary_ids:list):
+def chain_quality(block:Block, adversary_ids:list[int]):
     '''
     计算链质量指标
     paras:
@@ -76,10 +76,10 @@ def chain_quality(blockchain:Chain, adversary_ids:list):
         cq_dict字典显示诚实和敌对矿工产生的块各有多少
         chain_quality_property诚实矿工产生的块占总区块的比值
     '''
-    if not blockchain.head:
+    if not block:
         xc = []
     else:
-        blocktmp = blockchain.get_last_block()
+        blocktmp = block
         xc = []
         while blocktmp:
             xc.append(blocktmp.blockhead.miner not in adversary_ids)
