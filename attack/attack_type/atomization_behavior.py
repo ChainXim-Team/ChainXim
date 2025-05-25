@@ -12,8 +12,8 @@ from data import Block, Chain
 from consensus.consensus_abc import Consensus
 from external import I
 from miner._consts import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
-import logging
-logger = logging.getLogger(__name__)
+# import logging
+# logger = logging.getLogger(__name__)
 
 class AtomizationBehavior(aa.AtomizationBehavior):
 
@@ -41,11 +41,11 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                 temp_miner.consensus.receive_tape = filtered_receive_tape
             
         input_tape = []
-        receive_history = {}
+        # receive_history = {}
         for temp_miner in adver_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
-            receive_history.update(temp_miner.receive_history)
+            # receive_history.update(temp_miner.receive_history)
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} last block is {temp_miner.consensus.local_chain.last_block.name}')
