@@ -12,6 +12,8 @@ from data import Block, Chain
 from consensus.consensus_abc import Consensus
 from external import I
 from miner._consts import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
+import logging
+logger = logging.getLogger(__name__)
 
 class AtomizationBehavior(aa.AtomizationBehavior):
 
@@ -19,12 +21,15 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         mine_input = 0
         newest_block = honest_chain.get_last_block()
+        # logger.info(f'newest block is {newest_block.name} at round {round}')
 
         imcoming_block_from_eclipse:dict[any,Block] = {}
         # 根据消息来源确认coming block的上一跳
         if eclipse_list_ids is not None:
             for temp_miner in adver_list:
                 filtered_receive_tape = []
+                # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
+                # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
                 for i,incoming_block in enumerate(temp_miner.consensus.receive_tape):
                     if not isinstance(incoming_block, Consensus.Block):
                         continue
@@ -36,12 +41,19 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                 temp_miner.consensus.receive_tape = filtered_receive_tape
             
         input_tape = []
+        receive_history = {}
         for temp_miner in adver_list:
             chain_update, update_index = temp_miner.consensus.local_state_update() 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
+            receive_history.update(temp_miner.receive_history)
+            # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
+            # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
+            # logger.info(f'M{temp_miner.miner_id} at round {round} last block is {temp_miner.consensus.local_chain.last_block.name}')
             # 如果存在更新将更新的区块添加到基准链上   
             chain_update:Chain
             if chain_update.get_height()>=newest_block.get_height():
+                # \ and (chain_update.get_last_block().name in temp_miner.receive_history \
+                #                                                          and temp_miner.receive_history[chain_update.get_last_block().name] not in eclipse_list_ids):
                 newest_block = chain_update.get_last_block()
 
         # 检测最新区块是否是来源于eclipse miner
@@ -55,7 +67,18 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     flag = False
                     break
                 temp_newest = temp_newest.parentblock
+        # logger.info(f'newest block is {newest_block.name}')
+
+        # while honest_chain.search_block(newest_block) is None: 
+        #     if newest_block.isAdversaryBlock and (newest_block.name not in receive_history or receive_history[newest_block.name] in eclipse_list_ids):
+        #         #说明这个区块还只是Adversary挖出来并临时添加到uploader本地上的 并不是真正的newest block
+        #         newest_block = newest_block.parentblock # 继续往前找区块
+        #         continue
+        #     else:
+        #         break
+            
         if flag:
+            # logger.info(f'update honest chain at round {round} last block is {newest_block.name}')
             newest_block = honest_chain.add_block_forcibly(block=newest_block)
 
         # for temp_miner in adver_list:
@@ -126,15 +149,15 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     if nb in neighbors and len(neighbors[nb])<1:
                         neighbors[nb].add(i)
             uploading_adver = reduce(set.union, neighbors.values())
-            for i in uploading_adver:
-                adver_local_chain = adver_list[i].consensus.local_chain
-                adver_last_block = adver_local_chain.add_block_forcibly(adver_chain.get_last_block())
-                # 确保本地链同步时，被同步的链是adver_chain
-                adver_local_chain.set_last_block(adver_last_block)
+            # for i in uploading_adver:
+            #     adver_local_chain = adver_list[i].consensus.local_chain
+            #     adver_last_block = adver_local_chain.add_block_forcibly(adver_chain.get_last_block())
+            #     # 确保本地链同步时，被同步的链是adver_chain
+            #     adver_local_chain.set_last_block(adver_last_block)
             for target in forward_target:
                 if len(neighbors[target]) > 0:
                     adver_list[neighbors[target].pop()].forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS,
-                                                                spec_targets = forward_target, syncLocalChain = syncLocalChain)
+                                                                spec_targets = forward_target, syncLocalChain = False)
         # upload_block: Block
         return upload_block_list
 

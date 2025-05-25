@@ -9,6 +9,8 @@ import global_var
 from data import Message
 from collections import defaultdict
 import copy
+import logging
+logger = logging.getLogger(__name__)
 
 
 class EclipsedDoubleSpending(aa.AttackType):
@@ -344,21 +346,28 @@ class EclipsedDoubleSpending(aa.AttackType):
     def info_getter(self, miner_num):
 
         success_times_list =[]
+        attack_fork = []
         for adver_miner in self.adver_list:
             last_block = adver_miner.consensus.local_chain.get_last_block()
             temp_times = 0
+            temp_attack_fork = []
             while last_block:
                 if len(last_block.next)>1:
                     for block in last_block.next:
                         if block.blockhead.miner in self.adver_list_ids or self.eclipsed_list_ids:
                             temp_times += 1
+                            temp_attack_fork.append(block.name)
                             break
                 last_block = last_block.parentblock
             success_times_list.append(temp_times)
+            attack_fork.append(temp_attack_fork)
         success_times_list.sort()
-        success_times = success_times_list[-1]
+        success_times = success_times_list[0]
         rate, thr_rate = self.__success_rate(miner_num)
-        return {'Success Rate': '{:.4f}'.format(success_times/(self._log['success']+self._log['fail'])),
+        attack_fork.sort()
+        return {
+                'Fail times': self._log['fail'],
+                'Success Rate': '{:.4f}'.format(success_times/(self._log['success']+self._log['fail'])),
                 'Theory rate in SynchronousNetwork (consider eclipsed miners)': '{:.4f}'.format(thr_rate),
                 'Attack times': self._log['success']+self._log['fail'],
                 'Success times': success_times,
