@@ -203,7 +203,7 @@ ChainXim的算力攻击组件模拟了最简单的攻击手段，即攻击者联
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
-- 网络参数：blocksize=4; TopologyNetwork中带宽均为2, 且开启动态拓扑; AdhocNetwork中最大带宽为40;
+- 网络参数：blocksize=4; TopologyNetwork中带宽均为2，ave_degree=25，且开启断点续传与动态拓扑，avg_tp_change_interval=100; AdhocNetwork中最大带宽为40;
     其余网络参数为默认参数。
 
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
@@ -215,7 +215,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --
 ---
 不同网络对算力攻击的影响示意图
 
-![honestmining-network](doc/honestmining-network.png)
+![HonestMining-network](doc/HonestMining-network.png)
 
 对于算力攻击和自私挖矿，一次攻击成功的定义为攻击者产出区块，并被网络接受。
 图中纵坐标为链质量指标，即攻击者产出区块在主链中的占比与1之差。
@@ -243,7 +243,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty
 ---
 不同网络对区块截留攻击的影响示意图
 
-![selfishmining-network](doc/selfishmining-network.png)
+![SelfishMining-network](doc/SelfishMining-network.png)
 
 同步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
 
@@ -265,7 +265,7 @@ ChainXim的双花攻击组件模拟了这一经典的回滚交易历史的攻击
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 3
-- 网络参数：与算力攻击一样
+- 网络参数：TopologyNetwork中avg_tp_change_interval=30，其余与算力攻击一样
 - 攻击参数：Ng=3, N=1 
 
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
@@ -277,7 +277,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_ty
 ---
 不同网络对双花攻击的影响示意图
 
-![doublespending-netork](doc/doublespending-netork.png)
+![DoubleSpending-Network](doc/DoubleSpending-Network.png)
 
 与自私挖矿的结果较为类似，网络条件越差，攻击成功率就越高。
 

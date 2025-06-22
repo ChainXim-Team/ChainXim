@@ -180,7 +180,7 @@ ChainXim's honest mining attack component simulates the most basic attack method
 
 * q_ave = 1
 
-* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology enabled, and bandwidth_max=40 in `AdhocNetwork`. Other network parameters are set to default values.
+* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology and outage resume enabled, ave_degree=25, avg_tp_change_interval=100, and bandwidth_max=40 in `AdhocNetwork`. Other network parameters are set to default values.
 
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
@@ -191,7 +191,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --
 ---
 Impact of Different Networks on Honest Mining Attack
 
-![honestmining-network](doc/honestmining-network.png)
+![HonestMining-network](doc/HonestMining-network.png)
 
 Definition of a successful attack is that the attacker produces a block and is accepted by the network. The vertical axis represents the chain quality, defined as the difference between 1 and the proportion of blocks produced by the attackers that are included in the main chain.
 
@@ -224,7 +224,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty
 ---
 Impact of Different Networks on Selfish Mining Attack
 
-![selfishmining-network](doc/selfishmining-network.png)
+![SelfishMining-network](doc/SelfishMining-network.png)
 
 Under synchronous network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
 
@@ -251,7 +251,7 @@ ChainXim's double-spend attack component simulates this classic blockchain attac
 
 * q_ave = 3
 
-* Network parameters: identical to that of honest mining
+* Network parameters: avg_tp_change_interval=30 in TopologyNetwork, the rest are identical to that of honest mining
 
 * Attack parameters: Ng=3, N=1
 
@@ -264,7 +264,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_ty
 ---
 Impact of Different Networks on Double Spending Attack
 
-![doublespending-netork](doc/doublespending-netork.png)
+![DoubleSpending-Network](doc/DoubleSpending-Network.png)
 
 This result is somewhat similar to that of selfish mining, where networks with poorer latency conditions exhibit higher attack success rates.
 
