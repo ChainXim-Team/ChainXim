@@ -61,7 +61,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} last block is {temp_miner.consensus.local_chain.last_block.name}')
             # 如果存在更新将更新的区块添加到基准链上   
-            if temp_miner not in attackers_with_honest_neighbors:
+            if attackers_with_honest_neighbors is not None and temp_miner not in attackers_with_honest_neighbors:
                 # newest_block 不包含来自被月蚀攻击矿工的区块
                 continue
             chain_update:Chain
@@ -156,8 +156,15 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             upload_block_list = upload_pending_list
 
             for i, adver_miner in enumerate(current_miners):
-                forward_target = [i for i in adver_miner.neighbors if i not in adver_ids]
-                adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy = SPEC_TARGETS,
+                if adver_miner.network_has_topology:
+                    strategy = SPEC_TARGETS
+                    forward_target = [i for i in adver_miner.neighbors if i not in adver_ids]
+                    if len(forward_target) == 0:
+                       continue
+                else:
+                    strategy = FLOODING
+                    forward_target = None
+                adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy = strategy,
                                     spec_targets = forward_target, syncLocalChain = syncLocalChain)
                 if syncLocalChain:
                     adver_local_chain = adver_miner.consensus.local_chain
