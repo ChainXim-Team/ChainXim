@@ -226,47 +226,49 @@ class Environment(object):
         ## 开始循环
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
-        for round in range(1, num_rounds+1):
-            self.on_round_start(round)
-            inputfromz = self.input_dataitem # 生成输入
+        try:
+            for round in range(1, num_rounds+1):
+                self.on_round_start(round)
+                inputfromz = self.input_dataitem # 生成输入
 
-            adver_tmpflag = 1
-            if self.adversary.get_adver_num() != 0:
-                adverflag = random.randint(1,self.adversary.get_adver_num())
+                adver_tmpflag = 1
+                if self.adversary.get_adver_num() != 0:
+                    adverflag = random.randint(1,self.adversary.get_adver_num())
+                
+                for miner in self.miners:
+                    miner.input_tape.append(("INSERT", inputfromz))
+                    
+                    # 攻击者
+                    if miner._isAdversary:
+                        if adver_tmpflag == adverflag:
+                            self.adversary.excute_per_round(round = round)
+                        adver_tmpflag = adver_tmpflag + 1
+                        continue
+                    
+                    # 诚实矿工 run backbone protocol
+                    if (new_msgs := miner.BackboneProtocol(round)) is not None:
+                        # self.network.access_network(new_msgs,temp_miner.miner_id,round)
+                        for msg in new_msgs:
+                            if isinstance(msg, Block):
+                                self.global_chain.add_block_forcibly(msg)
+                    miner.clear_tapes()
+                    
+                # diffuse(C)
+                self.network.diffuse(round)
             
-            for miner in self.miners:
-                miner.input_tape.append(("INSERT", inputfromz))
-                
-                # 攻击者
-                if miner._isAdversary:
-                    if adver_tmpflag == adverflag:
-                        self.adversary.excute_per_round(round = round)
-                    adver_tmpflag = adver_tmpflag + 1
-                    continue
-                
-                # 诚实矿工 run backbone protocol
-                if (new_msgs := miner.BackboneProtocol(round)) is not None:
-                    # self.network.access_network(new_msgs,temp_miner.miner_id,round)
-                    for msg in new_msgs:
-                        if isinstance(msg, Block):
-                            self.global_chain.add_block_forcibly(msg)
-                miner.clear_tapes()
-                
-            # diffuse(C)
-            self.network.diffuse(round)
-        
-            # 全局链高度超过max_height之后就提前停止
-            current_height = self.global_chain.get_height()
-            if current_height > max_height:
-                break
-            # 根据process_bar_type决定进度条的显示方式
-            if process_bar_type == 'round':
-                self.process_bar(round, num_rounds, t_0, 'round/s')
-            elif current_height > cached_height and process_bar_type == 'height':
-                cached_height = current_height
-                self.process_bar(current_height, max_height, t_0, 'block/s')
-
-        self.total_round = self.total_round + round
+                # 全局链高度超过max_height之后就提前停止
+                current_height = self.global_chain.get_height()
+                if current_height > max_height:
+                    break
+                # 根据process_bar_type决定进度条的显示方式
+                if process_bar_type == 'round':
+                    self.process_bar(round, num_rounds, t_0, 'round/s')
+                elif current_height > cached_height and process_bar_type == 'height':
+                    cached_height = current_height
+                    self.process_bar(current_height, max_height, t_0, 'block/s')
+        except KeyboardInterrupt:
+            print("\nSimulation interrupted by user, saving existing results...")
+        self.total_round = round
         assert post_verification or self.post_verification(), "Post verification failed"
         print(f"\nSimulation finished, global chain reach block height {self.global_chain.get_height()} in {round} rounds")
 
