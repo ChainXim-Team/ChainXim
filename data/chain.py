@@ -409,7 +409,8 @@ class Chain(object):
 
 
     def CalculateStatistics(self, rounds, honest_miners: list, adver_ids: list[int], confirm_delay: int,
-                            dataitem_params: dict, valid_dataitems: set, quantile: float):
+                            dataitem_params: dict, valid_dataitems: set, quantile: float, eclipsed_ids: list = None):
+        eclipsed_ids = eclipsed_ids or []
         # 统计一些数据
         stats = {
             "num_of_generated_blocks": -1,
@@ -501,7 +502,8 @@ class Chain(object):
                 attacker_block_on_main = None
                 # 1. 确认攻击者的区块在主链上
                 for child_block in last_block_iter.next:
-                    if child_block.blockhead.miner in adver_ids and \
+                    if (child_block.blockhead.miner in adver_ids or \
+                        child_block.blockhead.miner in eclipsed_ids) and \
                             child_block.name in mainchain_block:
                         attacker_block_on_main = child_block
                         break

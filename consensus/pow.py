@@ -105,8 +105,8 @@ class PoW(Consensus):
                         original_last_block = self.local_chain.last_block
                         new_update = True
                 else:
-                    self._block_buffer.setdefault(prehash, [])
-                    self._block_buffer[prehash].append(incoming_block)
+                    self.block_buffer.setdefault(prehash, [])
+                    self.block_buffer[prehash].append(incoming_block)
 
         if new_update:
             blocktmp = self.local_chain.get_last_block()

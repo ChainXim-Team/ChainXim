@@ -51,7 +51,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         self.local_chain = data.Chain(miner_id)   # 维护的区块链
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self.receive_tape:list[data.Message] = [] # 接收到的消息
-        self._block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
+        self.block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存
 
     def in_local_chain(self,block:data.Block):
         '''Check whether a block is in local chain,
@@ -66,7 +66,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         if isinstance(msg, self.Block):
             if msg in self.receive_tape:
                 return True
-            if block_list := self._block_buffer.get(msg.blockhead.prehash, None):
+            if block_list := self.block_buffer.get(msg.blockhead.prehash, None):
                 for block in block_list:
                     if block.blockhash == msg.blockhash:
                         return True
@@ -93,14 +93,14 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         tip = conjunction_block
         for block in touched_blocks:
             # 提取block之后一高度的块
-            if (trailing_blocks := self._block_buffer.get(block.blockhash, None)) is None:
+            if (trailing_blocks := self.block_buffer.get(block.blockhash, None)) is None:
                 continue
             for fork_tip in trailing_blocks:
                 tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block) # 放入本地链
                 touched_blocks.append(tip) # 以fork_tip的哈希为键查找下一高度块
         for block in touched_blocks:
-            if block.blockhash in self._block_buffer:
-                del self._block_buffer[block.blockhash]
+            if block.blockhash in self.block_buffer:
+                del self.block_buffer[block.blockhash]
 
         return tip, touched_blocks
 

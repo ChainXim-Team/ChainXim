@@ -115,7 +115,7 @@ class Eclipse(aa.AttackType):
         if attack_mine or not domain_flag or (adver_height > honest_height and not domain_flag):
             self.behavior.upload(network = self.network,
                                  adver_chain = self.adver_chain,
-                                 current_miner = current_miner,
+                                 current_miners = [current_miner],
                                  round = round,
                                  miner_list = self.adver_list,
                                  fork_block = self._fork_block,

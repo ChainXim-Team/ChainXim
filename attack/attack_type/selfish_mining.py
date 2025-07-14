@@ -21,12 +21,21 @@ class SelfishMining(aa.AttackType):
         }
         self._fork_block: Block = None
         self._simplifylog = {}
+        self.attackers_with_honest_neighbors = None
 
     def renew_stage(self, round):
         ## 1. renew stage
+        if self.adver_list[0].network_has_topology:
+            self.attackers_with_honest_neighbors = []
+            for attacker in self.adver_list:
+                forwarding_targets = [neighbor_id for neighbor_id in attacker.neighbors if neighbor_id not in self.adver_list_ids]
+                attacker.set_forwarding_targets(forwarding_targets)
+                if len(forwarding_targets) > 0:
+                    self.attackers_with_honest_neighbors.append(attacker)
         bh = self.behavior
         newest_block, mine_input = bh.renew(adver_list = self.adver_list,
-                                 honest_chain = self.honest_chain,round = round)
+                                 honest_chain = self.honest_chain,round = round,
+                                 attackers_with_honest_neighbors=self.attackers_with_honest_neighbors)
         return newest_block, mine_input
 
     def attack_stage(self, round, mine_input):
@@ -35,7 +44,15 @@ class SelfishMining(aa.AttackType):
         bh = self.behavior
         honest_height = self.honest_chain.last_block.get_height()
         adver_height = self.adver_chain.last_block.get_height()
-        current_miner = random.choice(self.adver_list)
+
+        # 如果找到了合适的攻击者，随机选一个；
+        if self.attackers_with_honest_neighbors:
+            current_miners = self.attackers_with_honest_neighbors
+            current_miner = current_miners[0]
+        else:
+            current_miners = random.sample(self.adver_list, 1)
+            current_miner = current_miners[0]
+
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链
             self._fork_block = bh.adopt(adver_chain = self.adver_chain, 
@@ -88,11 +105,11 @@ class SelfishMining(aa.AttackType):
                     if attack_mine:
                         # 0'状态下攻击者若挖矿成功，以alpha概率进入0状态
                         block = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miners,
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block = self._fork_block,
-                                 syncLocalChain = True)
+                                 syncLocalChain = False)
                         self._log['state']='0'
                     else:
                         # 否则等待至下一回合，进入match状态。
@@ -121,11 +138,11 @@ class SelfishMining(aa.AttackType):
                         # 否则，攻击链仅比诚实链高1，受到威胁，攻击者必须立马公布当前区块，再挖矿，挖矿结果不影响
                         if self._log['state'] !='1':
                             block = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miners, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block = self._fork_block,
-                                 syncLocalChain = True)
+                                 syncLocalChain = False)
                         attack_mine,block = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
                                          miner_input = mine_input,

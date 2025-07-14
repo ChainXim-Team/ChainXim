@@ -46,7 +46,7 @@ class EclipseNetworkCutting(aa.AttackType):
         if attack_mine:
             self.behavior.upload(network = self.network, 
                                  adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = [current_miner],
                                  round = round,
                                  miner_list = self.adver_list,
                                  fork_block = self._fork_block,

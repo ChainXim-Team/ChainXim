@@ -481,7 +481,7 @@ The diffuse method of the network class is called once at the end of each round,
 
 #### Updating the Local Chain
 
-Before BackboneProtocal calls launch_consensus, local_state_update will be called. For PoW consensus, this function's purpose is to verify the blocks cached in receive_tape one by one and merge them into the local chain. If the merged chain is longer than the current main chain, it will be set as the main chain. The verification process is divided into two steps: the first step verifies the block itself, i.e., whether the block hash is less than the target value; the second step checks whether the parent block of the block can be retrieved from the local chain. If it can be retrieved, the valid new block is added to the local chain; otherwise, it is placed in _block_buffer to wait for its parent block to be received. When the parent block in _block_buffer is processed in local_state_update, synthesis_fork is called to merge the branch after this parent block into the local chain.
+Before BackboneProtocal calls launch_consensus, local_state_update will be called. For PoW consensus, this function's purpose is to verify the blocks cached in receive_tape one by one and merge them into the local chain. If the merged chain is longer than the current main chain, it will be set as the main chain. The verification process is divided into two steps: the first step verifies the block itself, i.e., whether the block hash is less than the target value; the second step checks whether the parent block of the block can be retrieved from the local chain. If it can be retrieved, the valid new block is added to the local chain; otherwise, it is placed in block_buffer to wait for its parent block to be received. When the parent block in block_buffer is processed in local_state_update, synthesis_fork is called to merge the branch after this parent block into the local chain.
 
 ### How to Implement a New Consensus Protocol
 
@@ -590,8 +590,8 @@ MyConsensus.local_state_update needs to update the state of the consensus object
                         new_update = True
                         self.state = NEXT_STATE # State transition upon receiving a new block
                 else:
-                    self._block_buffer.setdefault(prehash, [])
-                    self._block_buffer[prehash].append(message)
+                    self.block_buffer.setdefault(prehash, [])
+                    self.block_buffer[prehash].append(message)
 
             elif isinstance(message, ExtraMessage): # Handle ExtraMessage
                 DEAL_WITH_OTHER_INCOMING_MESSAGES

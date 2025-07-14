@@ -129,7 +129,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
             # adver_height 高于 eclipse_height 强行将adver状态更新给ec
             blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = [current_miner],
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
@@ -169,7 +169,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
                 # 还处于确认当中 如果 adver 挖出来了 将区块共享给 ec
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
@@ -194,7 +194,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
                 ### 与普通DB不同 adver 在同步之后 还要同步给 ec
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
@@ -216,7 +216,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                 adver在upload时对外全声称self发布的 这样其他节点不会再回传
                 '''
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
@@ -232,7 +232,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                 if attack_mine:
                     # 如果挖出来了 也立刻 upload
                     blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
@@ -241,7 +241,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
                 # 这里还是对ec全面同步 防止upload未成功传递至ec_miner
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
@@ -266,7 +266,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                     # 如果挖出来 且等长 则立刻发布
                     # 这意味着 攻击链比 诚实链 长了
                     blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head)
@@ -281,7 +281,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
                 # 这里还是对ec全面同步 防止upload未成功传递至ec_miner
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
@@ -301,7 +301,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                 if attack_mine:
                     # 如果挖出来了要同步给 ec
                     blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miner, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,

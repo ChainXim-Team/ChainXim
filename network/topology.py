@@ -135,6 +135,10 @@ class TopologyNetwork(Network):
         #     json.dump({"B0": {}}, f, indent=4)
         #     f.write(']')
 
+    def __del__(self):
+        # 在退出之前保存路由信息
+        if self._save_routing_history:
+            self.save_rest_routing_process()
 
     def set_net_param(self, init_mode = None, 
                       topology_path = None, 

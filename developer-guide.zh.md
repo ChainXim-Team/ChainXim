@@ -478,7 +478,7 @@ PoW.consensus_process被调用后将调用PoW.mining_consensus，进行所谓的
 
 #### 更新本地链
 
-在BackboneProtocal调用launch_consensus之前，local_state_update会被调用。对于PoW共识，这个函数的作用是将_receive_tape中缓存的区块逐一验证后合并到本地链；如果并入的链比当前主链更长，就将其设置为主链。验证过程分为两步，第一步验证区块本身的合法性，即区块哈希是否小于目标值，第二部检查区块的母块是否可以从本地链中检索到，如果检索到则将合法新区块添加到本地链，否则放入\_block\_buffer等待其母块被接收到。当\_block\_buffer中的母块在local_state_update中被处理，则调用synthesis_fork从\_block_buffer将这个母块之后的分支并入本地链。
+在BackboneProtocal调用launch_consensus之前，local_state_update会被调用。对于PoW共识，这个函数的作用是将_receive_tape中缓存的区块逐一验证后合并到本地链；如果并入的链比当前主链更长，就将其设置为主链。验证过程分为两步，第一步验证区块本身的合法性，即区块哈希是否小于目标值，第二部检查区块的母块是否可以从本地链中检索到，如果检索到则将合法新区块添加到本地链，否则放入\_block\_buffer等待其母块被接收到。当\_block\_buffer中的母块在local_state_update中被处理，则调用synthesis_fork从\block_buffer将这个母块之后的分支并入本地链。
 
 ### 如何实现新的共识协议
 
@@ -587,8 +587,8 @@ MyConsensus.local_state_update需要根据_receive_tape中缓存的Message对象
                         new_update = True
                         self.state = NEXT_STATE # 接收到新区块时的状态转移
                 else:
-                    self._block_buffer.setdefault(prehash, [])
-                    self._block_buffer[prehash].append(message)
+                    self.block_buffer.setdefault(prehash, [])
+                    self.block_buffer[prehash].append(message)
 
             elif isinstance(message, ExtraMessage): # 处理ExtraMessage
                 DEAL_WITH_OTHER_INCOMING_MESSAGES

@@ -31,12 +31,21 @@ class DoubleSpending(aa.AttackType):
         self._attackblock = defaultdict(Block)
         self._lastattackblock: Block = None # 用于记录上传的最新的attackblock
         self._attack_success_detect: bool = False
+        self.attackers_with_honest_neighbors = None
     
     def renew_stage(self, round):
         ## 1. renew stage
+        if self.adver_list[0].network_has_topology:
+            self.attackers_with_honest_neighbors = []
+            for attacker in self.adver_list:
+                forwarding_targets = [neighbor_id for neighbor_id in attacker.neighbors if neighbor_id not in self.adver_list_ids]
+                attacker.set_forwarding_targets(forwarding_targets)
+                if len(forwarding_targets) > 0:
+                    self.attackers_with_honest_neighbors.append(attacker)
         bh = self.behavior
         newest_block, mine_input = bh.renew(adver_list = self.adver_list,
-                                 honest_chain = self.honest_chain,round = round)
+                                 honest_chain = self.honest_chain,round = round,
+                                 attackers_with_honest_neighbors=self.attackers_with_honest_neighbors)
 
         if self._attack_success_detect and self.honest_chain.search_block(self._lastattackblock):
             self._log['success'] = self._log['success'] + 1
@@ -53,7 +62,15 @@ class DoubleSpending(aa.AttackType):
         ng = self.attack_arg['Ng']
         honest_height = self.honest_chain.last_block.get_height()
         adver_height = self.adver_chain.last_block.get_height()
-        current_miner = random.choice(self.adver_list)
+
+        # 如果找到了合适的攻击者，随机选一个；
+        if self.attackers_with_honest_neighbors:
+            current_miners = self.attackers_with_honest_neighbors
+            current_miner = current_miners[0]
+        else:
+            current_miners = random.sample(self.adver_list, 1)
+            current_miner = current_miners[0]
+
         if honest_height - self._fork_height < n:
             attack_mine,blocks = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
@@ -76,6 +93,7 @@ class DoubleSpending(aa.AttackType):
                 if self._log['behavior'] != 'adopt':
                     self._log['fail'] = self._log['fail'] + 1
                 self._log['behavior'] = 'adopt'
+                self._attack_success_detect = False
             elif adver_height > honest_height:
                 # 攻击链比诚实链长
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
@@ -86,11 +104,11 @@ class DoubleSpending(aa.AttackType):
                                          round = round)
                 self._lastattackblock = self.adver_chain.get_last_block()
                 blocks = bh.upload(adver_chain = self.adver_chain,
-                        current_miner = current_miner, 
+                        current_miners = current_miners, 
                         round = round,
                         adver_list = self.adver_list,
                         fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
-                        syncLocalChain = True)
+                        syncLocalChain = False)
                 if self._log['behavior'] != 'override':
                     self._attack_success_detect = True
 
@@ -105,11 +123,11 @@ class DoubleSpending(aa.AttackType):
                 if attack_mine:
                     # 等长时，如果挖出来，则立刻发布
                     blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miner = current_miner, 
+                                 current_miners = current_miners, 
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 syncLocalChain = True)
+                                 syncLocalChain = False)
                     self._lastattackblock = self.adver_chain.get_last_block()
                     if self._log['behavior'] != 'override':
                         self._attack_success_detect = True
@@ -136,7 +154,7 @@ class DoubleSpending(aa.AttackType):
                                        self._lastattackblock.height if self._lastattackblock != None else 0)
         # self.__log['other']=self.__log['other']+' fork block is '+self.__fork_blockname
         bh.clear(adver_list = self.adver_list)# 清空
-        # self.resultlog2txt(round)
+        self.resultlog2txt(round)
         
     def excute_this_attack_per_round(self, round):
         '''双花攻击'''
@@ -149,25 +167,11 @@ class DoubleSpending(aa.AttackType):
 
         
     def info_getter(self,miner_num):
-        success_times_list =[]
-        for adver_miner in self.adver_list:
-            last_block = adver_miner.consensus.local_chain.get_last_block()
-            temp_times = 0
-            while last_block:
-                if len(last_block.next)>1:
-                    for block in last_block.next:
-                        if block.blockhead.miner in self.adver_list_ids or self.eclipsed_list_ids:
-                            temp_times += 1
-                            break
-                last_block = last_block.parentblock
-            success_times_list.append(temp_times)
-        success_times_list.sort()
-        success_times = success_times_list[-1]
         rate, thr_rate = self.__success_rate(miner_num)
-        return {'Success Rate': '{:.4f}'.format(success_times/(self._log['success']+self._log['fail'])),
+        return {'Success Rate': '{:.4f}'.format(self._log['success']/(self._log['success']+self._log['fail'])),
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(thr_rate),
                 'Attack times': self._log['success']+self._log['fail'],
-                'Success times': success_times,
+                'Success times': self._log['success'],
                 'Ng': self.attack_arg['Ng'],
                 'N': self.attack_arg['N']
                 }

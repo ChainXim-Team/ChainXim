@@ -367,7 +367,8 @@ class Environment(object):
         # Evaluation Results
         honest_miners = filter(lambda x: x.miner_id in self.honest_miner_ids, self.miners)
         stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.adversary.get_adver_ids(),
-                                                      self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile)
+                                                      self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile,
+                                                      self.adversary.get_eclipsed_ids())
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
