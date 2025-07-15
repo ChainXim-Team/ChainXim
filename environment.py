@@ -62,9 +62,8 @@ class Environment(object):
         self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
             miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'], dataitem_param['dataitem_input_interval'] == 0)
-            if global_var.get_common_prefix_enable():
-                miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
-                # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
+            miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
+            # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
             self.miners.append(miner)
         self.envir_create_global_chain()
 
@@ -370,7 +369,7 @@ class Environment(object):
         honest_miners = filter(lambda x: x.miner_id in self.honest_miner_ids, self.miners)
         stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.adversary.get_adver_ids(),
                                                       self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile,
-                                                      self.adversary.get_eclipsed_ids())
+                                                      self.adversary.get_eclipsed_ids(), self.local_chain_tracker.chain_switch_events)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0

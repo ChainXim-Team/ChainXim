@@ -409,7 +409,8 @@ class Chain(object):
 
 
     def CalculateStatistics(self, rounds, honest_miners: list, adver_ids: list[int], confirm_delay: int,
-                            dataitem_params: dict, valid_dataitems: set, quantile: float, eclipsed_ids: list = None):
+                            dataitem_params: dict, valid_dataitems: set, quantile: float,
+                            eclipsed_ids: list = None, chain_switch_events: list = None):
         eclipsed_ids = eclipsed_ids or []
         # 统计一些数据
         stats = {
@@ -429,6 +430,7 @@ class Chain(object):
             "throughput_total_MB": 0,
             "double_spending_success_times": 0,
             # "double_spending_success_times_ver2": 0,
+            "double_spending_success_count_by_switch": 0,
             "attack_fail": 0
         }
         q = [self.head]
@@ -445,7 +447,8 @@ class Chain(object):
         honest_miner_ids = set(miner.miner_id for miner in honest_miners)
         honest_miner_sorted_by_height = honest_miners.copy()
         honest_miner_sorted_by_height.sort(key=lambda x: x.get_local_chain().get_height(), reverse=True)
-        consensus_miner_num = int(len(honest_miners) * quantile) if quantile > 0 else 1
+        quantile = quantile if quantile > 0 else 1 / len(honest_miners)
+        consensus_miner_num = int(len(honest_miners) * quantile)
         consensus_miner_num = max(consensus_miner_num, 1)
         for miner in honest_miner_sorted_by_height[:consensus_miner_num]:
             honest_miner_ids.add(miner.miner_id)
@@ -487,10 +490,10 @@ class Chain(object):
                 stats['valid_dataitem_rate'] = 0
                 stats['block_average_size'] = 0
 
-        mainchain_block = set()
+        mainchain_block = {}
         current_block = honest_cp
         while current_block:
-            mainchain_block.add(current_block.name)
+            mainchain_block[current_block.name] = current_block
             current_block = current_block.parentblock
 
         last_block_iter = honest_cp.parentblock
@@ -557,6 +560,12 @@ class Chain(object):
         #         attack_flag = True
         #     last_block = last_block.parentblock
 
+        # 计算双花攻击成功次数
+        honest_chains = [miner.get_local_chain() for miner in honest_miners]
+        stats["double_spending_success_count_by_switch"] = double_spending_success_by_switch(honest_chains, adver_ids,
+                                                                   mainchain_block, confirm_delay, eclipsed_ids,
+                                                                   chain_switch_events, quantile)
+
         # Chain Quality Property
         from external import chain_quality
         cq_dict, chain_quality_property = chain_quality(honest_cp, adver_ids)
@@ -587,6 +596,66 @@ class Chain(object):
 
     def set_merge_callback(self, callback):
         self.merge_callback = callback
+
+
+def double_spending_success_by_switch(honest_chains:list[Chain], adver_ids:list[int], mainchain_block:dict,
+                            confirm_delay: int, eclipsed_ids:list[int], chain_switch_events:list,
+                            quantile: float):
+    from external import common_prefix
+    miner_num = global_var.get_miner_num()
+    local_chain_tip_name = ['B0'] * miner_num
+    local_chain_tip_hash = [honest_chains[0].head] * miner_num
+    honest_miner_ids = [chain.miner_id for chain in honest_chains]
+
+    def search_in_global_view(blockhash):
+        for chain in honest_chains:
+            block = chain.search_block_by_hash(blockhash)
+            if block is not None:
+                return block
+        return None
+
+    chain_override_events = {} # {fork_block: {"block_height", "switching_subjects"}}
+    for event in chain_switch_events:
+        if event.subject not in honest_miner_ids:
+            # 仅关注诚实矿工
+            continue
+        if local_chain_tip_name[event.subject] not in mainchain_block and event.name in mainchain_block:
+            # 从分叉切换到主链
+            switch_source_block = search_in_global_view(local_chain_tip_hash[event.subject])
+            if switch_source_block is None:
+                print(local_chain_tip_name[event.subject])
+            switch_target_block = mainchain_block[event.name]
+            fork_block = common_prefix(switch_source_block, switch_target_block)
+            if switch_source_block.get_height() - fork_block.get_height() >= confirm_delay:
+                # 达到N=2的标准
+                flag = False
+                blocktmp = switch_target_block
+                while blocktmp.blockhash != fork_block.blockhash:
+                    if blocktmp.blockhead.miner in adver_ids or blocktmp.blockhead.miner in eclipsed_ids:
+                        # 主链上有一个攻击者或者被月蚀攻击矿工的块
+                        flag = True
+                        break
+                    blocktmp = blocktmp.parentblock
+                if flag:
+                    # 认定为一次override事件
+                    default_item = {'block_height': fork_block.get_height(), 'switching_subjects': {}}
+                    chain_override_events.setdefault(fork_block.name, default_item)
+                    chain_override_events[fork_block.name]['switching_subjects'].setdefault(event.subject,[])
+                    chain_override_events[fork_block.name]['switching_subjects'][event.subject].append((event.switch_round,
+                                                                                                        switch_source_block,
+                                                                                                        switch_target_block))                    
+        local_chain_tip_name[event.subject] = event.name
+        local_chain_tip_hash[event.subject] = event.blockhash
+    
+    success_history_reanalysis = {} # {fork_block: {"block_height", "switching_subjects"}}
+    for fork_block, switch_event in chain_override_events.items():
+        switch_history = switch_event['switching_subjects']
+        if len(switch_history) > quantile * len(honest_miner_ids):
+            # 认定为攻击成功
+            success_history_reanalysis[fork_block] = switch_history
+
+    return len(success_history_reanalysis)
+
 
 class LocalChainTracker(object):
     '''记录本地链每次切换lastblock的轮次以及lastblock的信息'''
