@@ -650,7 +650,7 @@ def double_spending_success_by_switch(honest_chains:list[Chain], adver_ids:list[
     success_history_reanalysis = {} # {fork_block: {"block_height", "switching_subjects"}}
     for fork_block, switch_event in chain_override_events.items():
         switch_history = switch_event['switching_subjects']
-        if len(switch_history) > quantile * len(honest_miner_ids):
+        if len(switch_history) >= quantile * len(honest_miner_ids):
             # 认定为攻击成功
             success_history_reanalysis[fork_block] = switch_history
 
