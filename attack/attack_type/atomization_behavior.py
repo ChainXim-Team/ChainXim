@@ -166,11 +166,14 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     forward_target = None
                 adver_miner.forward(upload_block_list, SELF_GEN_MSG, forward_strategy = strategy,
                                     spec_targets = forward_target, syncLocalChain = syncLocalChain)
-                if syncLocalChain:
+                if syncLocalChain or not adver_miner.network_has_topology:
+                    # syncLocalChain 同步本地链时需要先更新本地链为adver_chain
+                    # 非拓扑网络，其他节点不会转发区块，需要直接将攻击链更新到本地链
                     adver_local_chain = adver_miner.consensus.local_chain
                     adver_last_block = adver_local_chain.add_block_forcibly(adver_chain.get_last_block())
-                    # 确保本地链同步时被同步的链是adver_chain
-                    adver_local_chain.set_last_block(adver_last_block)
+                    if syncLocalChain:
+                        # 确保本地链同步时被同步的链是adver_chain
+                        adver_local_chain.set_last_block(adver_last_block)
         elif strategy == "SPEC_TARGETS":
             neighbors = {}
             for target in forward_target:
