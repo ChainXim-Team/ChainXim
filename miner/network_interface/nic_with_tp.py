@@ -2,6 +2,7 @@ import logging
 import random
 from copy import deepcopy
 from collections import defaultdict
+from typing import Iterable, MutableSequence
 import global_var
 
 from data import Block, Message
@@ -290,8 +291,8 @@ class NICWithTp(NetworkInterface):
         """
         self.send_data_count += 1
         self._network.access_network(msgs, self.miner_id, round, target, sendTogether)
-            
-    def __select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:list=None):
+
+    def __select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:MutableSequence[int]=None):
         if strategy == FLOODING:
             return self.__select_target_flooding(msg)
         if strategy == SPEC_TARGETS:
@@ -319,7 +320,7 @@ class NICWithTp(NetworkInterface):
         return targets
     
 
-    def __select_target_spec(self, msg:Block=None, spec_tgts:list = None):
+    def __select_target_spec(self, msg:Block=None, spec_tgts:Iterable[int] = None):
         """
         转发给指定节点
         """

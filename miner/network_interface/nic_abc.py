@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, MutableSequence
 
 from data import Block, Message
 from network import (
@@ -22,7 +22,7 @@ class NetworkInterface(metaclass=ABCMeta):
         self.miner_id = self.miner.miner_id
         self._network:Network = None
         self._receive_buffer:list[Packet]  = []
-        self._forward_buffer:dict[str, list[Block]] = {OUTER_RCV_MSG:[],SELF_GEN_MSG:[]}
+        self._forward_buffer:dict[str, list[Block, str, MutableSequence[int]]] = {OUTER_RCV_MSG:[],SELF_GEN_MSG:[]}
 
         self.inv_count = 0
         self.sync_full_chain_count = 0
