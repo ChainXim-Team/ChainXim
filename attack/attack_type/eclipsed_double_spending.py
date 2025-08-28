@@ -80,7 +80,8 @@ class EclipsedDoubleSpending(aa.AttackType):
                     elif self.adver_chain.search_block(block):
                         continue
                     elif insert_point := self.adver_chain.search_block_by_hash(block.blockhead.prehash):
-                        conjunction_block = self.adver_chain.add_blocks(blocks=[block], insert_point=insert_point)
+                        conjunction_block = self.adver_chain.add_blocks(blocks=[block], insert_point=insert_point,
+                                                                        deepcopy=False)
                         fork_tip, touched_blocks = self.adver_consensus.synthesize_fork(conjunction_block)
                         self._incoming_eclipse_block.extend([b.name for b in touched_blocks])
                         if fork_tip.get_height() > newest_block_from_eclipse.get_height():

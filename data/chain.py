@@ -113,7 +113,8 @@ class Chain(object):
         else:
             return self.get_last_block().get_height()
 
-    def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None):
+    def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None,
+                   deepcopy: bool = True):
         if not blocks:
             return
         # 添加区块的功能 (深拷贝*)
@@ -137,7 +138,7 @@ class Chain(object):
         if isinstance(blocks,Block):
             if (cur2add := self.search_block(blocks)) is not None:
                 return cur2add
-            add_block_list.append(copy.deepcopy(blocks))
+            add_block_list.append(copy.deepcopy(blocks) if deepcopy else blocks)
         else:
             checklist = copy.copy(blocks)
             while checklist:
@@ -148,7 +149,7 @@ class Chain(object):
                 else:
                     checklist.append(cur2add)
                     break
-            add_block_list.extend(copy.deepcopy(checklist))
+            add_block_list.extend(copy.deepcopy(checklist) if deepcopy else checklist)
 
         # 处理特殊情况
             # 如果当前区块为空 添加blocklist的第一个区块

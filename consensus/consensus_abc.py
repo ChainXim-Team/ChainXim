@@ -96,7 +96,8 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             if (trailing_blocks := self.block_buffer.get(block.blockhash, None)) is None:
                 continue
             for fork_tip in trailing_blocks:
-                tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block) # 放入本地链
+                tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block,
+                                                  deepcopy=False) # 放入本地链
                 touched_blocks.append(tip) # 以fork_tip的哈希为键查找下一高度块
         for block in touched_blocks:
             if block.blockhash in self.block_buffer:

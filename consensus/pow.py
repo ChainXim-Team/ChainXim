@@ -95,7 +95,8 @@ class PoW(Consensus):
             if self.valid_block(incoming_block):
                 prehash = incoming_block.blockhead.prehash
                 if insert_point := self.local_chain.search_block_by_hash(prehash):
-                    conj_block = self.local_chain.add_blocks(blocks=[incoming_block], insert_point=insert_point)
+                    conj_block = self.local_chain.add_blocks(blocks=[incoming_block], insert_point=insert_point,
+                                                             deepcopy=False)
                     fork_tip, touched_blocks = self.synthesize_fork(conj_block)
                     chain_update.extend(touched_blocks)
                     depthself = self.local_chain.get_height()
