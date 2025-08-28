@@ -43,7 +43,7 @@ class Block(Message):
     __slots__ = ['__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
     __omit_keys = {'segment_num'} # The items to omit when printing the object
 
-    def __init__(self, name=None, blockhead: BlockHead = None, height = None, 
+    def __init__(self, name, blockhead: BlockHead, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
         super().__init__(name, blocksize_MB)
         self.__blockhead = blockhead

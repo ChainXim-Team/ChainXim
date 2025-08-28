@@ -18,7 +18,7 @@ class Chain(object):
         self.miner_id = miner_id
         self.head = None
         self.last_block = self.head  # 指向最新区块，代表矿工认定的主链
-        self.block_set = defaultdict(Block)
+        self.block_set = {}
         self.switch_tracker_callback = None # 用于记录链尾切换事件
         # self.merge_tracker_callback = None # 用于记录区块并入事件
         self.merge_callback = None # 用于在Environment处理区块并入事件
@@ -79,7 +79,7 @@ class Chain(object):
 
     ## chain数据层主要功能区↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 
-    def search_block_by_hash(self, blockhash: bytes=None):
+    def search_block_by_hash(self, blockhash: bytes):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
         return self.block_set.get(blockhash, None)

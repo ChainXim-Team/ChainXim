@@ -5,6 +5,8 @@ import logging
 import time
 from pathlib import Path
 
+global _var_dict
+_var_dict:dict = {}
 
 def __init__(result_path:Path = None): 
     # current_time = time.strftime("%Y%m%d-%H%M%S")
@@ -21,8 +23,6 @@ def __init__(result_path:Path = None):
     '''
     初始化
     '''
-    global _var_dict
-    _var_dict = {}
     _var_dict['MINER_NUM']=0
     _var_dict['POW_TARGET']=''
     _var_dict['AVE_Q']=0

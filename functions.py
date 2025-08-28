@@ -7,7 +7,7 @@ BYTE_ORDER = sys.byteorder
 HASH_LEN = 32
 INT_LEN = 4
 
-def hash_bytes(s: Union[bytes, bytearray]) -> hashlib._hashlib.HASH:
+def hash_bytes(s: Union[bytes, bytearray]):
     hasher = hashlib.sha256()
     hasher.update(s)
     return hasher
