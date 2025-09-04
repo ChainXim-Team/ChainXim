@@ -11,7 +11,7 @@ import network
 from data import Block, Chain
 from consensus.consensus_abc import Consensus
 from external import I
-from miner._consts import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
+from miner import OUTER_RCV_MSG, SELF_GEN_MSG,FLOODING,SELFISH,SPEC_TARGETS
 # import logging
 # logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                     if syncLocalChain:
                         # 确保本地链同步时被同步的链是adver_chain
                         adver_local_chain.set_last_block(adver_last_block)
-        elif strategy == "SPEC_TARGETS":
+        elif strategy == SPEC_TARGETS:
             neighbors = {}
             for target in forward_target:
                 neighbors[target] = set()

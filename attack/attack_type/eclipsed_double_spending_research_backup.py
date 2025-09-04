@@ -9,7 +9,7 @@ import global_var
 from data import Message
 from collections import defaultdict
 import copy
-
+from miner import SPEC_TARGETS
 
 class EclipsedDoubleSpending(aa.AttackType):
     '''
@@ -133,7 +133,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
             # 因为 ec_miner 更新过了所以要将 eclipse_block 更新为 adver
             self._eclipse_block = self.adver_chain.get_last_block()
             self._eclipse_block_from = self._eclipse_block
@@ -173,7 +173,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 # 因为 ec_miner 更新过了所以要将 eclipse_block 更新为 adver
                 self._eclipse_block = self.adver_chain.get_last_block()
                 self._eclipse_block_from = self._eclipse_block
@@ -198,7 +198,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 ### 同时更新掌握的eclipse状态
                 # 因为 adver 可能 mine 成功 因此用adver最末链更新状态
                 self._eclipse_block = self.adver_chain.get_last_block()
@@ -245,7 +245,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 self._eclipse_block = self._lastattackblock
                 self._eclipse_block_from = self._eclipse_block
                 
@@ -285,7 +285,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                 self._eclipse_block = self._lastattackblock
                 self._eclipse_block_from = self._eclipse_block
 
@@ -305,7 +305,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                                  round = round,
                                  adver_list = self.adver_list,
                                  fork_block= self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 strategy = "SPEC_TARGETS", forward_target = self.eclipsed_list_ids, syncLocalChain = True)
+                                 strategy = SPEC_TARGETS, forward_target = self.eclipsed_list_ids, syncLocalChain = True)
                     self._eclipse_block = self.adver_chain.get_last_block()
                     self._eclipse_block_from = self._eclipse_block
 

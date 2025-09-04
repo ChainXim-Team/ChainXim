@@ -65,8 +65,8 @@ class DoubleSpending(aa.AttackType):
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
-            current_miners = self.attackers_with_honest_neighbors
-            current_miner = current_miners[0]
+            current_miners = self.attackers_with_honest_neighbors # the initiators for the upload operation
+            current_miner = random.choice(current_miners) # the miner that mines new blocks
         else:
             current_miners = random.sample(self.adver_list, 1)
             current_miner = current_miners[0]

@@ -89,6 +89,7 @@ class PoW(Consensus):
         #   lastblock 最长链的最新一个区块
         new_update = False  # 有没有更新
         chain_update = []
+        original_last_block = None
         for incoming_block in self.receive_tape:
             if type(incoming_block) is not self.Block:
                 continue
@@ -102,8 +103,8 @@ class PoW(Consensus):
                     depthself = self.local_chain.get_height()
                     depth_incoming_block = fork_tip.get_height()
                     if depthself < depth_incoming_block:
+                        original_last_block = self.local_chain.last_block if original_last_block is None else original_last_block
                         self.local_chain.set_last_block(fork_tip)
-                        original_last_block = self.local_chain.last_block
                         new_update = True
                 else:
                     self.block_buffer.setdefault(prehash, [])
