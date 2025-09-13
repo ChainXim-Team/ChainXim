@@ -2,6 +2,7 @@ import time
 from typing import List, Tuple
 
 import global_var
+from external import common_prefix
 from functions import BYTE_ORDER, INT_LEN, HASH_LEN, hash_bytes
 
 from .consensus_abc import Consensus
@@ -112,7 +113,8 @@ class PoW(Consensus):
 
         if new_update:
             blocktmp = self.local_chain.get_last_block()
-            while blocktmp.blockhash != original_last_block.blockhash:
+            fork_point = common_prefix(blocktmp, original_last_block)
+            while blocktmp.blockhash != fork_point.blockhash:
                 chain_update.insert(0, blocktmp)
                 blocktmp = blocktmp.parentblock
         return self.local_chain, chain_update
