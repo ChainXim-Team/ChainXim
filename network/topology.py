@@ -199,8 +199,9 @@ class TopologyNetwork(Network):
                 self._maxPartitionsAllowed=1
         if avg_tp_change_interval is not None:
             self._avgTpChangeInterval = avg_tp_change_interval
-            self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
-                                       0.2*self._avgTpChangeInterval))
+            self._TpChangeSpan = 0.2*self._avgTpChangeInterval
+            self._nextTpChangeRound += int(np.random.uniform(self._avgTpChangeInterval-self._TpChangeSpan,
+                                                             self._avgTpChangeInterval+self._TpChangeSpan))
         if edge_remove_prob is not None:
             self._edgeRemoveProb = edge_remove_prob
         if edge_add_prob is not None:
@@ -339,9 +340,10 @@ class TopologyNetwork(Network):
                 continue
             node2 = random.choice(list(non_neighbors))
             changed = changed or self.try_add_edge(int(node1), int(node2), change_op,round)
-        
-        self._nextTpChangeRound += int(np.random.normal(self._avgTpChangeInterval, 
-                                       0.2*self._avgTpChangeInterval))
+
+        self._nextTpChangeRound += int(np.random.uniform(self._avgTpChangeInterval-self._TpChangeSpan,
+                                                         self._avgTpChangeInterval+self._TpChangeSpan))
+
         if changed:
             sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
             # isolates = [[int(i)] for i in nx.isolates(self._graph)]
