@@ -197,7 +197,7 @@ class DoubleSpending(aa.AttackType):
                 # Ng 正常
                 if beta == 1:
                     for j in range(0, n+1):
-                        1/(2**(n+j))*(math.factorial(j+n-1))/((math.factorial(j))*(math.factorial(n-1)))*((n-j+1)/(ng+1))
+                        tmp = tmp + 1/(2**(n+j))*(math.factorial(j+n-1))/((math.factorial(j))*(math.factorial(n-1)))*((n-j+1)/(ng+1))
                     thr_rate = 1-tmp
                 else:
                     for j in range(0, n+1):
