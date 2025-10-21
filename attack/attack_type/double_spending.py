@@ -171,7 +171,7 @@ class DoubleSpending(aa.AttackType):
         return {'Success Rate': '{:.4f}'.format(self._log['success']/(self._log['success']+self._log['fail'])),
                 'Theory rate in SynchronousNetwork': '{:.4f}'.format(thr_rate),
                 'Attack times': self._log['success']+self._log['fail'],
-                'Success times': self._log['success'],
+                # 'Success times': self._log['success'],
                 'Ng': self.attack_arg['Ng'],
                 'N': self.attack_arg['N']
                 }

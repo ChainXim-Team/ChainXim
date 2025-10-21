@@ -431,7 +431,7 @@ class Chain(object):
             "throughput_total_MB": 0,
             "double_spending_success_times": 0,
             # "double_spending_success_times_ver2": 0,
-            "double_spending_success_count_by_switch": 0,
+            # "double_spending_success_count_by_switch": 0,
             "attack_fail": 0
         }
         q = [self.head]
@@ -561,11 +561,11 @@ class Chain(object):
         #         attack_flag = True
         #     last_block = last_block.parentblock
 
-        # 计算双花攻击成功次数
-        honest_chains = [miner.get_local_chain() for miner in honest_miners]
-        stats["double_spending_success_count_by_switch"] = double_spending_success_by_switch(honest_chains, adver_ids,
-                                                                   mainchain_block, confirm_delay, eclipsed_ids,
-                                                                   chain_switch_events, quantile)
+        # 计算双花攻击成功次数-按照链切换事件
+        # honest_chains = [miner.get_local_chain() for miner in honest_miners]
+        # stats["double_spending_success_count_by_switch"] = double_spending_success_by_switch(honest_chains, adver_ids,
+        #                                                            mainchain_block, confirm_delay, eclipsed_ids,
+        #                                                            chain_switch_events, quantile)
 
         # Chain Quality Property
         from external import chain_quality
