@@ -65,13 +65,13 @@ class DeterPropNetwork(Network):
         """
         if prop_vector is  not None and prop_vector[len(prop_vector)-1] == 1:
             self.prop_vector = prop_vector
-            self.target_percents = prop_vector
-        self.adv_miners:list[Miner] = [m for m in self.miners if m._isAdversary]
-        for rcv_rate in prop_vector:
-            self.ave_block_propagation_times.update({rcv_rate:0})
-            self.block_num_bpt = [0 for _ in range(len(prop_vector))]
         else:
             print(f"Use the default Propagation Vector:{self.prop_vector}")
+        self.adv_miners:list[Miner] = [m for m in self.miners if m._isAdversary]
+        for rcv_rate in self.prop_vector:
+            self.ave_block_propagation_times.update({rcv_rate:0})
+            self.block_num_bpt = [0 for _ in range(len(self.prop_vector))]
+
         with open(self.NET_RESULT_PATH / 'network_attributes.txt', 'a') as f:
             print('Network Type: DeterPropNetwork', file=f)
             print(f'propagation_vector:{self.prop_vector}', file=f)

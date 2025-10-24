@@ -11,7 +11,6 @@ _var_dict:dict = {}
 def __init__(result_path:Path = None): 
     # current_time = time.strftime("%Y%m%d-%H%M%S")
     RESULT_FOLDER = Path.cwd() / 'Results' / time.strftime("%Y%m%d")
-    RESULT_FOLDER.mkdir(parents=True,exist_ok = True)   
     RESULT_PATH=result_path or RESULT_FOLDER  / time.strftime("%H%M%S")
     RESULT_PATH.mkdir(parents=True,exist_ok = True)   
     NET_RESULT_PATH=RESULT_PATH / 'Network Results'
