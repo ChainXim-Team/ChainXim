@@ -259,8 +259,7 @@ class TopologyNetwork(Network):
     def cal_delay(self, msg: Message, source:int, target:int):
         '''计算sourceid和targetid之间的时延'''
         # 传输时延=消息大小除带宽 且传输时延至少1轮
-        bw_mean = self._graph.edges[source, target]['bandwidth']
-        bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
+        bandwidth = self._graph.edges[source, target]['bandwidth']
         transmision_delay = math.ceil(msg.size / bandwidth)
         # 时延=处理时延+传输时延
         delay = self._miners[source]._NIC.processing_delay + transmision_delay
