@@ -16,6 +16,14 @@ class BlockHead(metaclass=ABCMeta):
         self.timestamp:int = timestamp  # 时间戳
         self.content:bytes = content
         self.miner:int = Miner  # 矿工
+
+    def __eq__(self, value):
+        if not isinstance(value, BlockHead):
+            return False
+        return self.prehash == value.prehash and \
+               self.timestamp == value.timestamp and \
+               self.content == value.content and \
+               self.miner == value.miner
     
     @abstractmethod
     def calculate_blockhash(self) -> bytes:
@@ -115,6 +123,11 @@ class Block(Message):
             if omk in var_dict:
                 del var_dict[omk]
         return '\n'+ _formatter(var_dict)
+
+    def __eq__(self, value):
+        if not isinstance(value, Block):
+            return False
+        return self.blockhead == value.blockhead
 
     @property
     def blockhead(self):

@@ -19,6 +19,9 @@ class PoW(Consensus):
             self.target = target  # 难度目标
             self.nonce = nonce  # 随机数
 
+        def __eq__(self, value):
+            return super().__eq__(value) and self.target == value.target and self.nonce == value.nonce
+
         def calculate_blockhash(self) -> bytes:
             data = self.miner.to_bytes(INT_LEN, BYTE_ORDER, signed=True)+ \
                     self.content+ self.prehash + \
