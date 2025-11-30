@@ -88,7 +88,7 @@ class NICWithTp(NetworkInterface):
         payload = packet.payload
         source = packet.source
         if  not (isinstance(payload, list) and isinstance(payload[0], DataSegment)):
-            return self.miner.receive(source, deepcopy(payload))
+            return {payload.name : self.miner.receive(source, deepcopy(payload))}
 
         rcv_states = {}
         def update_rcv_states(block_name, rcv_state):

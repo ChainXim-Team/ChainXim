@@ -124,7 +124,7 @@ class TopologyNetwork(Network):
         self._maxPartitionsAllowed=0
 
         # status
-        self._rcv_miners = defaultdict(list)
+        self._rcv_miners = defaultdict(set)
         self._routing_proc = defaultdict(list)
         self._stat_prop_times = {}
         self._block_num_bpt = []
@@ -238,7 +238,7 @@ class TopologyNetwork(Network):
                 logger.info("round %d, M%d -> M%d, %s resume transfer delay %d", round, minerid, target, msg.name, rest_delay)
             link = Link(packet, delay, self)
             self._active_links.append(link)
-            self._rcv_miners[link.get_block_msg_name()].append(minerid)
+            self._rcv_miners[link.get_block_msg_name()].add(minerid)
             # self.miners[minerid].receive(packet)
             # 这一条防止adversary集团的代表，自己没有接收到该消息
             logger.info("%s access network: M%d -> M%d, round %d", msg.name, minerid, target, round)
@@ -276,31 +276,51 @@ class TopologyNetwork(Network):
         """接收过程"""
         if len(self._active_links)==0:
             return
-        dead_links = []
+        dead_links:dict[int, Link] = {}
+        previous_rn = len(self._rcv_miners)
         # 传播完成，target接收数据包
         for i, link in enumerate(self._active_links):
             if link.delay > 0:
                 link.delay -= 1
             if self.link_outage(round, link):
-                dead_links.append(i)
+                dead_links[i] = False
                 continue
             if link.delay > 0:
                 continue
-            link.target_miner()._NIC.nic_receive(link.packet)
-            link.source_miner()._NIC.get_reply(round,link.get_block_msg_name(),link.target_id(), None)
-            if self._rcv_miners[link.get_block_msg_name()][-1]!=-1:
-                self._rcv_miners[link.get_block_msg_name()].append(link.target_id())
-                self._routing_proc[link.get_block_msg_name()].append(
-                    [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
-                )
-            self.stat_block_propagation_times(link.packet, round)
-            dead_links.append(i)
+            rcv_state = link.target_miner()._NIC.nic_receive(link.packet)
+            msg_name = link.get_block_msg_name()
+            rcv_state = rcv_state[msg_name]
+            link.source_miner()._NIC.get_reply(round,msg_name,link.target_id(), None)
+            
+            dead_links[i] = rcv_state
         # 清理传播结束的link
         if len(dead_links) == 0:
             return
+        
+        propagated_messages = {}
+        previous_rn = {}
+        for i, rcv_state in dead_links.items():
+            if rcv_state is False:
+                # link outage or payload has been received before
+                continue
+            link = self._active_links[i]
+            msg_name = link.get_block_msg_name()
+            if msg_name not in previous_rn:
+                # ensure the number of rcv_miners of msg is not changed by the codes that follow
+                previous_rn[msg_name] = len(self._rcv_miners[msg_name]) 
+            if -1 not in self._rcv_miners[msg_name]:
+                self._rcv_miners[msg_name].add(link.target_id())
+                self._routing_proc[msg_name].append(
+                    [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
+                )
+                propagated_messages[link.get_block_msg_name()] = link.packet.payload
+
+        for msg_name, msg in propagated_messages.items():
+            # calculate block propagation time statistics after _rcv_miners have been updated
+            self.stat_block_propagation_times(msg, round, previous_rn[msg_name])
+
         self._active_links = [link for i, link in enumerate(self._active_links) 
                             if i not in dead_links]
-        dead_links.clear()
     
     def forward_process(self, round):
         """转发过程"""
@@ -442,32 +462,30 @@ class TopologyNetwork(Network):
         return added
 
 
-    def stat_block_propagation_times(self, packet: Packet, r):
+    def stat_block_propagation_times(self, msg: Message, round, previous_rn):
         '''calculate the block propagation time'''
-        if not isinstance(packet.payload, Message):
+        if isinstance(msg, Block) is False:
             return
-
-        rn = len(set(self._rcv_miners[packet.payload.name]))
+        rn = len(set(self._rcv_miners[msg.name]))
         mn = self.MINER_NUM
 
-        def is_closest_to_percentage(a, b, percentage):
-            return a == math.floor(b * percentage)
+        recv_ratio = rn / mn
+        prev_ratio = previous_rn / mn
 
-        rcv_rate = -1
-        rcv_rates = [k for k in self._stat_prop_times.keys()]
-        for p in rcv_rates:
-            if is_closest_to_percentage(rn, mn, p):
-                rcv_rate = p
-                break
-        if rcv_rate != -1 and rcv_rate in rcv_rates:
-            if  self._rcv_miners[packet.payload.name][-1] != -1:
-                self._stat_prop_times[rcv_rate] += r-packet.payload.blockhead.timestamp
-                self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
-                logger.debug(f"{packet.payload.name}:{rn},{rcv_rate} at round {r}")
-            if rn == mn and self._rcv_miners[packet.payload.name][-1] != -1:
-                self._rcv_miners[packet.payload.name].clear()
-                self._rcv_miners[packet.payload.name].append(-1)
-                self.save_specific_routing_process(packet.payload.name)
+        rcv_rates = sorted(self._stat_prop_times.keys())
+
+        # 区间判断逻辑
+        for rcv_rate in rcv_rates:
+            # 当前比例 > p，之前比例 =< p
+            if recv_ratio >= rcv_rate >= prev_ratio:
+                if -1 not in self._rcv_miners[msg.name]:
+                    self._stat_prop_times[rcv_rate] += round-msg.blockhead.timestamp
+                    self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
+                    logger.debug(f"{msg.name}:{rn},{rcv_rate} at round {round}")
+        
+        if rn == mn and -1 not in self._rcv_miners[msg.name]:
+            self._rcv_miners[msg.name] = {-1}
+            self.save_specific_routing_process(msg.name)
     
     def save_specific_routing_process(self, block_name:str):
         if self._save_routing_history:
