@@ -310,9 +310,10 @@ class TopologyNetwork(Network):
                 previous_rn[msg_name] = len(self._rcv_miners[msg_name]) 
             if -1 not in self._rcv_miners[msg_name]:
                 self._rcv_miners[msg_name].add(link.target_id())
-                self._routing_proc[msg_name].append(
-                    [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
-                )
+                if self._save_routing_graph:
+                    self._routing_proc[msg_name].append(
+                        [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
+                    )
                 propagated_messages[link.get_block_msg_name()] = link.packet.payload
 
         for msg_name, msg in propagated_messages.items():
@@ -466,7 +467,7 @@ class TopologyNetwork(Network):
         '''calculate the block propagation time'''
         if isinstance(msg, Block) is False:
             return
-        rn = len(set(self._rcv_miners[msg.name]))
+        rn = len(self._rcv_miners[msg.name])
         mn = self.MINER_NUM
 
         recv_ratio = rn / mn

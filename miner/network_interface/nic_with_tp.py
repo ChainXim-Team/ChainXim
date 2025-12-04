@@ -31,7 +31,7 @@ class NICWithTp(NetworkInterface):
         self._channel_states = {}
 
     def __has_received(self, block_name:str):
-        return block_name in self._segment_buffer and len(self._segment_buffer[block_name]) == 0
+        return self._segment_buffer.get(block_name, False) is None # None表示已经收到完整区块,segment_buffer已经清空
 
     def nic_join_network(self, network):
         self._network = network
@@ -108,7 +108,7 @@ class NICWithTp(NetworkInterface):
             if len(self._segment_buffer[block_name]) != 0:
                 update_rcv_states(seg.origin_block.name, False)
                 continue
-            #self._segment_buffer.pop(block_name)
+            self._segment_buffer[block_name] = None
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
             update_rcv_states(seg.origin_block.name, self.miner.receive(source, deepcopy(seg.origin_block)))
@@ -241,12 +241,14 @@ class NICWithTp(NetworkInterface):
 
         if isinstance(inv.block_or_seg, DataSegment):
             req_b = inv.block_or_seg.origin_block
-            if req_b.name in self._segment_buffer:
+            if self.__has_received(req_b.name):
+                getData.isRequired = False
+            elif req_b.name in self._segment_buffer:
+                # segment_buffer已经建立，部分分段未收到
                 getData.isRequired = inv.block_or_seg.seg_id in self._segment_buffer[req_b.name]
             else:
-                getData.isRequired =  not self.__has_received(req_b.name)
-                if getData.isRequired:
-                    self._segment_buffer[req_b.name] = set(range(req_b.segment_num))
+                getData.isRequired = True
+                self._segment_buffer[req_b.name] = set(range(req_b.segment_num))
             if not getData.isRequired:
                 logger.info("M%d->M%d: %d, %s", inv.source, self.miner_id, req_b.segment_num, self._segment_buffer.get(req_b.name))
             return getData
@@ -276,9 +278,8 @@ class NICWithTp(NetworkInterface):
         getData.req_blocks = []
         req_b = inv.block_or_seg
         while req_b is not None and not loc_chain.search_block(req_b):
-            if self._network.withSegments and req_b.name in self._segment_buffer:
+            if self._network.withSegments and (sids_notrcv := self._segment_buffer.get(req_b.name)):
                 # 已经收到部分分段，请求需要的分段
-                sids_notrcv = self._segment_buffer[req_b.name]
                 getData.req_segs.append((req_b, sids_notrcv))
             else:
                 getData.req_blocks.append(req_b)

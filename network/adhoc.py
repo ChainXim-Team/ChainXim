@@ -134,7 +134,7 @@ class AdHocNetwork(Network):
         self._active_links:list[Link] = []
 
         # status
-        self._rcv_miners = defaultdict(list)
+        self._rcv_miners = defaultdict(set)
         self._routing_proc = defaultdict(list)
         self._stat_prop_times = {}
         self._block_num_bpt = []
@@ -229,7 +229,7 @@ class AdHocNetwork(Network):
                 logger.info("%s access network: M%d -> M%d, round %d", new_msgs, minerid, target, round)
             for msg in new_msgs:
                 if isinstance(msg, DataSegment):
-                    self._rcv_miners[msg.origin_block.name].append(minerid)
+                    self._rcv_miners[msg.origin_block.name].add(minerid)
 
             return
         for msg in new_msgs:
@@ -276,8 +276,8 @@ class AdHocNetwork(Network):
             if isinstance(rcv_states, dict):
                 for block_name, rcv_state in rcv_states.items():
                     if rcv_state:
-                        if self._rcv_miners[block_name][-1]!=-1:
-                            self._rcv_miners[block_name].append(link.target_id())
+                        if -1 not in self._rcv_miners[block_name]:
+                            self._rcv_miners[block_name].add(link.target_id())
                         self.stat_block_propagation_times(link.packet, round)
             dead_links.append(i)
         # 清理传播结束的link
@@ -343,7 +343,7 @@ class AdHocNetwork(Network):
         
         np.clip(self._pos_matrix + movement, 0, 1, out=self._pos_matrix)
 
-        self.update_edges(change_op, round)
+        self.update_edges(None, round)
         # self._tp_changes.append(change_op)
         # self.write_tp_changes()
 
@@ -450,7 +450,7 @@ class AdHocNetwork(Network):
         if not isinstance(packet.payload, DataSegment):
             return
 
-        rn = len(set(self._rcv_miners[packet.payload.origin_block.name]))
+        rn = len(self._rcv_miners[packet.payload.origin_block.name])
         mn = self.MINER_NUM
 
         def is_closest_to_percentage(a, b, percentage):
@@ -463,12 +463,12 @@ class AdHocNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in rcv_rates:
-            if  self._rcv_miners[packet.payload.origin_block.name][-1] != -1:
+            if  -1 not in self._rcv_miners[packet.payload.origin_block.name]:
                 self._stat_prop_times[rcv_rate] += r-packet.payload.origin_block.blockhead.timestamp
                 self._block_num_bpt[rcv_rates.index(rcv_rate)] += 1
                 logger.debug(f"{packet.payload.origin_block.name}:{rn},{rcv_rate} at round {r}")
-            if rn == mn and self._rcv_miners[packet.payload.origin_block.name][-1] != -1:
-                self._rcv_miners[packet.payload.origin_block.name][-1] = -1
+            if rn == mn and -1 not in self._rcv_miners[packet.payload.origin_block.name]:
+                self._rcv_miners[packet.payload.origin_block.name] = {-1}
 
     def cal_block_propagation_times(self):
         rcv_rates = [k for k in self._stat_prop_times.keys()]
