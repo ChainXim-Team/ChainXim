@@ -11,5 +11,5 @@ from .network_abc import (
     DataSegment,
 )
 from .deterprop import DeterPropNetwork
-from .synchronous import SynchronousNetwork
+from .synchronous import LockstepNetwork, ZeroDelayNetwork
 from .topology import TopologyNetwork, TPPacket

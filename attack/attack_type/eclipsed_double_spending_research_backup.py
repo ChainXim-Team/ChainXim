@@ -339,7 +339,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
         rate, thr_rate = self.__success_rate(miner_num)
         return {'Success Rate': '{:.4f}'.format(rate),
-                'Theory rate in SynchronousNetwork (consider eclipsed miners)': '{:.4f}'.format(thr_rate),
+                'Theory rate in LockstepNetwork (consider eclipsed miners)': '{:.4f}'.format(thr_rate),
                 'Attack times': self._log['success']+self._log['fail'],
                 # 'Success times': self._log['success'],
                 'eclipsed ids': len(self.eclipsed_list_ids),

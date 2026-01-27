@@ -185,7 +185,7 @@ class SelfishMining(aa.AttackType):
         
     def info_getter(self,miner_num):
         return {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]',
-                'Theory proportion in SynchronousNetwork': self.__theory_propotion(miner_num)}
+                'Theory proportion in LockstepNetwork': self.__theory_propotion(miner_num)}
     
 
     def __theory_propotion(self,miner_num):

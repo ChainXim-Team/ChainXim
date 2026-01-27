@@ -21,7 +21,7 @@ Currently implemented network models (all options available for the network_type
 
 | Network Class (Derived from Network) | Description                                                  |
 | ------------------------------------ | ------------------------------------------------------------ |
-| network.SynchronousNetwork           | Synchronous Network Model                                    |
+| network.LockstepNetwork           | Lockstep Network Model                                    |
 | network.DeterPropNetwork             | Network Model Based on Propagation Vector                    |
 | network.StochPropNetwork             | Network Model with Bounded Delay and Increasing Receiving Probability with Rounds |
 | network.TopologyNetwork              | Complex network model, the topology can be randomly generated. |
@@ -101,7 +101,7 @@ Configure the simulation environment:
 | miner_num          | `--miner_num 80`                             | int   | Total number of miners in the network                        |
 | blocksize          | `--blocksize 8`                              | float | Block size, in MB                                            |
 | consensus_type     | `--consensus_type consensus.PoW`             | str   | Consensus type, should be one of `consensus.PoW`, `consensus.VirutalPoW`, <br/>`consensus.SolidPoW` |
-| network_type       | `--network_type network.SynchronousNetwork ` | str   | Network type, should be one of `network.SynchronousNetwork`,<br/>`network.DeterPropNetwork`, `network.StochPropNetwork`,<br/>`network.TopologyNetwork`, `network.AdHocNetwork` |
+| network_type       | `--network_type network.LockstepNetwork ` | str   | Network type, should be one of `network.LockstepNetwork`,<br/>`network.DeterPropNetwork`, `network.StochPropNetwork`,<br/>`network.TopologyNetwork`, `network.AdHocNetwork` |
 | show_fig           | `--show_fig`                                 | bool  | Whether to display images during the simulation              |
 | show_fig           | `--show_fig`                                 | bool  | Show figures during simulation                               |
 | log_level          | `--log_level error`                          | str   | The level of log files（error, warning, info, or debug）     |
@@ -218,7 +218,7 @@ Throughput in MB (total): 0.032 MB/round
 Chain_Quality Property: {'Honest Block': 9, 'Adversary Block': 1}
 Ratio of blocks contributed by malicious players: 0.1
 The simulation data of SelfishMining is as follows :
- {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in SynchronousNetwork': '0.2731'}
+ {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in LockstepNetwork': '0.2731'}
 Double spending success times: 1
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.222, 0.5: 3.182, 0.6: 3.455, 0.7: 4.0, 0.8: 4.5, 0.9: 5.4, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 257
@@ -646,7 +646,7 @@ def _join_network(self, network):
     self._NIC.nic_join_network(network)
 ```
 The miner sends messages generated during the consensus process (currently only blocks) to the network through this NIC instance; the network also sends blocks being propagated to the target miner through this NIC instance.
-Depending on the type of network, networks can be divided into two categories: abstract networks without topology information (SynchronousNetwork, StochPropNetwork, DeterPropNetwork) and realistic networks with topology information (TopologyNetwork, AdHocNetwork). Correspondingly, Network Interfaces are divided into two categories: `NICWithoutTp` and `NICWithTp`. Both types of network interfaces inherit from the abstract base class `NetworkInterface`. Before specifically introducing the network interfaces, let's first introduce some constants predefined in `./miner/_consts.py`.
+Depending on the type of network, networks can be divided into two categories: abstract networks without topology information (LockstepNetwork, StochPropNetwork, DeterPropNetwork) and realistic networks with topology information (TopologyNetwork, AdHocNetwork). Correspondingly, Network Interfaces are divided into two categories: `NICWithoutTp` and `NICWithTp`. Both types of network interfaces inherit from the abstract base class `NetworkInterface`. Before specifically introducing the network interfaces, let's first introduce some constants predefined in `./miner/_consts.py`.
 
 
 ### Constants related to NetworkInterface
@@ -665,7 +665,7 @@ In TopologyNetwork and AdHocNetwork, miners need to specify forwarding strategie
 
 #### 2. Message Source
 
-The source of the message indicates whether the message is self-generated or received from the external network. This constant is set mainly because different networks handle messages from different sources differently: abstract networks without topology (SynchronousNetwork, StochPropNetwork, DeterPropNetwork) only forward self-generated messages; while realistic networks with topology (TopologyNetwork, AdHocNetwork) forward messages from both sources.
+The source of the message indicates whether the message is self-generated or received from the external network. This constant is set mainly because different networks handle messages from different sources differently: abstract networks without topology (LockstepNetwork, StochPropNetwork, DeterPropNetwork) only forward self-generated messages; while realistic networks with topology (TopologyNetwork, AdHocNetwork) forward messages from both sources.
 
 | Constant                        | Value    | Description                         |
 | --------------------------- | --- | ---------------------------- |
@@ -739,7 +739,7 @@ For network interfaces without topology information, `NICWithoutTp`, in the abov
 | get_reply       | msg_name, target:int, err:str, round |The original miner gets the result of the message sent to the target miner, whether it was successful or failed. |
 
 ## Network
-The main function of the network layer is to receive new blocks generated in the environment and transmit them to other miners through certain propagation rules, serving as a communication channel between miners. The network layer is derived from the abstract base class Network to create different types of networks. Currently, the implemented networks include the abstract concept of Synchronous Network, Stochastic Propagation Network, Deterministic Propagation Network, and relatively realistic Topology P2P Network.
+The main function of the network layer is to receive new blocks generated in the environment and transmit them to other miners through certain propagation rules, serving as a communication channel between miners. The network layer is derived from the abstract base class Network to create different types of networks. Currently, the implemented networks include the abstract concept of Lockstep Network, Stochastic Propagation Network, Deterministic Propagation Network, and relatively realistic Topology P2P Network.
 
 ### Network Base Class
 The Network base class defines three interfaces, and external modules can only interact with the network module through these three interfaces. It also specifies the input parameters, which derived classes cannot change.
@@ -754,7 +754,7 @@ Before introducing the specific four types of networks, let's first introduce th
 
 ### <span id="BlockPacket">Packet</span>
 After message objects enter the network through access_network, they are encapsulated into Packets, which include propagation-related information in addition to the message objects. Message objects propagate in the network in the form of Packets, and the Packets to be propagated are stored in the network's **network_tape** attribute. Packets have different specific implementations in different network classes. For example:
-- In SynchronousNetwork, it only includes the message object and the miner ID that generated the message;
+- In LockstepNetwork, it only includes the message object and the miner ID that generated the message;
 - In StochPropNetwork, it also includes the current reception probability;
 - In DeterPropNetwork, it records the propagation vector;
 - In TopologyNetwork, it records the source and target of the message.
@@ -782,12 +782,12 @@ class PacketPVNet(Packet):
 
 **Next, we introduce how various networks implement the three interfaces.**
 
-### SynchronousNetwork
+### LockstepNetwork
 All miners receive newly generated messages at the beginning of the next round, except for the miner who generated the message.
 
 | Method | Parameters | Description |
 | -------- | -------- | -------- |
-| set_net_param   | \*args, \*\*kargs       | No parameters needed for synchronous network    |
+| set_net_param   | \*args, \*\*kargs       | No parameters needed for lockstep network    |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int    | Encapsulate the message object, miner id, and current round into PacketSyncNet and add it to network_tape. |
 | diffuse  | -     | At the beginning of the next round, all miners receive the packets in network_tape |
 

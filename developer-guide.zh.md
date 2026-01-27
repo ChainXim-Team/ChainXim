@@ -20,7 +20,7 @@ ChainXim主要由Environment、Miner、Adversary、Network、Consensus、Blockch
 
 | 网络类(派生自Network)       | 说明                                       |
 | --------------------------- | ------------------------------------------ |
-| network.SynchronousNetwork  | 同步网络模型                               |
+| network.LockstepNetwork  | 锁步网络模型                               |
 | network.DeterPropNetwork      | 基于传播向量的网络模型                     |
 | network.StochPropNetwork | 延迟有界、接收概率随轮次增加递增的网络模型 |
 | network.TopologyNetwork     | 复杂拓扑网络模型，可以生成随机网络         |
@@ -98,7 +98,7 @@ DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 
 | miner_num          | `--miner_num 80`                             | int   | 网络中的矿工总数                                             |
 | blocksize          | `--blocksize 8`                              | float | 区块大小，单位MB                                             |
 | consensus_type     | `--consensus_type consensus.PoW`             | str   | 共识类型，`consensus.PoW`、`consensus.VirutalPoW`、<br/>`consensus.SolidPoW`三选一 |
-| network_type       | `--network_type network.SynchronousNetwork ` | str   | 网络类型，`network.SynchronousNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`、`network.AdHocNetwork`五选一 |
+| network_type       | `--network_type network.LockstepNetwork ` | str   | 网络类型，`network.LockstepNetwork`、<br/>`network.PropVecNetwork`、`network.BoundedDelayNetwork`、<br/>`network.TopologyNetwork`、`network.AdHocNetwork`五选一 |
 | show_fig           | `--show_fig`                                 | bool  | 是否显示仿真过程中的图像                                     |
 | log_level          | `--log_level error`                          | str   | 日志文件的级别（error、warning、info或debug）                |
 | compact_outputfile | `--no_compact_outputfile`                    | bool  | 是否简化log和result输出以节省磁盘空间<br/>通过`--no_compact_outputfile`设置为False |
@@ -215,7 +215,7 @@ Throughput in MB (total): 0.032 MB/round
 Chain_Quality Property: {'Honest Block': 9, 'Adversary Block': 1}
 Ratio of blocks contributed by malicious players: 0.1
 The simulation data of SelfishMining is as follows :
- {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in SynchronousNetwork': '0.2731'}
+ {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in LockstepNetwork': '0.2731'}
 Double spending success times: 1
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.222, 0.5: 3.182, 0.6: 3.455, 0.7: 4.0, 0.8: 4.5, 0.9: 5.4, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 257
@@ -644,7 +644,7 @@ def _join_network(self, network):
     self._NIC.nic_join_network(network)
 ```
 矿工将共识过程产生的消息（目前仅有区块）通过该NIC实例发送到网络中；而网络也通过该NIC实例，将正在传播的区块发送给目标矿工。
-根据网络的类型不同，可以将网络分为两类：不带拓扑信息的抽象网络（SynchronousNetwork、StochPropNetwork、DeterPropNetwork）和带拓扑信息的拟真网络（TopologyNetwork、AdHocNetwork）。对应将Network Interface分为两类：`NICWithoutTp`和`NICWithTp`。这两类网络接口都继承自抽象基类`NetworkInterface`。在具体介绍网络接口前，先介绍一些`./miner/_consts.py`中预先定义的一些常量。
+根据网络的类型不同，可以将网络分为两类：不带拓扑信息的抽象网络（LockstepNetwork、StochPropNetwork、DeterPropNetwork）和带拓扑信息的拟真网络（TopologyNetwork、AdHocNetwork）。对应将Network Interface分为两类：`NICWithoutTp`和`NICWithTp`。这两类网络接口都继承自抽象基类`NetworkInterface`。在具体介绍网络接口前，先介绍一些`./miner/_consts.py`中预先定义的一些常量。
 
 
 ### 网络接口相关常量 _consts.py
@@ -659,7 +659,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | SPEC_TARGETS  |   "spec_tagets"  | 指定转发目标                   |
 
 #### 2. 待转发消息来源
-消息的来源即该消息是自己产生的还是从外部网络中接收到的。该常量的设置主要是因为在不同网络中对不同来源的消息有不同的处理：无拓扑的抽象网络（SynchronousNetwork、StochPropNetwork、DeterPropNetwork）中仅会转发自己产生的消息；而带拓扑的拟真网络（TopologyNetwork、AdHocNetwork）两种来源的消息都会转发。
+消息的来源即该消息是自己产生的还是从外部网络中接收到的。该常量的设置主要是因为在不同网络中对不同来源的消息有不同的处理：无拓扑的抽象网络（LockstepNetwork、StochPropNetwork、DeterPropNetwork）中仅会转发自己产生的消息；而带拓扑的拟真网络（TopologyNetwork、AdHocNetwork）两种来源的消息都会转发。
 
 | 常量                        | 具体值    | 解释                         |
 | --------------------------- | --- | ---------------------------- |
@@ -728,7 +728,7 @@ TopologyNetwork、AdHocNetwork中，矿工需要对产生的消息指定转发�
 | get_reply       | msg_name, target:int, err:str, round |消息成功发送到目标矿工，或发送失败时，原矿工获得消息发送结果。 |
 
 ## 网络 Network
-网络层的主要功能是接收环境中产生的新区块，并通过一定的传播规则传输给其他矿工，作为矿工之间连接的通道。网络层由抽象基类Network派生出不同类型的网络。目前实现了抽象概念的同步网络（SynchronousNetwork）、随机性传播网络（StochPropNetwork），确定性传播网络（DeterPropNetwork）和相对真实的拓扑P2P网络（TopologyNetwork）。
+网络层的主要功能是接收环境中产生的新区块，并通过一定的传播规则传输给其他矿工，作为矿工之间连接的通道。网络层由抽象基类Network派生出不同类型的网络。目前实现了抽象概念的锁步网络（LockstepNetwork）、随机性传播网络（StochPropNetwork），确定性传播网络（DeterPropNetwork）和相对真实的拓扑P2P网络（TopologyNetwork）。
 
 ### 抽象基类 Network
 Network基类规定了三个接口，外部模块只能通过这三个接口与网络模块交互；同时也规定了输入参数，派生类不可以更改
@@ -747,7 +747,7 @@ Network基类规定了三个接口，外部模块只能通过这三个接口与�
 消息对象通过access_network进入网络后被封装为Packet，除了进入网络的消息对象外还包含传播相关信息。
 网络中消息对象以Packet的形式传播，待传播的Packet存储在网络的**network_tape**属性中。
 Packet在不同的网络类中有不同的具体实现。如：
-- SynchronousNetwork中，仅包含消息对象和产生该消息的矿工id；
+- LockstepNetwork中，仅包含消息对象和产生该消息的矿工id；
 - StochPropNetwork中，还包含对应的当前接收概率；
 - DeterPropNetwork中，记录了传播向量；
 - TopologyNetwork中，记录了消息的来源、目标等。
@@ -775,12 +775,12 @@ class PacketPVNet(Packet):
 
 
 **接下来介绍各种网络如何实现三种接口。**
-### 同步网络 SynchronousNetwork
+### 锁步网络 LockstepNetwork
 除产生消息的矿工外，所有矿工都在下一轮次开始时接收到新产生的消息
 
 | 函数 | 参数 | 说明 |
 | -------- | -------- | -------- |
-| set_net_param   | \*args, \*\*kargs       | 同步网络无需参数    |
+| set_net_param   | \*args, \*\*kargs       | 锁步网络无需参数    |
 | access_network   | new_msg:list[Message], minerid:int,<br>round:int    | 将消息对象、矿工id、当前轮次封装成PacketSyncNet，加入network_tape。 |
 | diffuse  | -     | 在下一轮次开始时，所有矿工都收到network_tape中的数据包|
 

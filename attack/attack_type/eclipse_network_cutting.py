@@ -83,7 +83,7 @@ class EclipseNetworkCutting(aa.AttackType):
                 adver_block_num += 1
             loop_block = loop_block.parentblock
         return {'Success Rate': '{:.4f}'.format(adver_block_num/main_chain_height),
-                'Theory rate in SynchronousNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
+                'Theory rate in LockstepNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
     
 
     def resultlog2txt(self,round):

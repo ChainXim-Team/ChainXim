@@ -395,7 +395,7 @@ class Environment(object):
 
         # Network Property
         stats.update({'block_propagation_times': {} })
-        if not isinstance(self.network,network.SynchronousNetwork):
+        if not isinstance(self.network,network.LockstepNetwork):
             self.network: network.StochPropNetwork
             ave_block_propagation_times = self.network.cal_block_propagation_times()
             stats.update({
@@ -461,7 +461,7 @@ class Environment(object):
             print('Double spending success times:', stats["double_spending_success_times"])
             
         # Network Property
-        if not isinstance(self.network,network.SynchronousNetwork):
+        if not isinstance(self.network,network.LockstepNetwork):
             print('Block propagation times:', ave_block_propagation_times)
         if isinstance(self.network,network.TopologyNetwork) or isinstance(self.network,network.AdHocNetwork):
             print('Count of INV interactions:', inv_count)

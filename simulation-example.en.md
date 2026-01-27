@@ -1,9 +1,9 @@
 ## Featured Examples
 The ChainXim simulation system offers multiple pluggable component types across consensus, network, and attack modules, enabling simulation of diverse real-world scenarios. This example provides six distinct modular combination simulation cases without functional overlaps, each comprehensively validating the rationality of ChainXim's simulation results from multiple dimensions. For reproducibility, two implementation schemes are provided for each case: configurations can be applied either through modifying parameter settings in the simulation system's [system_config.ini](system_config.ini) file, or by directly executing provided code snippets in the command-line interface.
 
-### 1. Relationship between the Number of Miners and Block Time in Synchronous Network
+### 1. Relationship between the Number of Miners and Block Time in Lockstep Network
 
-ChainXim's synchronous network component can simulate scenarios with zero latency. This example employs this component to investigate the impact of node quantity on block generation time under ideal conditions, while also providing comparative validation of different consensus components. The specific parameter configurations are as follows:
+ChainXim's lockstep network component can simulate scenarios with zero latency. This example employs this component to investigate the impact of node quantity on block generation time under ideal conditions, while also providing comparative validation of different consensus components. The specific parameter configurations are as follows:
 
 **Parameter settings:**
 
@@ -17,7 +17,7 @@ ChainXim's synchronous network component can simulate scenarios with zero latenc
 
 * q_ave = 10
 
-* Network parameters: SynchronousNetwork
+* Network parameters: LockstepNetwork
 
 By using the configuration file [synchronous_noadv.ini](conf/synchronous_noadv.ini)，execute the following commands (with corresponding modifications to the miner count and consensus type) to quickly reproduce simulation results for different points under various consensus modules:
 
@@ -185,7 +185,7 @@ ChainXim's honest mining attack component simulates the most basic attack method
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -218,7 +218,7 @@ ChainXim's selfish mining attack component simulates the strategy that malicious
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -226,7 +226,7 @@ Impact of Different Networks on Selfish Mining Attack
 
 ![SelfishMining-network](doc/SelfishMining-network.png)
 
-Under synchronous network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
+Under lockstep network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
 
 The theoretical curve in the figure is obtained by the following formula:
 
@@ -258,7 +258,7 @@ ChainXim's double-spend attack component simulates this classic blockchain attac
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -269,7 +269,7 @@ Impact of Different Networks on Double Spending Attack
 This result is somewhat similar to that of selfish mining, where networks with poorer latency conditions exhibit higher attack success rates.
 
 ---
-Besides latency, the attacker's strategy is also a critical factor affecting the success rate of a double-spending attack. The synchronous network component can be employed to directly investigate this influencing.
+Besides latency, the attacker's strategy is also a critical factor affecting the success rate of a double-spending attack. The lockstep network component can be employed to directly investigate this influencing.
 
 **Parameter settings:**
 
@@ -283,7 +283,7 @@ Besides latency, the attacker's strategy is also a critical factor affecting the
 
 * q_ave = 1
 
-* Network parameters: SynchronousNetwork
+* Network parameters: LockstepNetwork
 
 * Attack parameters: Ng=10, N=1/3/6
 
@@ -298,7 +298,7 @@ Impact of Different Strategies on Double Spending Attack and Theoretical Compari
 
 ![double_spending](doc/doublespending.png)
 
-Under a synchronous network, the success rate of this attack can be theoretically derived, indicating that the fewer the number of block confirmations awaited, the higher the likelihood of a successful attack.
+Under a lockstep network, the success rate of this attack can be theoretically derived, indicating that the fewer the number of block confirmations awaited, the higher the likelihood of a successful attack.
 
 The theoretical curve in the figure is obtained by the following formula:
 

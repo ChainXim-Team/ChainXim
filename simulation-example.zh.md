@@ -1,9 +1,9 @@
 ## 精选示例 Featured Examples
 ChainXim仿真系统在共识、网络以及攻击模块上均提供了多个可拔插的组件类型，可支持模拟多种现实场景。本示例主要提供了六个互不交叉的模块化组合仿真实例，每个实例均多维度展示了ChainXim仿真结果的合理性。各示例均提供了两种方案以供复现，可以直接在仿真系统的配置文件[system_config.ini](system_config.ini)中按照给定的参数进行配置，也可以在命令行窗口直接输入提供的代码。
 
-### 1. 同步网络中矿工数量与出块时间的关系
+### 1. 锁步网络中矿工数量与出块时间的关系
 
-ChainXim的同步网络组件可以模拟没有时延存在的场景，本示例通过这一组件来探究理想状态下节点数量对出块时间的影响，并对照验证不同的共识组件，其具体参数设置如下：
+ChainXim的锁步网络组件可以模拟没有时延存在的场景，本示例通过这一组件来探究理想状态下节点数量对出块时间的影响，并对照验证不同的共识组件，其具体参数设置如下：
 
 * 仿真次数：600000轮
 
@@ -15,7 +15,7 @@ ChainXim的同步网络组件可以模拟没有时延存在的场景，本示例
 
 * q_ave = 10
 
-* 网络参数：SynchronousNetwork
+* 网络参数：LockstepNetwork
 
 
 使用配置文件[synchronous_noadv.ini](conf/synchronous_noadv.ini)，执行以下命令（需要相应修改矿工数和共识类型），即可快速复现不同共识下各个点的仿真结果：
@@ -209,7 +209,7 @@ ChainXim的算力攻击组件模拟了最简单的攻击手段，即攻击者联
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -237,7 +237,7 @@ ChainXim的区块截留攻击组件模拟了自私矿工的攻击手段，即选
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -245,7 +245,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty
 
 ![SelfishMining-network](doc/SelfishMining-network.png)
 
-同步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
+锁步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
 
 图中的理论曲线由以下公式得到：
 
@@ -271,7 +271,7 @@ ChainXim的双花攻击组件模拟了这一经典的回滚交易历史的攻击
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
 
 ```bash
-python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.SynchronousNetwork --adver_num 5
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.LockstepNetwork --adver_num 5
 ```
 
 ---
@@ -282,7 +282,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_ty
 与自私挖矿的结果较为类似，网络条件越差，攻击成功率就越高。
 
 ---
-除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。可以使用同步网络组件直观地探究这一因素的影响：
+除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。可以使用锁步网络组件直观地探究这一因素的影响：
 
 **参数设置如下：**
 
@@ -291,7 +291,7 @@ python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_ty
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
-- 网络类型：SynchronousNetwork
+- 网络类型：LockstepNetwork
 - 攻击参数：Ng=10, N=1/3/6 
 
 使用配置文件[synchronous_doublespending.ini](conf/synchronous_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和N）：
@@ -305,7 +305,7 @@ python main.py -c conf/synchronous_doublespending.ini --total_round 5000000 -N 1
 
 ![double_spending](doc/doublespending.png)
 
-同步网络下，这一攻击的成功率可以理论求得，可见等待确认的区块数量越少，攻击越容易成功。
+锁步网络下，这一攻击的成功率可以理论求得，可见等待确认的区块数量越少，攻击越容易成功。
 
 图中的理论曲线由以下公式得到：
 

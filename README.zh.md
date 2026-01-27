@@ -192,7 +192,7 @@ Throughput in MB (total): 0.024 MB/round
 Chain_Quality Property: {'Honest Block': 10, 'Adversary Block': 0}
 Ratio of blocks contributed by malicious players: 0.0
 The simulation data of SelfishMining is as follows :
- {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in SynchronousNetwork': '0.2731'}
+ {'The proportion of adversary block in the main chain': 'See [Ratio of blocks contributed by malicious players]', 'Theory proportion in LockstepNetwork': '0.2731'}
 Double spending success times: 0
 Block propagation times: {0.03: 0, 0.05: 0, 0.08: 0, 0.1: 0, 0.2: 1.111, 0.4: 2.0, 0.5: 2.556, 0.6: 3.727, 0.7: 3.667, 0.8: 4.308, 0.9: 4.769, 0.93: 0, 0.95: 0, 0.98: 0, 1.0: 5.0}
 Count of INV interactions: 267
