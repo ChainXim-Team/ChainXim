@@ -24,7 +24,11 @@ class NICWithoutTp(NetworkInterface):
             self._network.access_network([msg], self.miner_id, round)
         self.clear_forward_buffer()
         
-    
+    def append_forward_buffer(self, msg, msg_source_type, forward_strategy = ..., spec_target = None, syncLocalChain=False):
+        if msg_source_type == OUTER_RCV_MSG:
+            return
+        return super().append_forward_buffer(msg, msg_source_type, forward_strategy, spec_target, syncLocalChain)
+
     def get_reply(self, msg_name, target:int, err:str, round):
         pass
 
