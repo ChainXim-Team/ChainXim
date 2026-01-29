@@ -310,7 +310,7 @@ class TopologyNetwork(Network):
                 previous_rn[msg_name] = len(self._rcv_miners[msg_name]) 
             if -1 not in self._rcv_miners[msg_name]:
                 self._rcv_miners[msg_name].add(link.target_id())
-                if self._save_routing_graph:
+                if self._save_routing_history:
                     self._routing_proc[msg_name].append(
                         [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
                     )
