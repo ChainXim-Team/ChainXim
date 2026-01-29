@@ -6,3 +6,4 @@ try:
     from .solidpow import SolidPoW
 except ImportError:
     print('''Warning: fail to import module random_oracle. SolidPoW is not avaiable.''')
+from .fastpow import FastPoW

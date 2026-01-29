@@ -1,4 +1,4 @@
-import copy
+import random
 from abc import ABCMeta, abstractmethod
 
 import attack.attack_type.atomization_behavior as ab
@@ -32,6 +32,10 @@ class AttackType(metaclass=ABCMeta):
         self.adver_consensus: consensus.Consensus = adver_consensus
         self.adver_chain: Chain = self.adver_consensus.local_chain
         self.attack_arg:dict = attack_arg
+        if self.adver_list_ids:
+            self.adver_leader = random.choice(self.adver_list)
+            self.adver_consensus.miner_id = self.adver_leader.miner_id
+            self.adver_consensus.miner_id_bytes = self.adver_leader.consensus.miner_id_bytes
 
     @abstractmethod
     def renew_stage(self,round):

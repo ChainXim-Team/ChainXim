@@ -98,6 +98,11 @@ class DeterPropNetwork(Network):
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners
 
+    def pre_diffuse(self, round) -> int:
+        for m in self.miners:
+            m._NIC.nic_forward(round)
+        return len(self.network_tape)
+
     def access_network(self, new_msg:list[Message], minerid:int, round:int,sendTogether:bool = False):
         """
         Package the new message and related information to network_tape.
@@ -131,9 +136,6 @@ class DeterPropNetwork(Network):
         -----
         round (int): The current round in the Envrionment.
         """
-        for m in self.miners:
-            m._NIC.nic_forward(round)
-
         if len(self.network_tape) == 0:
             return
         died_packets = []

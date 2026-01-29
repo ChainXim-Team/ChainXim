@@ -264,10 +264,13 @@ class TopologyNetwork(Network):
         # 时延=处理时延+传输时延
         delay = self._miners[source]._NIC.processing_delay + transmision_delay
         return delay
-    
+
+    def pre_diffuse(self, round) -> int:
+        self.forward_process(round)
+        return len(self._active_links) if not self._dynamic else 1
+
     def diffuse(self, round):
         '''传播过程分为接收和转发两个过程'''
-        self.forward_process(round)
         self.receive_process(round)
         if self._dynamic:
             self.topology_changing(round)

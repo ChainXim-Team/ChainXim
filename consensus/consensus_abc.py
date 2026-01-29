@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Consensus(metaclass=ABCMeta):        #抽象类
     genesis_blockheadextra = {}
     genesis_blockextra = {}
-
+    has_fast_track = False
     class BlockHead(data.BlockHead):
         '''表述BlockHead的抽象类，重写初始化方法但是calculate_blockhash未实现'''
         __slots__ = []

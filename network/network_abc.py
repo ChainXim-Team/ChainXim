@@ -78,3 +78,8 @@ class Network(metaclass=ABCMeta):
     @abstractmethod
     def diffuse(self, round):
         pass
+
+    @abstractmethod
+    def pre_diffuse(self, round) -> int:
+        """Prepare for diffuse and return the number of messages in transmit"""
+        pass

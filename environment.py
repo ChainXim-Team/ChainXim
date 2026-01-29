@@ -122,6 +122,20 @@ class Environment(object):
         print(parameter_str)
         with open(global_var.get_result_path() / 'parameters.txt', 'w+') as conf:
             print(parameter_str, file=conf)
+        
+        # Init Fast Track
+        self.fast_track_mgr = None
+        if consensus_type.has_fast_track and not dataitem_param['dataitem_enable']:
+            adver_cons = None
+            if self.adversary.get_adver_num() > 0:
+                adver_cons = self.adversary.get_adver_consensus()
+            
+            self.fast_track_mgr = consensus_type.get_fast_track(
+                self.miners, 
+                self.adversary.get_adver_ids(), 
+                adver_cons
+            )
+            print(f"Fast Track enabled with {self.fast_track_mgr.device_type} solver.")
 
     def configure_oracles(self, consensus_params:dict, adversary_ids:list):
         if consensus_params['q_distr'] == 'equal':
@@ -222,11 +236,14 @@ class Environment(object):
         '''
         if process_bar_type != 'round' and process_bar_type != 'height':
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
+
         ## 开始循环
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
+        
+        round = 1
         try:
-            for round in range(1, num_rounds+1):
+            while round <= num_rounds:
                 self.on_round_start(round)
                 inputfromz = self.input_dataitem # 生成输入
 
@@ -235,16 +252,16 @@ class Environment(object):
                     adverflag = random.randint(1,self.adversary.get_adver_num())
                 
                 for miner in self.miners:
-                    miner.input_tape.append(("INSERT", inputfromz))
-                    
                     # 攻击者
                     if miner._isAdversary:
                         if adver_tmpflag == adverflag:
+                            miner.input_tape.append(("INSERT", inputfromz))
                             self.adversary.excute_per_round(round = round)
                         adver_tmpflag = adver_tmpflag + 1
                         continue
                     
                     # 诚实矿工 run backbone protocol
+                    miner.input_tape.append(("INSERT", inputfromz))
                     if (new_msgs := miner.BackboneProtocol(round)) is not None:
                         # self.network.access_network(new_msgs,temp_miner.miner_id,round)
                         for msg in new_msgs:
@@ -252,9 +269,13 @@ class Environment(object):
                                 self.global_chain.add_block_forcibly(msg)
                     miner.clear_tapes()
                     
-                # diffuse(C)
+                # Fast Track handling, pre_diffuse will tell if network will be idle
+                if not self.network.pre_diffuse(round) and self.fast_track_mgr:
+                    round = self.fast_track_mgr.run_fast_track(round + 1)
+                else:
+                    round += 1
+                
                 self.network.diffuse(round)
-            
                 # 全局链高度超过max_height之后就提前停止
                 current_height = self.global_chain.get_height()
                 if current_height > max_height:
