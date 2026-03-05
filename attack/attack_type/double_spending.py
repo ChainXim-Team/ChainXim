@@ -3,6 +3,7 @@
 '''
 import math
 import random
+from typing import Optional
 
 import attack.attack_type as aa
 import global_var
@@ -31,17 +32,16 @@ class DoubleSpending(aa.AttackType):
         self._attackblock = defaultdict(Block)
         self._lastattackblock: Block = None # 用于记录上传的最新的attackblock
         self._attack_success_detect: bool = False
-        self.attackers_with_honest_neighbors = None
+        self.attackers_with_honest_neighbors:Optional[dict] = None # 记录每个攻击者的转发对象，记录至少有一个诚实邻居的攻击者列表
     
     def renew_stage(self, round):
         ## 1. renew stage
         if self.adver_list[0].network_has_topology:
-            self.attackers_with_honest_neighbors = []
+            self.attackers_with_honest_neighbors = {}
             for attacker in self.adver_list:
                 forwarding_targets = [neighbor_id for neighbor_id in attacker.neighbors if neighbor_id not in self.adver_list_ids]
-                attacker.set_forwarding_targets(forwarding_targets)
                 if len(forwarding_targets) > 0:
-                    self.attackers_with_honest_neighbors.append(attacker)
+                    self.attackers_with_honest_neighbors[attacker] = forwarding_targets
         bh = self.behavior
         newest_block, mine_input = bh.renew(adver_list = self.adver_list,
                                  honest_chain = self.honest_chain,round = round,
@@ -65,7 +65,7 @@ class DoubleSpending(aa.AttackType):
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
-            current_miners = self.attackers_with_honest_neighbors # the initiators for the upload operation
+            current_miners = list(self.attackers_with_honest_neighbors.keys()) # the initiators for the upload operation
             current_miner = random.choice(current_miners) # the miner that mines new blocks
         else:
             current_miners = random.sample(self.adver_list, 1)

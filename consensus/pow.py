@@ -93,6 +93,7 @@ class PoW(Consensus):
         #   lastblock 最长链的最新一个区块
         new_update = False  # 有没有更新
         chain_update = []
+        tree_update = []
         original_last_block = None
         for incoming_block in self.receive_tape:
             if type(incoming_block) is not self.Block:
@@ -103,7 +104,7 @@ class PoW(Consensus):
                     conj_block = self.local_chain.add_blocks(blocks=[incoming_block], insert_point=insert_point,
                                                              deepcopy=False)
                     fork_tip, touched_blocks = self.synthesize_fork(conj_block)
-                    chain_update.extend(touched_blocks)
+                    tree_update.extend(touched_blocks)
                     depthself = self.local_chain.get_height()
                     depth_incoming_block = fork_tip.get_height()
                     if depthself < depth_incoming_block:
@@ -120,7 +121,7 @@ class PoW(Consensus):
             while blocktmp.blockhash != fork_point.blockhash:
                 chain_update.insert(0, blocktmp)
                 blocktmp = blocktmp.parentblock
-        return self.local_chain, chain_update
+        return self.local_chain, chain_update, tree_update
 
     def valid_chain(self, lastblock: Consensus.Block):
         '''验证区块链是否PoW合法\n

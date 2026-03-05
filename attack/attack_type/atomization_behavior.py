@@ -21,7 +21,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         self.upload_history = {}
 
     def renew(self, adver_list:list[miner.Miner], honest_chain: Chain, round, eclipse_list_ids:list[int] = None,
-              attackers_with_honest_neighbors:list[miner.Miner] = None):
+              attackers_with_honest_neighbors:dict[miner.Miner, list] = None):
         # 更新adversary中的所有区块链状态：基准链 矿工状态(包括输入和其自身链 )
         mine_input = 0
         newest_block = honest_chain.get_last_block()
@@ -54,7 +54,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         input_tape = []
         # receive_history = {}
         for temp_miner in adver_list:
-            chain_update, update_index = temp_miner.consensus.local_state_update() 
+            updated_chain, _, tree_update = temp_miner.consensus.local_state_update() 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             # receive_history.update(temp_miner.receive_history)
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
@@ -64,11 +64,18 @@ class AtomizationBehavior(aa.AtomizationBehavior):
             if attackers_with_honest_neighbors is not None and temp_miner not in attackers_with_honest_neighbors:
                 # newest_block 不包含来自被月蚀攻击矿工的区块
                 continue
-            chain_update:Chain
-            if chain_update.get_height()>=newest_block.get_height():
-                # \ and (chain_update.get_last_block().name in temp_miner.receive_history \
-                #                                                          and temp_miner.receive_history[chain_update.get_last_block().name] not in eclipse_list_ids):
-                newest_block = chain_update.get_last_block()
+            elif tree_update:
+                if attackers_with_honest_neighbors is None:
+                    # 不是基于拓扑的攻击，泛洪
+                    temp_miner.forward(tree_update, OUTER_RCV_MSG, forward_strategy = FLOODING)
+                else:
+                    if forward_targets := attackers_with_honest_neighbors.get(temp_miner):
+                        temp_miner.forward(tree_update, OUTER_RCV_MSG, forward_strategy = SPEC_TARGETS, spec_targets = forward_targets)
+            updated_chain:Chain
+            if updated_chain.get_height()>=newest_block.get_height():
+                # \ and (updated_chain.get_last_block().name in temp_miner.receive_history \
+                #                                                          and temp_miner.receive_history[updated_chain.get_last_block().name] not in eclipse_list_ids):
+                newest_block = updated_chain.get_last_block()
 
         # 检测最新区块是否是来源于eclipse miner
         flag = True

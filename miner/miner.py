@@ -25,7 +25,6 @@ class Miner(object):
         self.round = -1
         #网络接口
         self._NIC:NetworkInterface =  None
-        self.__forwarding_targets = None
         self.receive_history = dict()
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
@@ -69,12 +68,6 @@ class Miner(object):
         _isAdversary=True为对手节点
         '''
         self._isAdversary = _isAdversary
-    
-    def set_forwarding_targets(self, forwarding_targets:list):
-        '''
-        设置自动转发消息的目标节点列表，必须是邻居列表的子集
-        '''
-        self.__forwarding_targets = forwarding_targets
 
     def receive(self, source:int, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
@@ -83,11 +76,6 @@ class Miner(object):
             return rcvSuccess
         else:
             self.receive_history[msg.name] = source
-        if self.__forwarding_targets is None:
-            self.forward([msg], OUTER_RCV_MSG)
-        elif len(self.__forwarding_targets) > 0:
-            self.forward([msg], OUTER_RCV_MSG, forward_strategy=SPEC_TARGETS,
-                         spec_targets=self.__forwarding_targets)
 
         return rcvSuccess
     
@@ -128,7 +116,10 @@ class Miner(object):
         
 
     def BackboneProtocol(self, round):
-        _, chain_update = self.consensus.local_state_update()
+        _, chain_update, tree_update = self.consensus.local_state_update()
+        if tree_update:
+            self.forward(tree_update, OUTER_RCV_MSG)
+
         input = I(round, self.input_tape)  # I function
         if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
             # exclude dataitems in updated blocks

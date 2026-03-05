@@ -3,6 +3,7 @@
 '''
 import math
 import random
+from typing import Optional
 
 import attack.attack_type as aa
 import global_var
@@ -40,25 +41,23 @@ class EclipsedDoubleSpending(aa.AttackType):
         self._eclipse_block_from: Message = None # 记录 eclipse最新区块的来源
         self._syn_blocks: dict = {} # 记录 已向邻居同步过的区块
         self._incoming_eclipse_block = []
-        self.attackers_with_honest_neighbors = None
+        self.attackers_with_honest_neighbors: Optional[dict] = None
         # self.sync_counter = 0
         # self.sync_countdown = 5
         
 
     def set_init(self, honest_chain, adver_list, adver_consensus, attack_arg, eclipsed_list_ids):
         super().set_init(honest_chain, adver_list, adver_consensus, attack_arg, eclipsed_list_ids)
-        for miner in self.adver_list:
-            miner.set_forwarding_targets([])
-        self.attackers_with_honest_neighbors = [] if adver_list[0].network_has_topology else None # 用于记录攻击者中拥有诚实邻居的攻击者
+        self.attackers_with_honest_neighbors = {} if adver_list[0].network_has_topology else None # 用于记录攻击者中拥有诚实邻居的攻击者及其转发目标
     
     def renew_stage(self, round):
         ## 1. renew stage
         if self.attackers_with_honest_neighbors is not None:
-            self.attackers_with_honest_neighbors = []
+            self.attackers_with_honest_neighbors = {}
             for attacker in self.adver_list:
                 for neighbor_id in attacker.neighbors:
                     if neighbor_id not in self.adver_list_ids and neighbor_id not in self.eclipsed_list_ids:
-                        self.attackers_with_honest_neighbors.append(attacker)
+                        self.attackers_with_honest_neighbors[attacker] = []
                         break
 
         bh = self.behavior
@@ -143,7 +142,7 @@ class EclipsedDoubleSpending(aa.AttackType):
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
-            current_miners = self.attackers_with_honest_neighbors
+            current_miners = list(self.attackers_with_honest_neighbors.keys())
             current_miner = current_miners[0]
         else:
             current_miners = random.sample(self.adver_list, 1)

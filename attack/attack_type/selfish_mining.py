@@ -3,6 +3,7 @@
 '''
 import random
 import copy
+from typing import Optional
 import attack.attack_type as aa
 import global_var
 from data import Block, Chain
@@ -21,17 +22,16 @@ class SelfishMining(aa.AttackType):
         }
         self._fork_block: Block = None
         self._simplifylog = {}
-        self.attackers_with_honest_neighbors = None
+        self.attackers_with_honest_neighbors: Optional[dict] = None
 
     def renew_stage(self, round):
         ## 1. renew stage
         if self.adver_list[0].network_has_topology:
-            self.attackers_with_honest_neighbors = []
+            self.attackers_with_honest_neighbors = {}
             for attacker in self.adver_list:
                 forwarding_targets = [neighbor_id for neighbor_id in attacker.neighbors if neighbor_id not in self.adver_list_ids]
-                attacker.set_forwarding_targets(forwarding_targets)
                 if len(forwarding_targets) > 0:
-                    self.attackers_with_honest_neighbors.append(attacker)
+                    self.attackers_with_honest_neighbors[attacker] = forwarding_targets
         bh = self.behavior
         newest_block, mine_input = bh.renew(adver_list = self.adver_list,
                                  honest_chain = self.honest_chain,round = round,
@@ -47,7 +47,7 @@ class SelfishMining(aa.AttackType):
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
-            current_miners = self.attackers_with_honest_neighbors
+            current_miners = list(self.attackers_with_honest_neighbors.keys())
             current_miner = current_miners[0]
         else:
             current_miners = random.sample(self.adver_list, 1)
