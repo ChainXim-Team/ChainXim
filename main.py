@@ -77,12 +77,20 @@ def main(**args):
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
         if q_distr == 'rand':
             q_distr = get_random_q_gaussian(miner_num,q_ave)
+        elif isinstance(q_distr, str) and q_distr != 'equal':
+            q_distr = eval(q_distr)
+        assert q_distr == 'equal' or isinstance(q_distr, list) and len(q_distr) == miner_num, \
+               "q_distr should be 'equal' or a list with length equal to miner_num"
+        
         average_block_time = args.get('average_block_time') or float(consensus_settings['average_block_time'])
         if average_block_time == 0:
             target = args.get('target') or consensus_settings['target']
             global_var.set_PoW_target(target)
         else:
-            target =  f"{round(2**256/miner_num/q_ave/average_block_time):064x}"
+            if isinstance(q_distr, str) and q_distr == 'equal':
+                target =  f"{2**256//int(miner_num*q_ave*average_block_time):064x}"
+            else:
+                target = f"{2**256//int(sum(q_distr)*average_block_time):064x}"
             global_var.set_PoW_target(target)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr, 'N': args.get('N') or int(consensus_settings['N'])}
     else:
@@ -214,7 +222,7 @@ def get_random_q_gaussian(miner_num,q_ave):
             sign_diff = np.sign(diff)
             idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
             q_dist[idx] += sign_diff
-    return str(list(q_dist))
+    return q_dist.tolist()
 
 
 if __name__ == '__main__':

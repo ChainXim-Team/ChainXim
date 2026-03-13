@@ -103,12 +103,24 @@ class Environment(object):
         for miner in self.miners:
             with open(CHAIN_DATA_PATH / f'chain_data{str(miner.miner_id)}.txt','a') as f:
                 print(f"_isAdversary: {miner._isAdversary}\n", file=f)
+        
+        from reprlib import repr
+        network_param_display = network_param.copy()
+        if 'stat_prop_times' in network_param_display:
+            network_param_display['stat_prop_times'] = repr(network_param_display['stat_prop_times'])
+        if 'prop_vector' in network_param_display:
+            network_param_display['prop_vector'] = repr(network_param_display['prop_vector'])
+        consensus_param_display = consensus_param.copy()
+        if 'q_distr' in consensus_param_display:
+            consensus_param_display['q_distr'] = repr(consensus_param_display['q_distr']).strip("'")
+        if 'target' in consensus_param_display:
+            consensus_param_display['target'] = repr(consensus_param_display['target']).strip("'")
         parameter_str = ('Parameters:\n' + 
             f'Miner Number: {self.miner_num} \n' + 
             f'Consensus Protocol: {consensus_type.__name__} \n' + 
             f'Network Type: {type(self.network).__name__} \n' + 
-            f'Network Param:  {network_param} \n' + 
-            f'Consensus Param: {consensus_param} \n')
+            f'Network Param:  {network_param_display} \n' + 
+            f'Consensus Param: {consensus_param_display} \n')
         if adversary_ids:
             parameter_str += f'Adversary Miners: {adversary_ids} \n'
             parameter_str += f'Attack Execute Type: {self.adversary.get_attack_type_name()}'
@@ -126,8 +138,8 @@ class Environment(object):
     def configure_oracles(self, consensus_params:dict, adversary_ids:list):
         if consensus_params['q_distr'] == 'equal':
             q_list = [consensus_params['q_ave'] for _ in range(self.miner_num)]
-        elif isinstance(eval(consensus_params['q_distr']), list):
-            q_list = eval(consensus_params['q_distr'])
+        elif isinstance(consensus_params['q_distr'], list):
+            q_list = consensus_params['q_distr']
         else:   
             raise ValueError("q_distr should be a list or the string 'equal'")
 

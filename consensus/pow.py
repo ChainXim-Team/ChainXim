@@ -38,7 +38,7 @@ class PoW(Consensus):
         if consensus_params['q_distr'] == 'equal':
             self.q = consensus_params['q_ave']
         else:
-            q_distr = eval(consensus_params['q_distr'])
+            q_distr = consensus_params['q_distr']
             if isinstance(q_distr,list):
                 self.q = q_distr[miner_id]
             else:
@@ -62,7 +62,8 @@ class PoW(Consensus):
             pow_success POW成功标识 type:Bool
         '''
         pow_success = False
-        #print("mine",Blockchain)
+        if self.q <= 0:
+            return (None, pow_success)
         b_last = self.local_chain.last_block # 链中最后一个块
         prehash = b_last.blockhash
 
