@@ -107,7 +107,7 @@ class EclipsedDoubleSpending(aa.AttackType):
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        current_miner = random.choice(self.adver_list)
+        current_miner = self.adver_leader
 
 
         # 根据 最新eclipse区块的来源判断 是否更新adver

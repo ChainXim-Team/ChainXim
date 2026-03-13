@@ -44,14 +44,12 @@ class SelfishMining(aa.AttackType):
         bh = self.behavior
         honest_height = self.honest_chain.last_block.get_height()
         adver_height = self.adver_chain.last_block.get_height()
+        current_miner = self.adver_leader
 
-        # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
             current_miners = list(self.attackers_with_honest_neighbors.keys())
-            current_miner = current_miners[0]
         else:
             current_miners = random.sample(self.adver_list, 1)
-            current_miner = current_miners[0]
 
         if honest_height > adver_height:
             # 如果诚实链高于攻击链，进入0状态，全矿工认可唯一主链

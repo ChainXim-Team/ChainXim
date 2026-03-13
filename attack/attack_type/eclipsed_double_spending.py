@@ -139,14 +139,12 @@ class EclipsedDoubleSpending(aa.AttackType):
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
+        current_miner = self.adver_leader
 
-        # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
             current_miners = list(self.attackers_with_honest_neighbors.keys())
-            current_miner = current_miners[0]
         else:
             current_miners = random.sample(self.adver_list, 1)
-            current_miner = current_miners[0]
 
         # 根据 最新eclipse区块的来源判断 是否更新adver
         eclipse_height = self._eclipse_block.get_height()

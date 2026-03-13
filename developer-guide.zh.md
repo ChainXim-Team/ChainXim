@@ -1162,7 +1162,7 @@ def renew_stage(self,round):
 ```python
 def attack_stage(self,round,mine_input):
         ## 2. attack stage
-    current_miner = random.choice(self.adver_list)       
+    current_miner = self.adver_miner       
     self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
     attack_mine = self.behavior.mine(miner_list = self.adver_list, current_miner = current_miner \
                               , miner_input = mine_input,\

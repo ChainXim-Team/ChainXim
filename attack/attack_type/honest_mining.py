@@ -40,13 +40,11 @@ class HonestMining(aa.AttackType):
     
     def attack_stage(self,round,mine_input):
         ## 2. attack stage
-        # 如果找到了合适的攻击者，随机选一个；
+        current_miner = self.adver_leader
         if self.attackers_with_honest_neighbors:
             current_miners = list(self.attackers_with_honest_neighbors.keys())
-            current_miner = current_miners[0]
         else:
             current_miners = random.sample(self.adver_list, 1)
-            current_miner = current_miners[0]
 
         if self.honest_chain.get_height() > self.adver_chain.get_height():       
             self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)

@@ -85,6 +85,11 @@ class StochPropNetwork(Network):
         rcvprob_th: 接收的概率;
         """
         return random.uniform(0, 1) < rcvprob_th
+    
+    def pre_diffuse(self, round) -> int:
+        for m in self.miners:
+            m._NIC.nic_forward(round)
+        return len(self.network_tape)
 
     def access_network(self, new_msg: list[Message], minerid:int, round:int,sendTogether:bool = False):
         """
@@ -117,8 +122,6 @@ class StochPropNetwork(Network):
         # 随着轮数的增加，收到的概率越高，无限轮
         # 超过某轮后所有人收到
         # 一个人收到之后就不会再次收到这个数据包了
-        for m in self.miners:
-            m._NIC.nic_forward(round)
         if len(self.network_tape)==0:
             return
         died_packets = []

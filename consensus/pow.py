@@ -36,11 +36,11 @@ class PoW(Consensus):
         self.ctr=0 #计数器
         self.target = bytes.fromhex(consensus_params['target'])
         if consensus_params['q_distr'] == 'equal':
-            self.q = consensus_params['q_ave']
+            self.q = int(consensus_params['q_ave'])
         else:
             q_distr = consensus_params['q_distr']
             if isinstance(q_distr,list):
-                self.q = q_distr[miner_id]
+                self.q = int(q_distr[miner_id])
             else:
                 raise ValueError("q_distr should be a list or the string 'equal'")
 

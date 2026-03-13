@@ -71,7 +71,9 @@ def main(**args):
     
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
-    if global_var.get_consensus_type() in ['consensus.PoW', 'consensus.VirtualPoW', 'consensus.SolidPoW']:
+    from consensus import PoW
+    from functions import for_name
+    if issubclass(for_name(global_var.get_consensus_type()), PoW):
         q_ave = args.get('q_ave') or float(consensus_settings['q_ave'])
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']

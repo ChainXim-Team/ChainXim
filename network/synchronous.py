@@ -57,14 +57,18 @@ class LockstepNetwork(Network):
         ----- 
         round (not use): The current round in the Envrionment.
         """
-        for m in self.miners:
-            m._NIC.nic_forward(round)
         if self.network_tape:
             for j in range(self.MINER_NUM):
                 for packet in self.network_tape:
                     if j != packet.source:
                         self.miners[j]._NIC.nic_receive(packet)
             self.clear_NetworkTape()
+
+    def pre_diffuse(self, round) -> int:
+        for m in self.miners:
+            m._NIC.nic_forward(round)
+        return len(self.network_tape)
+
 
 class ZeroDelayNetwork(LockstepNetwork):
     """同步网络,在当前轮结束时将数据包传播给所有矿工"""
@@ -94,9 +98,6 @@ class ZeroDelayNetwork(LockstepNetwork):
         ----- 
         round (not use): The current round in the Envrionment.
         """
-        for m in self.miners:
-            m._NIC.nic_forward(round)
-
         for block_packet in self.pending_tape:
             # 清空前一轮被延迟发送的区块
             self.propagate(block_packet)
@@ -143,3 +144,8 @@ class ZeroDelayNetwork(LockstepNetwork):
         for j in range(self.MINER_NUM):
             if j != packet.source:
                 self.miners[j]._NIC.nic_receive(packet)
+
+    def pre_diffuse(self, round) -> int:
+        for m in self.miners:
+            m._NIC.nic_forward(round)
+        return len(self.network_tape) + len(self.pending_tape)

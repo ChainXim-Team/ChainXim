@@ -3,7 +3,7 @@ import hashlib
 import importlib
 from typing import Union
 
-BYTE_ORDER = sys.byteorder
+BYTE_ORDER = 'little'
 HASH_LEN = 32
 INT_LEN = 4
 
