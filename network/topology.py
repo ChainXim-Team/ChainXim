@@ -516,6 +516,9 @@ class TopologyNetwork(Network):
         return self._stat_prop_times
     
 
+    def is_small_network(self):
+        return self._graph.number_of_nodes() <= 2000 and self._graph.number_of_edges() <= 10000
+
     def network_generator(self, gen_net_approach, ave_degree=None, rand_mode=None):
         '''
         根据csv文件的邻接矩'adj'或coo稀疏矩阵'coo'生成网络拓扑    
@@ -555,9 +558,9 @@ class TopologyNetwork(Network):
             for miner in self._miners:
                 miner._NIC.init_queues()
                 
-            # 结果展示和保存
-            #print('adjacency_matrix: \n', self.tp_adjacency_matrix,'\n')
-            self.draw_and_save_network()
+            # 结果展示和保存，过大的网络避免画图和保存结果
+            if self.is_small_network():
+                self.draw_and_save_network()
             self.save_network_attribute()
                 
         except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
@@ -703,13 +706,28 @@ class TopologyNetwork(Network):
             'miner_num':self.MINER_NUM,
             'Generate Approach':self._init_mode,
             'Generate Edge Probability':self._ave_degree/self.MINER_NUM if self._init_mode == 'rand' else None,
-            'Diameter':nx.diameter(self._graph),
-            'Average Shortest Path Length':round(nx.average_shortest_path_length(self._graph), 3),
             'Degree Histogram': nx.degree_histogram(self._graph),
             "Average Degree": sum(dict(nx.degree(self._graph)).values())/len(self._graph.nodes),
             'Average Cluster Coefficient':round(nx.average_clustering(self._graph), 3),
             'Degree Assortativity':round(nx.degree_assortativity_coefficient(self._graph), 3),
         }
+        if self.is_small_network():
+            network_attributes['Diameter'] = nx.diameter(self._graph)
+            network_attributes['Average Shortest Path Length'] = round(nx.average_shortest_path_length(self._graph), 3)
+        else: 
+            from networkx.algorithms.approximation import diameter
+            def approximate_avg_shortest_path(G, samples=1000):
+                nodes = list(G.nodes())
+                sampled_nodes = random.sample(nodes, samples)
+                total_dist = 0
+                for node in sampled_nodes:
+                    lengths = nx.single_source_shortest_path_length(G, node)
+                    total_dist += sum(lengths.values())
+                return total_dist / (len(sampled_nodes) * (len(G) - 1))
+
+            network_attributes['Diameter'] = diameter(self._graph)
+            network_attributes['Average Shortest Path Length'] = round(approximate_avg_shortest_path(self._graph), 3)
+
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'Network Attributes.txt', 'a+', encoding='utf-8') as f:
             f.write('Network Attributes'+'\n')
