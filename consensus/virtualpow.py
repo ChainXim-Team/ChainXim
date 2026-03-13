@@ -25,7 +25,7 @@ class VirtualPoW(PoW):
         if consensus_params['q_distr'] == 'equal':
             self.q = consensus_params['q_ave']
         else:
-            q_distr = eval(consensus_params['q_distr'])
+            q_distr = consensus_params['q_distr']
             if isinstance(q_distr,list):
                 self.q = q_distr[miner_id]
             else:
