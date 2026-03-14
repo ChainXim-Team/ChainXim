@@ -89,10 +89,12 @@ def main(**args):
             target = args.get('target') or consensus_settings['target']
             global_var.set_PoW_target(target)
         else:
+            from decimal import Decimal, getcontext
+            getcontext().prec = 79
             if isinstance(q_distr, str) and q_distr == 'equal':
-                target =  f"{round(2**256/miner_num/q_ave/average_block_time):064x}"
+                target = f"{int(Decimal(2**256) / Decimal(miner_num) / Decimal(q_ave) / Decimal(average_block_time)):064x}"
             else:
-                target = f"{round(2**256/sum(q_distr)/average_block_time):064x}"
+                target = f"{int(Decimal(2**256) / Decimal(sum(q_distr)) / Decimal(average_block_time)):064x}"
             global_var.set_PoW_target(target)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr, 'N': args.get('N') or int(consensus_settings['N'])}
     else:
