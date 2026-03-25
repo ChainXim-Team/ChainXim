@@ -267,7 +267,24 @@ class Environment(object):
                     miner.clear_tapes()
                     
                 # diffuse(C)
+                # if self.adversary.get_attack_type_name() == 'DoubleSpending' and self.adversary.get_attack_type()._attack_success_detect:
+                #     for miner in self.miners:
+                #         if not miner._isAdversary:
+                #             miner._NIC.clear_forward_buffer() # 防止当轮出的块又超过攻击链？
                 self.network.diffuse(round)
+                if self.adversary.get_attack_type_name() == 'DoubleSpending' and self.adversary.get_attack_type()._attack_success_detect:
+                    adver_chain:Chain = self.adversary.get_attack_type().adver_chain
+                    adver_last_block = adver_chain.last_block
+                    adver_height = adver_last_block.get_height()
+                    for miner in self.miners:
+                        if miner._isAdversary:
+                            miner.consensus.local_chain.set_last_block(adver_last_block)
+                        else:
+                            # 强行降低诚实矿工的链到攻击链的高度以下，模拟攻击成功后诚实矿工被迫接受攻击链的情况
+                            miner_last_block = miner.consensus.local_chain.last_block
+                            while miner_last_block.get_height() >= adver_height:
+                                miner_last_block = miner_last_block.parentblock
+                            miner.consensus.local_chain.set_last_block(miner_last_block)
             
                 # 全局链高度超过max_height之后就提前停止
                 current_height = self.global_chain.get_height()

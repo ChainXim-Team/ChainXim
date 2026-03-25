@@ -47,7 +47,7 @@ class DoubleSpending(aa.AttackType):
                                  honest_chain = self.honest_chain,round = round,
                                  attackers_with_honest_neighbors=self.attackers_with_honest_neighbors)
 
-        if self._attack_success_detect and self.honest_chain.search_block(self._lastattackblock):
+        if self._attack_success_detect: # and self.honest_chain.search_block(self._lastattackblock):
             self._log['success'] = self._log['success'] + 1
             self._attack_success_detect = False
             self._fork_block = self._lastattackblock
@@ -94,7 +94,7 @@ class DoubleSpending(aa.AttackType):
                     self._log['fail'] = self._log['fail'] + 1
                 self._log['behavior'] = 'adopt'
                 self._attack_success_detect = False
-            elif adver_height > honest_height:
+            elif adver_height >= honest_height:
                 # 攻击链比诚实链长
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
@@ -113,27 +113,36 @@ class DoubleSpending(aa.AttackType):
                     self._attack_success_detect = True
 
                 self._log['behavior'] = 'override'
-            elif adver_height == honest_height:
-                attack_mine,blocks = bh.mine(adver_list = self.adver_list,
-                                         current_miner = current_miner,
-                                         miner_input = mine_input,
-                                         adver_chain = self.adver_chain,
-                                         consensus = self.adver_consensus,
-                                         round = round)
-                if attack_mine:
-                    # 等长时，如果挖出来，则立刻发布
-                    blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miners = current_miners, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 syncLocalChain = False)
-                    self._lastattackblock = self.adver_chain.get_last_block()
-                    if self._log['behavior'] != 'override':
-                        self._attack_success_detect = True
-                    self._log['behavior'] = 'override'
-                else:
-                    self._log['behavior'] = 'matching'
+            # elif adver_height == honest_height - 1:
+            #     attack_mine,blocks = bh.mine(adver_list = self.adver_list,
+            #                              current_miner = current_miner,
+            #                              miner_input = mine_input,
+            #                              adver_chain = self.adver_chain,
+            #                              consensus = self.adver_consensus,
+            #                              round = round)
+            #     if attack_mine:
+            #         # 等长时，如果挖出来，则立刻发布
+            #         blocks = bh.upload(adver_chain = self.adver_chain,
+            #                      current_miners = current_miners, 
+            #                      round = round,
+            #                      adver_list = self.adver_list,
+            #                      fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+            #                      syncLocalChain = False)
+            #         self._lastattackblock = self.adver_chain.get_last_block()
+            #         if self._log['behavior'] != 'override':
+            #             self._attack_success_detect = True
+            #         self._log['behavior'] = 'override'
+            #     else:
+            #         self._log['behavior'] = 'matching'
+            # else:
+            #     # 攻击链与诚实链 matching
+            #     attack_mine,blocks = bh.mine(adver_list = self.adver_list,
+            #                              current_miner = current_miner,
+            #                              miner_input = mine_input,
+            #                              adver_chain = self.adver_chain, 
+            #                              consensus = self.adver_consensus,
+            #                              round = round)
+            #     self._log['behavior'] = 'matching'
             else:
                 # 攻击链与诚实链 matching
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
@@ -142,7 +151,27 @@ class DoubleSpending(aa.AttackType):
                                          adver_chain = self.adver_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
-                self._log['behavior'] = 'matching'
+                cur_adver_height = self.adver_chain.get_height()
+                if cur_adver_height >= honest_height:
+                    latest_adver_chain_tip = self.adver_chain.get_last_block()
+                    # 如果挖到了与诚实链等高或更高的块，则立刻发布与诚实链等高的块
+                    send_chain_tip = self.adver_chain.get_last_block()
+                    while send_chain_tip.get_height() > honest_height:
+                        send_chain_tip = send_chain_tip.parentblock
+                    self._lastattackblock = send_chain_tip
+                    self.adver_chain.set_last_block(send_chain_tip) # 让攻击链回退到与诚实链等高的状态，以便上传
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                 current_miners = current_miners, 
+                                 round = round,
+                                 adver_list = self.adver_list,
+                                 fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                                 syncLocalChain = False)
+                    self.adver_chain.set_last_block(latest_adver_chain_tip) # 恢复攻击链的状态
+                    if self._log['behavior'] != 'override':
+                        self._attack_success_detect = True
+                    self._log['behavior'] = 'override'
+                else:
+                    self._log['behavior'] = 'matching'
 
     def clear_record_stage(self, round):
         bh = self.behavior

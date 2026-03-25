@@ -206,29 +206,70 @@ class AtomizationBehavior(aa.AtomizationBehavior):
     def mine(self, adver_list: list[miner.Miner], current_miner: miner.Miner, 
              miner_input: any, adver_chain: Chain,  
              consensus: consensus.Consensus, round:int) ->  tuple[bool, Block]:
-        # 以下是attack模块攻击者挖矿部分的思路及原因
-        # 这里注意到如果调用 miner 自身的 mining 函数, 其使用的是 miner 自身的链以及 miner 自身的 q 
-        # 因此为了能方便后续使用者便于书写attack模块, 在 attack 模块中的初始化部分替换 miner 的这两部分内容
-        # 特别提醒： Miner_ID 和 _isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
-        #self.atlog['current_miner'] = self.current_miner.Miner_ID
-        adm_newblock, mine_success = consensus.mining_consensus(
-                miner_id = current_miner.consensus.miner_id_bytes, isadversary=True, x=miner_input, round=round)
+        # # 以下是attack模块攻击者挖矿部分的思路及原因
+        # # 这里注意到如果调用 miner 自身的 mining 函数, 其使用的是 miner 自身的链以及 miner 自身的 q 
+        # # 因此为了能方便后续使用者便于书写attack模块, 在 attack 模块中的初始化部分替换 miner 的这两部分内容
+        # # 特别提醒： Miner_ID 和 _isAdversary 部分是 Environment 初始化已经设置好的, input 在 renew 部分也处理完毕
+        # #self.atlog['current_miner'] = self.current_miner.Miner_ID
+        # adm_newblock, mine_success = consensus.mining_consensus(
+        #         miner_id = current_miner.consensus.miner_id_bytes, isadversary=True, x=miner_input, round=round)
+        # attack_mine: bool = False
+        # if adm_newblock:
+        #     #self.atlog['block_content'] = adm_newblock.blockhead.content
+        #     attack_mine = True
+        #     # if len(miner_list) == 1:
+        #     #     adm_newblock = miner_list[0].consensus.local_chain.add_blocks(adm_newblock)
+        #     # 自己挖出来的块直接用AddBlock即可
+        #     adm_newblock = adver_chain.add_blocks(blocks=adm_newblock)
+
+        #     adver_chain.set_last_block(adm_newblock)
+        #     # adver_chain.last_block = adm_newblock
+        #     # 作为历史可能分叉的一部添加到全局链中
+        #     # global_chain.add_block_forcibly(adm_newblock)
+        #     # for temp_miner in miner_list:
+        #     #     # 将新挖出的区块放在攻击者的receive_tape
+        #     #     temp_miner._consensus.receive_tape.append(adm_newblock)
+
+        # adm_newblock: Block
+        # return attack_mine, adm_newblock
+
+
+
+        # 保证每一轮次攻击者用尽所有的q，仅适用于PoW
+        original_q = consensus.q
+        used_q = 0
+        lastest_adv_block = None
         attack_mine: bool = False
-        if adm_newblock:
-            #self.atlog['block_content'] = adm_newblock.blockhead.content
-            attack_mine = True
-            # if len(miner_list) == 1:
-            #     adm_newblock = miner_list[0].consensus.local_chain.add_blocks(adm_newblock)
-            # 自己挖出来的块直接用AddBlock即可
-            adm_newblock = adver_chain.add_blocks(blocks=adm_newblock)
+        while used_q < original_q:
+            remaining_q = original_q - used_q
+            start_ctr = consensus.ctr
+            consensus.q = remaining_q
+            adm_newblock, mine_success = consensus.mining_consensus(
+                    miner_id = current_miner.consensus.miner_id_bytes, isadversary=True, x=miner_input, round=round)
+            if adm_newblock:
+                #self.atlog['block_content'] = adm_newblock.blockhead.content
+                attack_mine = True
+                # if len(miner_list) == 1:
+                #     adm_newblock = miner_list[0].consensus.local_chain.add_blocks(adm_newblock)
+                # 自己挖出来的块直接用AddBlock即可
+                adm_newblock = adver_chain.add_blocks(blocks=adm_newblock)
+                lastest_adv_block = adm_newblock
 
-            adver_chain.set_last_block(adm_newblock)
-            # adver_chain.last_block = adm_newblock
-            # 作为历史可能分叉的一部添加到全局链中
-            # global_chain.add_block_forcibly(adm_newblock)
-            # for temp_miner in miner_list:
-            #     # 将新挖出的区块放在攻击者的receive_tape
-            #     temp_miner._consensus.receive_tape.append(adm_newblock)
+                adver_chain.set_last_block(adm_newblock)
+                # adver_chain.last_block = adm_newblock
+                # 作为历史可能分叉的一部添加到全局链中
+                # global_chain.add_block_forcibly(adm_newblock)
+                # for temp_miner in miner_list:
+                #     # 将新挖出的区块放在攻击者的receive_tape
+                #     temp_miner._consensus.receive_tape.append(adm_newblock)
+                
+                current_ctr = adm_newblock.blockhead.nonce
+                diff = current_ctr - start_ctr
+                used_q += diff
+            else:
+                used_q = original_q
+                break
+        # 恢复consensus的q和ctr
+        consensus.q = original_q
 
-        adm_newblock: Block
-        return attack_mine, adm_newblock
+        return attack_mine, lastest_adv_block

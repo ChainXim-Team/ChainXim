@@ -112,15 +112,26 @@ class DeterPropNetwork(Network):
         for msg in new_msg:
             if not self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
-                self.network_tape.append(packet)
-        
-            # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
-            if self.miners[minerid]._isAdversary:
-                packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
-                for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+                for miner in self.adv_miners:
+                    # 攻击者直接接收来自诚实矿工的消息
                     packet.update_trans_process(miner.miner_id, round)
                     miner._NIC.nic_receive(packet)
                 self.network_tape.append(packet)
+        
+            # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
+            # if self.miners[minerid]._isAdversary:
+            #     packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
+            #     for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+            #         packet.update_trans_process(miner.miner_id, round)
+            #         miner._NIC.nic_receive(packet)
+            #     self.network_tape.append(packet)
+
+            # 如果是攻击者发出的，诚实矿工立即收到
+            if self.miners[minerid]._isAdversary:
+                packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
+                for miner in self.miners:
+                    packet.update_trans_process(miner.miner_id, round)
+                    miner._NIC.nic_receive(packet)
 
 
     def diffuse(self, round):
