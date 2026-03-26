@@ -37,10 +37,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
                              blockextra:dict = None):
         '''为指定链生成创世区块'''
         genesis_blockhead = self.BlockHead()
-        for k,v in blockheadextra or {}:
+        for k,v in blockheadextra.items() or {}:
             setattr(genesis_blockhead,k,v)
         chain.add_blocks(blocks=self.Block(genesis_blockhead))
-        for k,v in blockextra or {}:
+        for k,v in blockextra.items() or {}:
             setattr(chain.head,k,v)
 
     def __init__(self,miner_id):

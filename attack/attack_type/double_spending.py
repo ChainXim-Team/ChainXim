@@ -47,21 +47,21 @@ class DoubleSpending(aa.AttackType):
                                  honest_chain = self.honest_chain,round = round,
                                  attackers_with_honest_neighbors=self.attackers_with_honest_neighbors)
 
-        if self._attack_success_detect: # and self.honest_chain.search_block(self._lastattackblock):
+        if self._attack_success_detect and (not self.adver_list[0].network_has_topology \
+                                             or self.honest_chain.search_block(self._lastattackblock)):
             self._log['success'] = self._log['success'] + 1
             self._attack_success_detect = False
             self._fork_block = self._lastattackblock
             self._fork_height = self._fork_block.get_height()
         return newest_block, mine_input
     
+    ATTACK_INITIAL_HEIGHT = 3 # 攻击开始的高度
 
     def attack_stage(self, round, mine_input):
         mine_input = self.behavior.ATTACKER_INPUT or mine_input
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        honest_height = self.honest_chain.last_block.get_height()
-        adver_height = self.adver_chain.last_block.get_height()
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
@@ -70,6 +70,31 @@ class DoubleSpending(aa.AttackType):
         else:
             current_miners = random.sample(self.adver_list, 1)
             current_miner = current_miners[0]
+
+        honest_height = self.honest_chain.last_block.get_height()
+        if honest_height < self.ATTACK_INITIAL_HEIGHT:
+            # 进行诚实挖矿，期间不计算攻击成功或者失败
+            if self.honest_chain.get_height() > self.adver_chain.get_height():       
+                self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+            attack_mine,block = self.behavior.mine(adver_list = self.adver_list,
+                                            current_miner = current_miner,
+                                            miner_input = mine_input,
+                                            adver_chain = self.adver_chain,
+                                            consensus = self.adver_consensus,
+                                            round = round)
+            if attack_mine:
+                self.behavior.upload(adver_chain = self.adver_chain,
+                                    current_miners = current_miners,
+                                    round = round,
+                                    adver_list = self.adver_list,
+                                    fork_block = self.honest_chain.get_last_block(),
+                                    syncLocalChain = False)
+            return
+        elif self._fork_block is None:
+            self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+            self._fork_height = self._fork_block.get_height()
+        
+        adver_height = self.adver_chain.last_block.get_height()
 
         if honest_height - self._fork_height < n:
             attack_mine,blocks = bh.mine(adver_list = self.adver_list,
@@ -107,7 +132,7 @@ class DoubleSpending(aa.AttackType):
                         current_miners = current_miners, 
                         round = round,
                         adver_list = self.adver_list,
-                        fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                        fork_block = self._fork_block, # if self._fork_block != None else self.honest_chain.head,
                         syncLocalChain = False)
                 if self._log['behavior'] != 'override':
                     self._attack_success_detect = True
@@ -164,7 +189,7 @@ class DoubleSpending(aa.AttackType):
                                  current_miners = current_miners, 
                                  round = round,
                                  adver_list = self.adver_list,
-                                 fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                                 fork_block = self._fork_block, # if self._fork_block != None else self.honest_chain.head,
                                  syncLocalChain = False)
                     self.adver_chain.set_last_block(latest_adver_chain_tip) # 恢复攻击链的状态
                     if self._log['behavior'] != 'override':
@@ -194,7 +219,9 @@ class DoubleSpending(aa.AttackType):
         ## 3. clear and record stage
         self.clear_record_stage(round)
 
-        
+    def get_attack_times(self):
+        return self._log['success']+self._log['fail']
+    
     def info_getter(self,miner_num):
         rate, thr_rate = self.__success_rate(miner_num)
         return {'Success Rate': '{:.4f}'.format(self._log['success']/(self._log['success']+self._log['fail'])),
@@ -202,7 +229,9 @@ class DoubleSpending(aa.AttackType):
                 'Attack times': self._log['success']+self._log['fail'],
                 # 'Success times': self._log['success'],
                 'Ng': self.attack_arg['Ng'],
-                'N': self.attack_arg['N']
+                'N': self.attack_arg['N'],
+                'attack_fail': self._log['fail'],
+                'attack_success': self._log['success']
                 }
     
     def __success_rate(self,miner_num):

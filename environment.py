@@ -225,7 +225,7 @@ class Environment(object):
         else:
             return True
 
-    def exec(self, num_rounds, max_height, process_bar_type, post_verification):
+    def exec(self, stop_condition: dict, process_bar_type, post_verification):
 
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -234,6 +234,12 @@ class Environment(object):
         '''
         if process_bar_type != 'round' and process_bar_type != 'height':
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
+        num_rounds = stop_condition.get('total_round')
+        max_height = stop_condition.get('max_height')
+        if num_rounds is None or max_height is None:
+            raise ValueError("stop_condition must contain 'total_round' and 'max_height'")
+        max_attack_attempts = stop_condition.get('max_attack_attempts')
+
         ## 开始循环
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
@@ -286,6 +292,10 @@ class Environment(object):
                                 miner_last_block = miner_last_block.parentblock
                             miner.consensus.local_chain.set_last_block(miner_last_block)
             
+                if self.adversary.get_attack_type_name() == 'DoubleSpending' and max_attack_attempts is not None:
+                    if self.adversary.get_attack_type().get_attack_times() >= max_attack_attempts:
+                        print(f"\nMaximum attack attempts {max_attack_attempts} reached, stopping simulation...")
+                        break
                 # 全局链高度超过max_height之后就提前停止
                 current_height = self.global_chain.get_height()
                 if current_height > max_height:

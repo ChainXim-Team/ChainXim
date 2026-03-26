@@ -3,7 +3,7 @@ import logging
 import time
 
 import numpy as np
-
+from typing import Optional
 import global_var
 from environment import Environment
 
@@ -18,10 +18,16 @@ def get_time(f):
     return inner
 
 @get_time
-def run(Z:Environment, total_round: int, max_height: int,
+def run_with_timing(Z:Environment, stop_condition: dict,
         process_bar_type, post_verification:bool, quantile: float):
-    Z.exec(total_round, max_height, process_bar_type, post_verification)
+    Z.exec(stop_condition, process_bar_type, post_verification)
     return Z.view_and_write(quantile)
+
+def run(env: Environment, stop_condition: dict,
+        process_bar_type, post_verification:bool, quantile: float):
+    """运行环境"""
+    env.exec(stop_condition, process_bar_type, post_verification)
+    return env.view(quantile)
 
 def config_log(env_config:dict):
     """配置日志"""
@@ -38,11 +44,10 @@ def config_log(env_config:dict):
         raise ValueError("config error log_level must be set as " +
                          "error/warning/info/debug, cur setting:%s", level_str)
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
-                        level=global_var.get_log_level(), filemode='w')
+                        level=global_var.get_log_level(), filemode='w', force=True)
 
-
-def main(**args):
-    '''主程序'''
+def parse_config(**args):
+    '''配置环境'''
     # 读取配置文件
     config = configparser.ConfigParser()
     config.optionxform = lambda option: option
@@ -195,19 +200,78 @@ def main(**args):
     }
 
     # 生成环境
-    genesis_blockheadextra = {}
-    genesis_blockextra = {}
+    genesis_blockheadextra = args.get('genesis_blockheadextra') or {}
+    genesis_blockextra = args.get('genesis_blockextra') or {}
 
     Z = Environment(attack_param, consensus_param, network_param,
                     genesis_blockheadextra, genesis_blockextra, dataitem_param)
-    total_round = args.get('total_round') or int(env_config['total_round'])
-    max_height = (args.get('total_height') or 
-                  int(env_config.get('total_height') or 2**31 - 2))
+    stop_condition = {
+        'total_round': args.get('total_round') or int(env_config['total_round']),
+        'max_height': (args.get('total_height') or 
+                       int(env_config.get('total_height') or 2**31 - 2))
+    }
     process_bar_type = (args.get('process_bar_type') 
                         or env_config.get('process_bar_type'))
 
-    return run(Z, total_round, max_height, process_bar_type, args.get('disable_post_verification'),
-               config.getfloat('EnvironmentSettings','consensus_miner_quantile'))
+    runtime_configurations = {
+        'stop_condition': stop_condition,
+        'process_bar_type': process_bar_type,
+        'post_verification': args.get('disable_post_verification'),
+        'quantile': config.getfloat('EnvironmentSettings','consensus_miner_quantile')
+    }
+    return Z, runtime_configurations
+
+def main(**args):
+    '''主程序'''
+    env, runtime_configurations = parse_config(**args)
+    return run_with_timing(env, **runtime_configurations)
+    
+def experiment(trail_num, seed:Optional[int] = None, **args):
+    '''
+    重复运行仿真达到停止条件后就停止，然后计算双花攻击成功率
+    trail_num: 仿真重复次数
+    '''
+    if trail_num <= 0:
+        raise ValueError('trail_num must be a positive integer')
+
+    seed = 0 if seed is None else seed * trail_num
+    result_path = args.get('result_path')
+    metric_sums = {}
+    metric_counts = {}
+    import random
+    import numpy as np
+
+    for trail_idx in range(trail_num):
+        # 随机化创世区块，保证仿真独立性
+        cur_seed = seed + trail_idx
+        args['genesis_blockheadextra'] = {'prehash': cur_seed.to_bytes(32, 'little'), 'content': cur_seed.to_bytes(4, 'little')}
+        if result_path:
+            args['result_path'] = result_path / f'trail_{trail_idx}' # 每次仿真结果输出到不同的文件夹，避免文件被覆盖
+
+        random.seed(cur_seed)
+        np.random.seed(cur_seed)
+
+        env, runtime_configurations = parse_config(**args)
+        runtime_configurations['stop_condition'].update({'max_attack_attempts': 1}) # 攻击一次即停止仿真
+        stats = run(env, **runtime_configurations)
+
+        for key, value in stats.items():
+            # 只处理可平均的数值类型
+            if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
+                metric_sums[key] = metric_sums.get(key, 0.0) + float(value)
+                metric_counts[key] = metric_counts.get(key, 0) + 1
+            else:
+                # TODO: 处理 list/ndarray/dict 等复杂类型的聚合逻辑
+                continue
+
+    averaged_stats = {
+        key: (metric_sums[key] / metric_counts[key])
+        for key in metric_sums
+        if metric_counts.get(key, 0) > 0
+    }
+
+    return averaged_stats
+
 
 def get_random_q_gaussian(miner_num,q_ave):
     '''
@@ -338,3 +402,4 @@ could be performed with attackers designed in the simulator'
         args['attack_arg']['eclipse_target'] = eval(args.get('eclipse_target'))
 
     main(**args)
+    # experiment(trail_num=50, **args)
