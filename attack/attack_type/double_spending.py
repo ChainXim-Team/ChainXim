@@ -72,23 +72,23 @@ class DoubleSpending(aa.AttackType):
             current_miner = current_miners[0]
 
         honest_height = self.honest_chain.last_block.get_height()
-        if honest_height < self.ATTACK_INITIAL_HEIGHT:
-            # 进行诚实挖矿，期间不计算攻击成功或者失败
-            if self.honest_chain.get_height() > self.adver_chain.get_height():       
-                self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
-            attack_mine,block = self.behavior.mine(adver_list = self.adver_list,
-                                            current_miner = current_miner,
-                                            miner_input = mine_input,
-                                            adver_chain = self.adver_chain,
-                                            consensus = self.adver_consensus,
-                                            round = round)
-            if attack_mine:
-                self.behavior.upload(adver_chain = self.adver_chain,
-                                    current_miners = current_miners,
-                                    round = round,
-                                    adver_list = self.adver_list,
-                                    fork_block = self.honest_chain.get_last_block(),
-                                    syncLocalChain = False)
+        if honest_height < global_var.get_attack_initial_height():
+            # 进行诚实挖矿，期间不计算攻击成功或者失败   # 为了确保攻击者能比诚实矿工抢先delta获得区块，攻击者在攻击初期不进行攻击，确保攻击开始时的区块来自诚实矿工
+            # if self.honest_chain.get_height() > self.adver_chain.get_height():       
+            #     self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+            # attack_mine,block = self.behavior.mine(adver_list = self.adver_list,
+            #                                 current_miner = current_miner,
+            #                                 miner_input = mine_input,
+            #                                 adver_chain = self.adver_chain,
+            #                                 consensus = self.adver_consensus,
+            #                                 round = round)
+            # if attack_mine:
+            #     self.behavior.upload(adver_chain = self.adver_chain,
+            #                         current_miners = current_miners,
+            #                         round = round,
+            #                         adver_list = self.adver_list,
+            #                         fork_block = self.honest_chain.get_last_block(),
+            #                         syncLocalChain = False)
             return
         elif self._fork_block is None:
             self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)

@@ -40,6 +40,11 @@ def __init__(result_path:Path = None):
     _var_dict['ATTACK_EXECUTE_TYPE']='execute_sample0'
     _var_dict['CHECK_POINT'] = None
     _var_dict['COMMON_PREFIX_ENABLE'] = False
+    _var_dict['ATTACK_INITIAL_HEIGHT'] = 3
+
+def get_attack_initial_height():
+    '''获得攻击初始高度'''
+    return _var_dict['ATTACK_INITIAL_HEIGHT']
 
 def set_common_prefix_enable(common_prefix_enable):
     '''设置是否启用common prefix pdf type:bool'''
