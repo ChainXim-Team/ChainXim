@@ -100,7 +100,7 @@ def double_spending_with_delay(N: int, ng: int, alpha, max_delay) -> float:
     delta = 1/10
     R_max = 12000
     h = 2**(-DIFFICULTY) / delta
-    solver = DoubleSpendSolver(N, ng, max_delay, alpha, h, MINER_NUM, delta)
+    solver = DoubleSpendSolver(N, ng, max_delay-1, alpha, h, MINER_NUM, delta)
     return solver.attack_success_probability(R_max)
 
 
@@ -173,7 +173,7 @@ def prop_vec_generator(max_delay: int) -> list[float]:
     if max_delay == 1:
         return [1.0]
     # return [max_delay/10] + [1.0]
-    return [1/MINER_NUM] * (max_delay) + [1.0]
+    return [1/MINER_NUM] * (max_delay - 1) + [1.0]
 
 
 @dataclass
