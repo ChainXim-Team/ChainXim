@@ -117,6 +117,12 @@ class Adversary(metaclass=ABCMeta):
         '''
         Adversary的核心功能 每轮执行一次attack
         '''
+        if self.get_attack_type_name() == 'DoubleSpending':
+            # 在开始攻击之后，就确保攻击者能及时收到所有诚实矿工的区块，除非攻击者即将攻击失败，落后于诚实链Ng个区块
+            honest_height = self.honest_chain.get_height()
+            if global_var.get_attack_initial_height() < honest_height < self.__attack_type.adver_chain.get_height() + self.__attack_type.attack_arg['Ng'] - 1:
+                for miner in self.__miner_list:
+                    self.honest_chain.add_block_forcibly(miner.consensus.local_chain.last_block)
         self.__excute_attack.excute_this_attack_per_round(round)
         self.__global_chain.add_block_forcibly(self.__attack_type.adver_chain.last_block)
         
