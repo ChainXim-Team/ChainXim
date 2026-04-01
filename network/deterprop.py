@@ -21,8 +21,8 @@ class PacketPVNet(Packet):
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程记录
-        self.received_miners:set[int] = set([source_id])
-        self.trans_process = {f'miner {source_id}': round}
+        self.received_miners:set[int] = set() # set([source_id])
+        self.trans_process = {} # {f'miner {source_id}': round}
         # 每轮都pop第一个，记录剩余的传播向量
         self.remain_prop_vector = copy.deepcopy(prop_vector)
 
