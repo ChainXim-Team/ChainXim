@@ -26,17 +26,19 @@ context.prec = 79
 MINER_NUM = 100
 TOTAL_HEIGHT = 50000
 TOTAL_ROUNDS = 999_999_999
-TOTAL_TRAILS = 800
+TOTAL_TRAILS = 8000
 PROCESS_BAR_TYPE = "height"
 ADVER_RATIOS = [0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45] # [0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]
 N_VALUES = [6]
-MAX_DELAY_VALUES = [60, 75] # [50, 20] # [50, 20] # [2, 10, 20, 50] # [2, 4, 6, 8]
-CONFIG_PATH = "system_config.ini"
+MAX_DELAY_VALUES = [30, 60, 90, 120] # [100, 80, 50] # [60, 75] # [50, 20] # [2, 10, 20, 50] # [2, 4, 6, 8]  平均出块间隔为130轮次时适用
+# MAX_DELAY_VALUES = [35, 45] # [70, 90, 110] # [30, 40, 60, 80] # 平均出块间隔为70轮次时适用
+CONFIG_PATH = "successprob_adver_ratio_max_delay.ini"
 ATTACK_TYPE = "DoubleSpending"
 NETWORK_TYPE = "network.DeterPropNetwork"
 NG_FIXED = 50 # 8
 PLOT_MARKERS = ["d", "^", "x", "v", "+", "P", "X", "*", "<", ">"]
-DIFFICULTY = 13.66622400280318 # 14 临时修改 使平均出块间隔为130轮次
+DIFFICULTY = 13.66622400280318 # 平均出块间隔为130轮次
+# DIFFICULTY = 12.773139207 # 平均出块间隔为70轮次
 TARGET = f"{(int(Decimal(2) ** Decimal(256 - DIFFICULTY)) - 1):0>64X}"
 
 logger = logging.getLogger()
@@ -172,8 +174,9 @@ def prop_vec_generator(max_delay: int) -> list[float]:
         raise ValueError("max_delay must be a positive integer")
     if max_delay == 1:
         return [1.0]
-    # return [max_delay/10] + [1.0]
-    return [1/MINER_NUM] * (max_delay - 1) + [1.0]
+    return [0] * (max_delay - 1) + [1.0] # 所有诚实矿工都必须在max_delay轮收到区块
+    # [1/MINER_NUM] * (max_delay - 1) + [1.0]
+    # 该传播向量仅在出块矿工延迟max_delay轮收到自己的区块的情况下才正确
 
 
 @dataclass
@@ -297,11 +300,15 @@ def run_experiments(
 ) -> tuple[pd.DataFrame, Path]:
     ensure_directory(base_output_root)
 
+    import os
+    with open(base_output_root / "pid.txt", "w") as f:
+        f.write(str(os.getpid()))
+
     tasks = _build_simulation_tasks(alphas, max_delays, base_output_root)
     if not tasks:
         raise ValueError("No simulation tasks generated. Check input parameters.")
 
-    pool_size = max(1, min(20, cpu_count(), len(tasks)))
+    pool_size = max(1, min(28, cpu_count(), len(tasks)))
     with Pool(processes=pool_size, maxtasksperchild=1) as pool:
         records: list[SimulationRecord] = pool.starmap(simulate_configuration, tasks)
 

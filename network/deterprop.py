@@ -119,31 +119,8 @@ class DeterPropNetwork(Network):
             if not self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
 
-                # self.attacker_instant_receive(packet)
+                self.attacker_instant_receive(packet)
 
-                if isinstance(msg, Block):
-                    if msg.height <= global_var.get_attack_initial_height():
-                        # 仅当攻击者还未开始攻击时，攻击者才无条件地实时收到诚实矿工的消息
-                        # 攻击开始前实时收到诚实矿工的消息确保delta
-                        # 攻击成功前延迟delta收到诚实矿工消息，额外给攻击者抢先一步获得区块的机会，增加攻击成功概率
-                        self.attacker_instant_receive(packet)
-                    else:
-                        in_flight_blocks:dict[int, list[PacketPVNet]] = defaultdict(list) # key: block height, value: list[PacketPVNet]
-                        max_in_flight_block_height = -1
-                        for p in self.network_tape:
-                            payload = p.payload
-                            if isinstance(payload, Block):
-                                in_flight_blocks[payload.height].append(p)
-                                if payload.height > max_in_flight_block_height:
-                                    max_in_flight_block_height = payload.height
-                        if 0 < max_in_flight_block_height < msg.height:
-                            # 新进入网络层中的区块比当前网络中传播的区块高度更高，确保非最高区块的消息立刻被攻击者接收到，避免过早判定攻击成功
-                            for p in in_flight_blocks[max_in_flight_block_height]:
-                                for miner in self.adv_miners:
-                                    if miner.miner_id in p.received_miners: # 如果攻击者已经收到该消息了，就不再重复接收了
-                                        break
-                                else:
-                                    self.attacker_instant_receive(p)
                 self.network_tape.append(packet)
         
             # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到

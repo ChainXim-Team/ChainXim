@@ -187,6 +187,13 @@ class Chain(object):
         # 不会为block默认赋值 要求使用该方法必须给出添加的区块 否则提示报错
 
         copylist:list[Block] = []  # 需要拷贝过去的区块list
+        # 由于新区块不直接加到链上，导致区块空悬，需要通过prehash补全parentblock，如果无法补全就返回None
+        # if not block.parentblock:
+        #     parentblock = self.search_block_by_hash(block.blockhead.prehash)
+        #     if parentblock is None:
+        #         return None
+        #     block.parentblock = parentblock
+        
         local_tmp = self.search_block(block)
         while block and not local_tmp:
             copylist.append(block)

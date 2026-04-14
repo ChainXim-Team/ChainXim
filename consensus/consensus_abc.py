@@ -122,6 +122,7 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         newblock, success = self.mining_consensus(self.miner_id_bytes, isadversary, x, round)
         if success is False:
             return None, False
+        # 确保挖出的区块的矿工等待max_delay之后才能接收到
         # newblock = self.local_chain.add_blocks(blocks=newblock)
         # add_blocks默认执行深拷贝 因此要获取当前加到链上的newblock地址
         # self.local_chain.lastblock = newblock
