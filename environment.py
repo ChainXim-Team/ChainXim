@@ -105,11 +105,15 @@ class Environment(object):
                 print(f"_isAdversary: {miner._isAdversary}\n", file=f)
         
         from reprlib import repr
+        import reprlib
+        reprlib.aRepr.maxdict = 10**6
+        reprlib.aRepr.maxlist = 50
+
         parameter_str = ('Parameters:\n' + 
             f'Miner Number: {self.miner_num} \n' + 
             f'Consensus Protocol: {consensus_type.__name__} \n' + 
             f'Network Type: {type(self.network).__name__} \n' + 
-            f'Network Param:  {network_param} \n' + 
+            f'Network Param:  {repr(network_param)} \n' + 
             f'Consensus Param: {repr(consensus_param)} \n')
         if adversary_ids:
             parameter_str += f'Adversary Miners: {adversary_ids} \n'
@@ -277,7 +281,7 @@ class Environment(object):
                 else:
                     round += 1
                 
-                self.network.diffuse(round)
+                self.network.diffuse(round - 1)
                 # 全局链高度超过max_height之后就提前停止
                 current_height = self.global_chain.get_height()
                 if current_height > max_height:

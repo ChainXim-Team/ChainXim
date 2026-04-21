@@ -564,7 +564,7 @@ class TopologyNetwork(Network):
             # 结果展示和保存，过大的网络避免画图和保存结果
             if self.is_small_network():
                 self.draw_and_save_network()
-                self.save_network_attribute()
+            self.save_network_attribute()
                 
         except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
                 errors.NetUnconnetedError, errors.NetGenError) as error:
@@ -703,16 +703,6 @@ class TopologyNetwork(Network):
                 if topology_ndarray[i, j] != 0:
                     self.tp_adjacency_matrix[i, j] = self.tp_adjacency_matrix[j, i] = 1
 
-    def approximate_avg_shortest_path(G, samples=2000):
-        nodes = list(G.nodes())
-        sampled_nodes = random.sample(nodes, samples)
-        total_dist = 0
-        for node in sampled_nodes:
-            lengths = nx.single_source_shortest_path_length(G, node)
-            total_dist += sum(lengths.values())
-
-        return total_dist / (len(sampled_nodes) * (len(G) - 1))
-
     def save_network_attribute(self):
         '''保存网络参数'''
         network_attributes={
@@ -727,10 +717,19 @@ class TopologyNetwork(Network):
         if self.is_small_network():
             network_attributes['Diameter'] = nx.diameter(self._graph)
             network_attributes['Average Shortest Path Length'] = round(nx.average_shortest_path_length(self._graph), 3)
-        else:
+        else: 
             from networkx.algorithms.approximation import diameter
+            def approximate_avg_shortest_path(G, samples=1000):
+                nodes = list(G.nodes())
+                sampled_nodes = random.sample(nodes, samples)
+                total_dist = 0
+                for node in sampled_nodes:
+                    lengths = nx.single_source_shortest_path_length(G, node)
+                    total_dist += sum(lengths.values())
+                return total_dist / (len(sampled_nodes) * (len(G) - 1))
+
             network_attributes['Diameter'] = diameter(self._graph)
-            network_attributes['Average Shortest Path Length'] = round(self.approximate_avg_shortest_path(self._graph), 3)
+            network_attributes['Average Shortest Path Length'] = round(approximate_avg_shortest_path(self._graph), 3)
 
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'Network Attributes.txt', 'a+', encoding='utf-8') as f:
