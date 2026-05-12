@@ -10,7 +10,7 @@ import numpy as np
 import consensus
 import global_var
 import network
-from data import Block, Chain, LocalChainTracker
+from data import Block, BlockCarrier, Chain, LocalChainTracker
 from external import chain_growth, chain_quality, common_prefix, MAX_SUFFIX
 from functions import for_name, INT_LEN, BYTE_ORDER
 from miner import Miner, network_interface
@@ -262,6 +262,8 @@ class Environment(object):
                         for msg in new_msgs:
                             if isinstance(msg, Block):
                                 self.global_chain.add_block_forcibly(msg)
+                            if isinstance(msg, BlockCarrier) and (block := msg.get_block()) is not None:
+                                self.global_chain.add_block_forcibly(block)
                     miner.clear_tapes()
                     
                 # diffuse(C)

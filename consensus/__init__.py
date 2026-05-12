@@ -1,6 +1,8 @@
 from .consensus_abc import Consensus
 from .pow import PoW
 from .virtualpow import VirtualPoW
+from .pbft import PBFT
+
 try:
     from .random_oracle import RandomOracleRoot, RandomOracleMining, RandomOracleVerifying
     from .solidpow import SolidPoW

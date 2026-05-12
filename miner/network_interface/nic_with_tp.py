@@ -132,8 +132,8 @@ class NICWithTp(NetworkInterface):
         # 将 forward_buffer 写入 output_queue 中
         if (len(self._forward_buffer[SELF_GEN_MSG]) != 0 or
             len(self._forward_buffer[OUTER_RCV_MSG]) != 0):
-            self.__forward_buffer_to_output_queue(SELF_GEN_MSG)
             self.__forward_buffer_to_output_queue(OUTER_RCV_MSG)
+            self.__forward_buffer_to_output_queue(SELF_GEN_MSG)
             logger.info("round %d, M%d, neighbors %s, outputqueue %s", round, self.miner_id, str(self._neighbors), 
                 {k:[msg.name if isinstance(msg, Block) else msg for msg in v] for k,v in self._output_queues.items()})
         
@@ -166,8 +166,9 @@ class NICWithTp(NetworkInterface):
                     continue
 
                 send_msgs =[msg]
-                
+                sendTogether = False
                 if isinstance(msg, DataSegment):
+                    sendTogether = True
                     seg_nums = self.__get_number_of_segments_to_send(self.miner_id, neighbor) - 1
                     self.inv_count += 1
                     while (seg_nums > 0 and len(self._output_queues[neighbor]) > 0 and 
@@ -178,7 +179,7 @@ class NICWithTp(NetworkInterface):
                             seg_nums = seg_nums - 1
                 
                 self._channel_states[neighbor] = send_msgs
-                self.__send_data(send_msgs, neighbor, round, sendTogether=True)
+                self.__send_data(send_msgs, neighbor, round, sendTogether)
                 break
         
         self.clear_forward_buffer()

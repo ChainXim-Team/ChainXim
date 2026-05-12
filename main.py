@@ -97,6 +97,8 @@ def main(**args):
         consensus_param = {}
         for key, value in consensus_settings.items():
             consensus_param[key] = args.get(key) or value
+        if 'N' in consensus_param:
+            consensus_param['N'] = int(consensus_param['N'])
 
     # 设置网络参数
     network_param = {}

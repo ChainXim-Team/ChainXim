@@ -116,9 +116,9 @@ class Miner(object):
         
 
     def BackboneProtocol(self, round):
-        _, chain_update, tree_update = self.consensus.local_state_update()
-        if tree_update:
-            self.forward(tree_update, OUTER_RCV_MSG)
+        _, chain_update, forwarded_msgs = self.consensus.local_state_update()
+        if forwarded_msgs:
+            self.forward(forwarded_msgs, OUTER_RCV_MSG)
 
         input = I(round, self.input_tape)  # I function
         if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:

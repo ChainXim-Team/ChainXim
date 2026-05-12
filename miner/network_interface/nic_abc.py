@@ -40,7 +40,7 @@ class NetworkInterface(metaclass=ABCMeta):
         if msg_source_type != SELF_GEN_MSG and msg_source_type != OUTER_RCV_MSG:
             raise ValueError("Message source type must be SELF_GEN_MSG or OUTER_RCV_MSG")
         if msg_source_type == SELF_GEN_MSG:
-            if self._network.withTopology and syncLocalChain:
+            if self._network.withTopology and syncLocalChain and isinstance(msg, Block):
                 msg = SYNC_LOC_CHAIN
             self._forward_buffer[SELF_GEN_MSG].append([msg, forward_strategy, spec_target])
             if (not self._network.withTopology and len(self._forward_buffer[SELF_GEN_MSG]) > 1 

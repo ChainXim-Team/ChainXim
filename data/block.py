@@ -139,3 +139,8 @@ class Block(Message):
 
     def get_height(self):
         return self.height
+    
+class BlockCarrier(metaclass=ABCMeta):
+    @abstractmethod
+    def get_block(self) -> Block:
+        ...
