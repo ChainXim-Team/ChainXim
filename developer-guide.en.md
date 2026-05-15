@@ -574,7 +574,7 @@ Where self.state controls the state of the consensus class instance. In STATE2, 
 MyConsensus.local_state_update needs to update the state of the consensus object based on the Message objects cached in receive_tape, typically updating the local chain based on the incoming blocks. The logic can refer to the following code snippet:
 
 ```python
-    def local_state_update(self):
+    def local_state_update(self, round):
         for message in self.receive_tape:
             if isinstance(message, Consensus.Block):# Handle Block
                 if not self.valid_block(message):

@@ -54,7 +54,7 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         input_tape = []
         # receive_history = {}
         for temp_miner in adver_list:
-            updated_chain, _, tree_update = temp_miner.consensus.local_state_update() 
+            updated_chain, _, tree_update = temp_miner.consensus.local_state_update(round) 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
             # receive_history.update(temp_miner.receive_history)
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')

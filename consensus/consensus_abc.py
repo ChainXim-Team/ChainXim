@@ -96,6 +96,8 @@ class Consensus(metaclass=ABCMeta):        #抽象类
             if (trailing_blocks := self.block_buffer.get(block.blockhash, None)) is None:
                 continue
             for fork_tip in trailing_blocks:
+                if not self.valid_block(fork_tip):
+                    continue
                 tip = self.local_chain.add_blocks(blocks=[fork_tip], insert_point=block,
                                                   deepcopy=False) # 放入本地链
                 touched_blocks.append(tip) # 以fork_tip的哈希为键查找下一高度块
@@ -142,20 +144,33 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         pass
 
     @abstractmethod
-    def local_state_update(self):
+    def local_state_update(self, round):
         '''检验接收到的区块并将其合并到本地链'''
         pass
 
-    @abstractmethod
-    def valid_chain(self):
-        '''检验链是否合法
+    def valid_chain(self, lastblock: Block):
+        '''验证区块链是否PoW合法\n
+        param:
+            lastblock 要验证的区块链的最后一个区块 type:Block
         return:
-            合法标识    type:bool
+            chain_vali 合法标识 type:bool
         '''
-        pass
+        chain_vali = True
+        if chain_vali and lastblock:
+            blocktmp = lastblock
+            self.valid_block(blocktmp)
+            ss = blocktmp.blockhash
+            while chain_vali and blocktmp is not None:
+                block_vali = self.valid_block(blocktmp)
+                if block_vali and blocktmp.blockhash == ss:
+                    ss = blocktmp.blockhead.prehash
+                    blocktmp = blocktmp.parentblock
+                else:
+                    chain_vali = False
+        return chain_vali
 
     @abstractmethod
-    def valid_block(self):
+    def valid_block(self, block:data.Block):
         '''检验单个区块是否合法
         return:合法标识    type:bool
         '''

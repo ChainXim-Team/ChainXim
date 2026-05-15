@@ -116,7 +116,7 @@ class Miner(object):
         
 
     def BackboneProtocol(self, round):
-        _, chain_update, forwarded_msgs = self.consensus.local_state_update()
+        _, chain_update, forwarded_msgs = self.consensus.local_state_update(round)
         if forwarded_msgs:
             self.forward(forwarded_msgs, OUTER_RCV_MSG)
 

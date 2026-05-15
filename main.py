@@ -71,7 +71,7 @@ def main(**args):
     
     # 设置PoW共识协议参数
     consensus_settings = dict(config['ConsensusSettings'])
-    if global_var.get_consensus_type() in ['consensus.PoW', 'consensus.VirtualPoW', 'consensus.SolidPoW']:
+    if global_var.get_consensus_type() in ['consensus.PoW', 'consensus.VirtualPoW', 'consensus.SolidPoW', 'consensus.PoS']:
         q_ave = args.get('q_ave') or float(consensus_settings['q_ave'])
         global_var.set_ave_q(q_ave)
         q_distr = args.get('q_distr') or consensus_settings['q_distr']
@@ -83,7 +83,7 @@ def main(**args):
                "q_distr should be 'equal' or a list with length equal to miner_num"
         
         average_block_time = args.get('average_block_time') or float(consensus_settings['average_block_time'])
-        if average_block_time == 0:
+        if average_block_time == 0 or global_var.get_consensus_type() == 'consensus.PoS':
             target = args.get('target') or consensus_settings['target']
             global_var.set_PoW_target(target)
         else:
@@ -93,6 +93,9 @@ def main(**args):
                 target = f"{2**256//int(sum(q_distr)*average_block_time):064x}"
             global_var.set_PoW_target(target)
         consensus_param = {'target':target, 'q_ave':q_ave, 'q_distr':q_distr, 'N': args.get('N') or int(consensus_settings['N'])}
+        precompute_threshold = consensus_settings.get('precompute_threshold')
+        if precompute_threshold is not None and global_var.get_consensus_type() == 'consensus.PoS':
+            consensus_param.update({'precompute_threshold': int(precompute_threshold)})
     else:
         consensus_param = {}
         for key, value in consensus_settings.items():

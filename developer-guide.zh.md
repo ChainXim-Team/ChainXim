@@ -571,7 +571,7 @@ Block对象的构造过程可参考“[共识协议与区块](#共识协议与�
 MyConsensus.local_state_update需要根据_receive_tape中缓存的Message对象更新共识对象的状态，最典型的就是根据传入的区块更新本地链，其逻辑可以参考以下代码片段：
 
 ```python
-    def local_state_update(self):
+    def local_state_update(self, round):
         for message in self.receive_tape:
             if isinstance(message, Consensus.Block):# 处理Block
                 if not self.valid_block(message):

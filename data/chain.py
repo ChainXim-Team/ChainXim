@@ -114,7 +114,7 @@ class Chain(object):
             return self.get_last_block().get_height()
 
     def add_blocks(self, blocks: Block | list[Block], insert_point:Block=None,
-                   deepcopy: bool = True):
+                   deepcopy: bool = True, auto_switch: bool = True):
         if not blocks:
             return
         # 添加区块的功能 (深拷贝*)
@@ -176,7 +176,7 @@ class Chain(object):
         #     self.merge_tracker_callback(cur2add)
 
         # 如果新加的区块的高度比现在的链的高度高 重新将lastblock指向新加区块
-        if cur2add.get_height() > self.get_height():
+        if auto_switch and cur2add.get_height() > self.get_height():
             self.set_last_block(cur2add)
         return cur2add
 

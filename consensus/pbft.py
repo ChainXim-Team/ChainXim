@@ -139,7 +139,7 @@ class PBFT(Consensus):
             return [msg], True
         return None, False
     
-    def local_state_update(self):
+    def local_state_update(self, round):
         new_update = False
         chain_update = []
         forwarded_msgs = []

@@ -88,7 +88,7 @@ class PoW(Consensus):
                 i = i+1
         return (None, pow_success)
         
-    def local_state_update(self):
+    def local_state_update(self, round):
         # algorithm 2 比较自己的chain和收到的chain并相应更新本地链
         # output:
         #   lastblock 最长链的最新一个区块
@@ -97,7 +97,7 @@ class PoW(Consensus):
         tree_update = []
         original_last_block = None
         for incoming_block in self.receive_tape:
-            if type(incoming_block) is not self.Block:
+            if not isinstance(incoming_block, self.Block):
                 continue
             if self.valid_block(incoming_block):
                 prehash = incoming_block.blockhead.prehash
@@ -123,29 +123,6 @@ class PoW(Consensus):
                 chain_update.insert(0, blocktmp)
                 blocktmp = blocktmp.parentblock
         return self.local_chain, chain_update, tree_update
-
-    def valid_chain(self, lastblock: Consensus.Block):
-        '''验证区块链是否PoW合法\n
-        param:
-            lastblock 要验证的区块链的最后一个区块 type:Block
-        return:
-            chain_vali 合法标识 type:bool
-        '''
-        # xc = external.R(blockchain)
-        # chain_vali = external.V(xc)
-        chain_vali = True
-        if chain_vali and lastblock:
-            blocktmp = lastblock
-            self.valid_block(blocktmp)
-            ss = blocktmp.blockhash
-            while chain_vali and blocktmp is not None:
-                block_vali = self.valid_block(blocktmp)
-                if block_vali and blocktmp.blockhash == ss:
-                    ss = blocktmp.blockhead.prehash
-                    blocktmp = blocktmp.parentblock
-                else:
-                    chain_vali = False
-        return chain_vali
 
     def valid_block(self,block:Consensus.Block):
         '''
