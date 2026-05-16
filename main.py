@@ -211,20 +211,20 @@ def main(**args):
 
 def get_random_q_gaussian(miner_num,q_ave):
     '''
-    随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
+    随机设置各个节点的hash rate,满足均值为q_ave的高斯分布
     且满足全网总算力为q_ave*miner_num
     '''
     # 生成均值为ave_q，方差为0.2*q_ave的高斯分布
     q_dist = np.random.normal(q_ave, 0.2*q_ave, miner_num)
     # 归一化到总和为total_q，并四舍五入为整数
-    total_q = q_ave * miner_num
+    total_q = int(round(q_ave * miner_num))
     q_dist = total_q / np.sum(q_dist) * q_dist
     q_dist = np.round(q_dist).astype(int)
     # 修正，如果和不为total_q就把差值分摊在最小值或最大值上
-    if np.sum(q_dist) != total_q:
-        diff = total_q - np.sum(q_dist)
+    diff = int(total_q - np.sum(q_dist))
+    if diff != 0:
+        sign_diff = 1 if diff > 0 else -1
         for _ in range(abs(diff)):
-            sign_diff = np.sign(diff)
             idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
             q_dist[idx] += sign_diff
     return q_dist.tolist()
