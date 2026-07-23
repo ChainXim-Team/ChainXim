@@ -194,7 +194,8 @@ def main(**args):
     }
 
     # 生成环境
-    genesis_blockheadextra = {}
+    cur_seed = args.get("seed", 30)
+    genesis_blockheadextra = {'prehash': cur_seed.to_bytes(32, 'little'), 'content': cur_seed.to_bytes(4, 'little')}
     genesis_blockextra = {}
 
     Z = Environment(attack_param, consensus_param, network_param,
