@@ -12,7 +12,9 @@ ChainXim以Bitcoin Backbone Protocol为理论基础构建，架构高度可扩�
 
 ## 基于ChainXim的项目 ChainXim-Based Projects
 
-- BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Source Code](https://github.com/czxdev/BagChain)
+- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Source Code](https://github.com/RayJ9/VDF-based-PoVD) 
+
+- BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Publication](https://doi.org/10.1109/TMC.2025.3624804) [Source Code](https://github.com/czxdev/BagChain)
 
 
 ## Quick Start

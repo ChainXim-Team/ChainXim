@@ -12,7 +12,11 @@ Built upon Bitcoin Backbone Protocol, ChainXim features a highly extensible arch
 
 ## ChainXim-Based Projects
 
-- BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Source Code](https://github.com/czxdev/BagChain)
+- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Source Code](https://github.com/RayJ9/VDF-based-PoVD)
+
+  The VDF-based PoVD blockchain simulation platform is developed based on ChainXim, a blockchain simulator. Upon ChainXim, this project incorporates PoVD-related mechanisms while retaining PoW and other baseline experimental capabilities. Its primary purpose is to compare the forking behavior of different consensus mechanisms under varying network conditions, propagation models, and target block times.
+
+- BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Publication](https://doi.org/10.1109/TMC.2025.3624804) [Source Code](https://github.com/czxdev/BagChain)
 
   BagChain integrates blockchain with distributed machine learning by replacing the computationally costly hash operations in proof-of-work with machine-learning model training. It utilizes individual miners’ private data samples and limited computing resources to train base models and further aggregates them into strong ensemble models. A three-layer blockchain structure and the corresponding generation and validation mechanisms are designed to enable distributed machine learning among uncoordinated miners in a permissionless and open setting.
 
