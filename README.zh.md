@@ -232,6 +232,14 @@ Count of INV interactions: 267
 
 * 主要负责共识层与评估层的设计与代码编写
 
+崔自翔 Zixiang Cui
+
+* 主要负责优化性能、改进ChainXim框架并实现了DataItem机制
+
+陆彦 Yan Lu
+
+* 主要负责攻击层和链结构设计
+
 陈炳文 Bingwen Chen
 
 * 主要负责网络层的设计与代码编写，包括全部网络模型以及网络接口的开发
@@ -239,10 +247,6 @@ Count of INV interactions: 267
 陈阳 Yang Chen
 
 * 主要负责攻击层的设计与代码编写，包括全部攻击类型的开发
-
-崔自翔 Zixiang Cui
-
-* 主要负责优化性能、改进ChainXim框架并实现了DataItem机制
 
 陈喜年 Xinian Chen
 

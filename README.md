@@ -233,6 +233,14 @@ See [Developer Guide](developer-guide.en.md) for more details
 
 * Designed and developed the consensus layer and the evaluation layer
 
+崔自翔 Zixiang Cui
+
+* Optimized performance, refined ChainXim framework, and implemented the DataItem mechanism
+
+陆彦 Yan Lu
+
+* Designed the attack layer and the chain structure
+
 陈炳文 Bingwen Chen
 
 * Designed and developed the network layer, including the development of NetworkInterface and all network models
@@ -240,10 +248,6 @@ See [Developer Guide](developer-guide.en.md) for more details
 陈阳 Yang Chen
 
 * Designed and developed the attack layer, including the development of all attack types
-
-崔自翔 Zixiang Cui
-
-* Optimized performance, refined ChainXim framework, and implemented the DataItem mechanism
 
 陈喜年 Xinian Chen
 
