@@ -151,6 +151,7 @@ DataItem是链上数据的抽象，数据结构为4 byte 生成轮次 + 4 bytes 
 | ---------------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------ |
 | init_mode              | `--init_mode rand`                                | str         | 网络初始化方法, 'adj'邻接矩阵, 'coo'稀疏的邻接矩阵, 'rand'随机生成。'adj'和'coo'的网络拓扑通过csv文件给定。'rand'需要指定带宽、度等参数 |
 | topology_path          | `--topology_path conf/topologies/default_adj.csv` | str         | csv格式拓扑文件的路径，文件格式需要和`init_mode`匹配（路径相对于当前路径） |
+| directed               | `--directed`                                      | bool        | 将拓扑项视为有向链路。COO文件可分别配置`u -> v`和`v -> u`以使用非对称带宽；默认false以兼容原有配置 |
 | bandwidth_honest       | `--bandwidth_honest 0.5`                          | float       | 诚实矿工之间以及诚实矿工和攻击者之间的网络带宽，单位MB/round |
 | bandwidth_adv          | `--bandwidth_adv 5`                               | float       | 攻击者之间的带宽，单位MB/round                               |
 | rand_mode              | `--rand_mode homogeneous`                         | str         | 随机网络拓扑的生成模式<br />'homogeneous'：根据ave_degree生成网络并尽可能保持每个节点的度相同<br />'binomial'：采用Erdős-Rényi算法，以`ave_degree/(miner_num-1)`概率在节点之间随机建立链接 |

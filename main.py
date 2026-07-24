@@ -126,13 +126,13 @@ def main(**args):
     elif network_type == 'network.TopologyNetwork':
         net_setting = 'TopologyNetworkSettings'
         bool_params  = ['show_label', 'save_routing_graph', 'save_routing_history',
-                        'dynamic','enable_resume_transfer']
+                        'directed', 'dynamic','enable_resume_transfer']
         float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv',
                         'outage_prob','avg_tp_change_interval','edge_add_prob',
                         'edge_remove_prob','max_allowed_partitions']
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
-                                 config.getboolean(net_setting, bparam)})
+                                 config.getboolean(net_setting, bparam, fallback=False)})
         for fparam in float_params:
             network_param.update({fparam: args.get(fparam) or 
                                   config.getfloat(net_setting, fparam)})
@@ -289,6 +289,7 @@ could be performed with attackers designed in the simulator'
     topology_setting = parser.add_argument_group('TopologyNetworkSettings', 'Settings for TopologyNetwork')
     topology_setting.add_argument('--show_label', help='Show edge labels on network and routing graph.', action='store_true')
     topology_setting.add_argument('--save_routing_graph', help='Generate routing graph at the end of simulation or not.', action='store_true')
+    topology_setting.add_argument('--directed', help='Treat topology edges as directed links.', action='store_true')
     rand_mode_help_text = '''Options:homogeneous/binomial.
     homogeneous: try to keep the degree of each node the same.
     binomial: set up edges with probability ave_degree/(miner_num-1). '''

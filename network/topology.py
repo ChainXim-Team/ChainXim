@@ -105,6 +105,7 @@ class TopologyNetwork(Network):
         self._show_label = False
         self._save_routing_graph = False
         self._save_routing_history = False
+        self._directed = False
 
         # 拓扑图，初始默认全不连接
         self._tp_adjacency = np.zeros((self.MINER_NUM, self.MINER_NUM))
@@ -147,6 +148,7 @@ class TopologyNetwork(Network):
                       bandwidth_adv = None,
                       outage_prob = None, 
                       enable_resume_transfer = None,
+                      directed = None,
                       dynamic = None, 
                       max_allowed_partitions = None,
                       avg_tp_change_interval = None, 
@@ -167,6 +169,7 @@ class TopologyNetwork(Network):
         bandwidth_honest(float): bandwidth between honest miners and 
                                  between the honest and adversaries(MB/round)
         bandwidth_adv (float): bandwidth between adversaries(MB/round)
+        directed (bool): Whether topology entries represent directed links.
         save_routing_graph (bool): Genarate routing graph at the end of simulation or not.
         show_label (bool): Show edge labels on network and routing graph or not. 
         '''
@@ -178,6 +181,8 @@ class TopologyNetwork(Network):
             self._bandwidth_adv = bandwidth_adv 
         if topology_path is not None:
             self._topology_path = topology_path
+        if directed is not None:
+            self._directed = directed
         if init_mode is not None:
             if  init_mode == 'rand' and ave_degree is not None:
                 self._init_mode = init_mode
@@ -368,7 +373,7 @@ class TopologyNetwork(Network):
                                                          self._avgTpChangeInterval+self._TpChangeSpan))
 
         if changed:
-            sub_nets = [[int(n) for n in sn] for sn in nx.connected_components(self._graph)]
+            sub_nets = [[int(n) for n in sn] for sn in self._connected_components()]
             # isolates = [[int(i)] for i in nx.isolates(self._graph)]
             isolates = []
             if len(sub_nets) + len(isolates) > 1:
@@ -413,19 +418,19 @@ class TopologyNetwork(Network):
             return removed
         if random.uniform(0, 1) > self._edgeRemoveProb:
             return removed
+        edge_attributes = self._graph.get_edge_data(node1, node2).copy()
         self._graph.remove_edge(node1, node2)
-        sub_nets = nx.number_connected_components(self._graph)
+        sub_nets = self._number_connected_components()
         # isolates = nx.number_of_isolates(self._graph)
         isolates = 0
         # 若不允许产生分区但产生了分区，则重新连接
         if  sub_nets + isolates > self._maxPartitionsAllowed:
-            self._graph.add_edge(node1, node2)
-            bandwidths = {(node1,node2):(self._bandwidth_honest)}
-            nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
+            self._graph.add_edge(node1, node2, **edge_attributes)
             return removed
         
         self._miners[node1]._NIC.remove_neighbor(node2)
-        self._miners[node2]._NIC.remove_neighbor(node1)
+        if not self._directed:
+            self._miners[node2]._NIC.remove_neighbor(node1)
         removed = True
 
         # 记录下拓扑变更操作
@@ -436,8 +441,10 @@ class TopologyNetwork(Network):
             
         remove_links = []
         for i, link in enumerate(self._active_links):
-            if (((link.source_id(), link.target_id())==(node1,node2)) or 
-                ((link.source_id(), link.target_id())==(node2,node1))):
+            if (link.source_id(), link.target_id()) == (node1, node2):
+                remove_links.append(i)
+            elif (not self._directed and
+                  (link.source_id(), link.target_id()) == (node2, node1)):
                 remove_links.append(i)
         self._active_links = [link for i, link in enumerate(self._active_links) 
                             if i not in remove_links]
@@ -457,7 +464,8 @@ class TopologyNetwork(Network):
         bandwidths = {(node1,node2):(self._bandwidth_honest)}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
         self._miners[node1]._NIC.add_neighbor(node2, round)
-        self._miners[node2]._NIC.add_neighbor(node1, round)
+        if not self._directed:
+            self._miners[node2]._NIC.add_neighbor(node1, round)
         # 记录下拓扑变更操作
         if "adds" not in list(change_op.keys()):
             change_op["adds"]=[[node1, node2]]
@@ -522,6 +530,26 @@ class TopologyNetwork(Network):
     def is_small_network(self):
         return self._graph.number_of_nodes() <= 2000 and self._graph.number_of_edges() <= 10000
 
+    def _new_graph(self):
+        return nx.DiGraph() if self._directed else nx.Graph()
+
+    def _connected_components(self):
+        if self._directed:
+            return nx.strongly_connected_components(self._graph)
+        return nx.connected_components(self._graph)
+
+    def _number_connected_components(self):
+        if self._directed:
+            return nx.number_strongly_connected_components(self._graph)
+        return nx.number_connected_components(self._graph)
+
+    def _is_connected(self):
+        if self._graph.number_of_nodes() == 0:
+            return False
+        if self._directed:
+            return nx.is_strongly_connected(self._graph)
+        return nx.is_connected(self._graph)
+
     def network_generator(self, gen_net_approach, ave_degree=None, rand_mode=None):
         '''
         根据csv文件的邻接矩'adj'或coo稀疏矩阵'coo'生成网络拓扑    
@@ -541,15 +569,15 @@ class TopologyNetwork(Network):
             if nx.number_of_isolates(self._graph) != 0:
                 raise errors.NetUnconnetedError(f'Isolated nodes in the network! '
                     f'{list(nx.isolates(self._graph))}')
-            if nx.number_connected_components(self._graph) != 1:
+            if not self._is_connected():
                 if gen_net_approach != 'rand':
                     raise errors.NetIsoError('Brain-split in the newtork! ')
                 retry_num = 10
                 for _ in range(retry_num):
                     self.gen_network_rand(ave_degree, rand_mode)
-                    if nx.number_connected_components(self._graph) == 1:
+                    if self._is_connected():
                         break
-                if nx.number_connected_components(self._graph) == 1:
+                if not self._is_connected():
                     raise errors.NetIsoError(f'Brain-split in the newtork! '
                         f'Choose an appropriate degree, current: {ave_degree}')
                 
@@ -603,24 +631,36 @@ class TopologyNetwork(Network):
     def gen_network_rand(self, ave_degree, rand_mode):
         """生成随机图"""
         if rand_mode == 'homogeneous':
-            self._graph = self.random_graph_with_fixed_degree(self.MINER_NUM, ave_degree)
+            graph = self.random_graph_with_fixed_degree(self.MINER_NUM, ave_degree)
         elif rand_mode == 'binomial':
-            self._graph = nx.binomial_graph(self.MINER_NUM,
-                                            ave_degree/(self.MINER_NUM-1))
+            graph = nx.binomial_graph(self.MINER_NUM,
+                                      ave_degree/(self.MINER_NUM-1))
         else:
             raise errors.NetGenError(f'Random network mode {rand_mode} is not supported!')
         # 防止出现孤立节点
-        if nx.number_of_isolates(self._graph) > 0:
-            iso_nodes = list(nx.isolates(self._graph))
-            not_iso_nodes = [nd for nd in list(self._graph.nodes) if nd not in iso_nodes]
+        if nx.number_of_isolates(graph) > 0:
+            iso_nodes = list(nx.isolates(graph))
+            not_iso_nodes = [nd for nd in list(graph.nodes) if nd not in iso_nodes]
             targets = np.random.choice(not_iso_nodes, len(iso_nodes))
             for m1, m2 in zip(iso_nodes, targets):
-                self._graph.add_edge(m1, m2)
+                graph.add_edge(m1, m2)
+        if self._directed:
+            self._graph = nx.DiGraph()
+            self._graph.add_nodes_from(graph.nodes)
+            self._graph.add_edges_from(
+                (source, target)
+                for node1, node2 in graph.edges
+                for source, target in ((node1, node2), (node2, node1))
+            )
+        else:
+            self._graph = graph
         # 将攻击者集团的各个矿工相连
         for m1,m2 in itertools.combinations(range(self.MINER_NUM), 2):
             if self._miners[m1]._isAdversary and self._miners[m2]._isAdversary:
                 if not self._graph.has_edge(m1, m2):
                     self._graph.add_edge(m1, m2)
+                if self._directed and not self._graph.has_edge(m2, m1):
+                    self._graph.add_edge(m2, m1)
         # 设置带宽（MB/round）
         bw_honest = self._bandwidth_honest
         bw_adv = self._bandwidth_adv
@@ -637,14 +677,14 @@ class TopologyNetwork(Network):
         bandwidth单位:bit/round
         """
         # 读取csv文件的邻接矩阵
-        self.read_adj_from_csv_undirected()
-        # 根据邻接矩阵生成无向图
-        self._graph = nx.Graph()
+        self.read_adj_from_csv()
+        self._graph = self._new_graph()
         # 生成节点
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         # 生成边
-        for m1 in range(len(self.tp_adjacency_matrix)): 
-            for m2 in range(m1, len(self.tp_adjacency_matrix)):
+        for m1 in range(len(self.tp_adjacency_matrix)):
+            start = 0 if self._directed else m1
+            for m2 in range(start, len(self.tp_adjacency_matrix)):
                 if self.tp_adjacency_matrix[m1, m2] == 1:
                     self._graph.add_edge(m1, m2)
         # 设置带宽（MB/round）
@@ -668,40 +708,51 @@ class TopologyNetwork(Network):
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
         bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
-        tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), 
-                                  shape=(self.MINER_NUM, self.MINER_NUM))
-        adj_values = np.array([1 for _ in range(len(bw_arrary) * 2)])
+        if not (len(row) == len(col) == len(bw_arrary)):
+            raise errors.NetAdjError('COO拓扑的from、to和bandwidth数量不一致!')
+        if np.any(row < 0) or np.any(row >= self.MINER_NUM):
+            raise errors.NetAdjError('COO拓扑包含越界的from节点!')
+        if np.any(col < 0) or np.any(col >= self.MINER_NUM):
+            raise errors.NetAdjError('COO拓扑包含越界的to节点!')
+        if np.any(bw_arrary <= 0):
+            raise errors.NetAdjError('COO拓扑的bandwidth必须大于0!')
+        if self._directed:
+            adjacency_row = row
+            adjacency_col = col
+        else:
+            adjacency_row = np.hstack([row, col])
+            adjacency_col = np.hstack([col, row])
+        adj_values = np.ones(len(adjacency_row))
         self.tp_adjacency_matrix = sp.coo_matrix(
-            (adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
+            (adj_values, (adjacency_row, adjacency_col)),
             shape=(self.MINER_NUM, self.MINER_NUM)).todense()
-        print('coo edges: \n', tp_bw_coo)
+        self._graph = self._new_graph()
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         for edge_idx, (src, tgt) in enumerate(zip(row, col)):
             self._graph.add_edge(src, tgt, bandwidth=bw_arrary[edge_idx])
 
 
-    def read_adj_from_csv_undirected(self):
-        """读取无向图的邻接矩阵adj"""
+    def read_adj_from_csv(self):
+        """读取邻接矩阵adj"""
         # 读取csv文件并转化为ndarray类型,行是from 列是to
         csv_file = self._topology_path or 'conf/topologies/default_adj.csv'
         topology_ndarray  = pd.read_csv(csv_file, header=None, index_col=None).values
         # 判断邻接矩阵是否规范
         if np.isnan(topology_ndarray).any():
-            raise errors.NetAdjError('无向图邻接矩阵不规范!(存在缺失)')
+            raise errors.NetAdjError('邻接矩阵不规范!(存在缺失)')
         if topology_ndarray.shape[0] != topology_ndarray.shape[1]:  # 不是方阵
-            raise errors.NetAdjError('无向图邻接矩阵不规范!(row!=column)')
+            raise errors.NetAdjError('邻接矩阵不规范!(row!=column)')
         if len(topology_ndarray) != self.MINER_NUM:  # 行数与环境定义的矿工数量不同
             raise errors.NetMinerNumError('矿工数量与环境定义不符!')
-        if not np.array_equal(topology_ndarray, topology_ndarray.T):
+        if not self._directed and not np.array_equal(topology_ndarray, topology_ndarray.T):
             raise errors.NetAdjError('无向图邻接矩阵不规范!(不是对称阵)')
         if not np.all(np.diag(topology_ndarray) == 0):
-            raise errors.NetAdjError('无向图邻接矩阵不规范!(对角元素不为0)')
-        # 生成邻接矩阵
-        self.tp_adjacency_matrix = np.zeros((len(topology_ndarray), len(topology_ndarray)))
-        for i in range(len(topology_ndarray)):
-            for j in range(i, len(topology_ndarray)):
-                if topology_ndarray[i, j] != 0:
-                    self.tp_adjacency_matrix[i, j] = self.tp_adjacency_matrix[j, i] = 1
+            raise errors.NetAdjError('邻接矩阵不规范!(对角元素不为0)')
+        self.tp_adjacency_matrix = (topology_ndarray != 0).astype(int)
+
+    def read_adj_from_csv_undirected(self):
+        """兼容原有的无向邻接矩阵读取接口"""
+        self.read_adj_from_csv()
 
     def save_network_attribute(self):
         '''保存网络参数'''
@@ -912,10 +963,12 @@ class TopologyNetwork(Network):
         # 没有传播到的边用虚线画
         edges_list_extra = []
         for (u, v) in self._graph.edges:
-            if (((u, v) not in route_graph.edges) and 
-                ((v, u) not in route_graph.edges)):
-                route_graph.add_edge(u, v, trans_histroy=None)
-                edges_list_extra.append((u, v))
+            if (u, v) in route_graph.edges:
+                continue
+            if not self._directed and (v, u) in route_graph.edges:
+                continue
+            route_graph.add_edge(u, v, trans_histroy=None)
+            edges_list_extra.append((u, v))
         nx.draw_networkx_edges(
             route_graph, 
             pos = self._node_pos, 
@@ -924,7 +977,7 @@ class TopologyNetwork(Network):
             width = 3/self.MINER_NUM**0.5,
             alpha = 0.3, 
             style = '--', 
-            arrows = False)
+            arrows = self._directed)
         # 处理边上的label，对单向的双向和分别处理
         if self._show_label:
             # 单向
@@ -948,4 +1001,3 @@ class TopologyNetwork(Network):
         NET_RESULT_PATH = global_var.get_net_result_path()
         plt.savefig(NET_RESULT_PATH / (f'routing_graph{blockname}.svg'))
         plt.close()
-
