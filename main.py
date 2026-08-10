@@ -128,14 +128,17 @@ def main(**args):
         bool_params  = ['show_label', 'save_routing_graph', 'save_routing_history',
                         'directed', 'dynamic','enable_resume_transfer']
         float_params = ['ave_degree', 'bandwidth_honest', 'bandwidth_adv',
+                        'upload_bandwidth_honest', 'download_bandwidth_honest',
+                        'upload_bandwidth_adv', 'download_bandwidth_adv',
+                        'propagation_delay',
                         'outage_prob','avg_tp_change_interval','edge_add_prob',
                         'edge_remove_prob','max_allowed_partitions']
         for bparam in bool_params:
             network_param.update({bparam: args.get(bparam) or 
                                  config.getboolean(net_setting, bparam, fallback=False)})
         for fparam in float_params:
-            network_param.update({fparam: args.get(fparam) or 
-                                  config.getfloat(net_setting, fparam)})
+            network_param.update({fparam: args.get(fparam) if args.get(fparam) is not None
+                                  else config.getfloat(net_setting, fparam, fallback=None)})
         network_param.update({
             'init_mode': (args.get('init_mode') or 
                           config.get(net_setting, 'init_mode')),
@@ -144,7 +147,11 @@ def main(**args):
             'stat_prop_times': (args.get('stat_prop_times') or 
                                 eval(config.get(net_setting, 'stat_prop_times'))),
             'rand_mode': (args.get('rand_mode') or
-                          config.get(net_setting, 'rand_mode'))
+                          config.get(net_setting, 'rand_mode')),
+            'coo_edge_attribute': (args.get('coo_edge_attribute') or
+                                   config.get(net_setting, 'coo_edge_attribute', fallback='bandwidth')),
+            'node_bandwidth_path': (args.get('node_bandwidth_path') or
+                                    config.get(net_setting, 'node_bandwidth_path', fallback=None)),
         })
     # AdHocNetwork
     elif network_type == 'network.AdHocNetwork':
@@ -296,6 +303,13 @@ could be performed with attackers designed in the simulator'
     topology_setting.add_argument('--rand_mode', help=rand_mode_help_text, type=str)
     topology_setting.add_argument('--bandwidth_honest', help='Set bandwidth between honest miners and between the honest and adversaries(MB/round)', type=float)
     topology_setting.add_argument('--bandwidth_adv', help='Set bandwidth between adversaries(MB/round)', type=float)
+    topology_setting.add_argument('--upload_bandwidth_honest', help='Total honest-node upload bandwidth in MB/round.', type=float)
+    topology_setting.add_argument('--download_bandwidth_honest', help='Total honest-node download bandwidth in MB/round.', type=float)
+    topology_setting.add_argument('--upload_bandwidth_adv', help='Total adversary-node upload bandwidth in MB/round.', type=float)
+    topology_setting.add_argument('--download_bandwidth_adv', help='Total adversary-node download bandwidth in MB/round.', type=float)
+    topology_setting.add_argument('--propagation_delay', help='Default edge propagation delay in rounds.', type=float)
+    topology_setting.add_argument('--coo_edge_attribute', choices=['bandwidth', 'latency'], help='Interpret the third COO row as legacy bandwidth or propagation latency.')
+    topology_setting.add_argument('--node_bandwidth_path', help='CSV with node_id, upload_MB_per_round, and download_MB_per_round.', type=str)
     topology_setting.add_argument('--dynamic', help='Whether the network topology can dynamically change.', action='store_true')
     topology_setting.add_argument('--avg_tp_change_interval', help='The average interval of topology changing.', type=float)
     topology_setting.add_argument('--edge_remove_prob', help='The probability of each links being removed in each round.', type=float)
