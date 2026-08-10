@@ -57,7 +57,7 @@ def main(**args):
     global_var.set_network_type(network_type)
     global_var.set_miner_num(miner_num)
     global_var.set_blocksize(
-        args.get('blocksize') or int(env_config['blocksize']))
+        args.get('blocksize') or float(env_config['blocksize']))
     global_var.set_show_fig(
         args.get('show_fig') or config.getboolean('EnvironmentSettings','show_fig'))
     global_var.set_compact_outputfile(
@@ -253,7 +253,7 @@ could be performed with attackers designed in the simulator'
                              help='Simplify log and result outputs to reduce disk space consumption. Use no_compact_outputfile to disable this feature.')
     # ConsensusSettings
     consensus_setting = parser.add_argument_group('ConsensusSettings', 'Settings for Consensus Protocol')
-    consensus_setting.add_argument('--q_ave', help='The average number of hash trials in a round.',type=int)
+    consensus_setting.add_argument('--q_ave', help='The average number of hash trials in a round.',type=float)
     consensus_setting.add_argument('--q_distr', help='distribution of hash rate across all miners.\
                         \'equal\': all miners have equal hash rate;\
                         \'rand\': q satisfies gaussion distribution.',type=str)
