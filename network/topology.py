@@ -223,6 +223,7 @@ class TopologyNetwork(Network):
         self.withSegments = False
 
         self._miners:list[Miner] = miners
+        self._active_forward_miners:set[int] = set()
         for miner in self._miners:
             miner._join_network(self)
 
@@ -491,7 +492,11 @@ class TopologyNetwork(Network):
 
     def pre_diffuse(self, round) -> int:
         self.forward_process(round)
-        has_work = self._transfer_pool.active_count > 0 or bool(self._propagation_events)
+        has_work = (
+            self._transfer_pool.active_count > 0
+            or bool(self._propagation_events)
+            or bool(self._active_forward_miners)
+        )
         return 1 if self._dynamic else int(has_work)
 
     def diffuse(self, round):
@@ -594,10 +599,18 @@ class TopologyNetwork(Network):
             remaining_mb,
         )
     
+    def activate_miner(self, miner_id: int):
+        self._active_forward_miners.add(miner_id)
+
     def forward_process(self, round):
         """转发过程"""
-        for m in self._miners:
-            m._NIC.nic_forward(round)
+        active_miners = sorted(self._active_forward_miners)
+        for miner_id in active_miners:
+            self._active_forward_miners.discard(miner_id)
+            nic = self._miners[miner_id]._NIC
+            nic.nic_forward(round)
+            if not nic.has_pending_forwarding():
+                self._active_forward_miners.discard(miner_id)
 
     def topology_changing(self, round):
         if round != self._nextTpChangeRound:

@@ -31,6 +31,11 @@ class NetworkInterface(metaclass=ABCMeta):
     def clear_forward_buffer(self):
         self._forward_buffer[OUTER_RCV_MSG].clear()
         self._forward_buffer[SELF_GEN_MSG].clear()
+
+    def _activate_for_forwarding(self):
+        activate_miner = getattr(self._network, "activate_miner", None)
+        if activate_miner is not None:
+            activate_miner(self.miner_id)
      
     def append_forward_buffer(self, msg:Message, msg_source_type:str, forward_strategy: str = FLOODING, 
                               spec_target:list = None, syncLocalChain = False):
@@ -48,6 +53,7 @@ class NetworkInterface(metaclass=ABCMeta):
                 raise ValueError("Each round, a miner can only put one message into the network.")
         elif msg_source_type == OUTER_RCV_MSG:
             self._forward_buffer[OUTER_RCV_MSG].append([msg, forward_strategy, spec_target])
+        self._activate_for_forwarding()
     
     @abstractmethod
     def nic_join_network(self, network):
