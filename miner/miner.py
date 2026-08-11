@@ -2,7 +2,7 @@ import logging
 from array import array
 
 import global_var
-from consensus import Consensus
+from consensus import Consensus, PoW
 from data import Block, Message
 from external import I
 from functions import for_name
@@ -20,6 +20,7 @@ class Miner(object):
         #共识相关
         self.consensus:Consensus = for_name(
             global_var.get_consensus_type())(miner_id, consensus_params)# 共识
+        self._skip_pow_consensus = isinstance(self.consensus, PoW) and self.consensus.q == 0
         #输入内容相关
         self.input_tape = []
         self.round = -1
@@ -28,6 +29,7 @@ class Miner(object):
         self.receive_history = dict()
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
+        self.requires_input_tape = self.max_block_capacity > 0 or not self._skip_pow_consensus
         if self.max_block_capacity > 0 and not disable_dataitem_queue:
             self.dataitem_queue = array('Q')
         #保存矿工信息
@@ -113,12 +115,16 @@ class Miner(object):
             # new_msgs.append(Message("testMsg", 1))
             self.forward(new_msgs, SELF_GEN_MSG, syncLocalChain = True)
         return new_msgs, msg_available  # 返回挖出的区块，
-        
 
     def BackboneProtocol(self, round):
-        _, chain_update, tree_update = self.consensus.local_state_update()
-        if tree_update:
-            self.forward(tree_update, OUTER_RCV_MSG)
+        chain_update = ()
+        if self.consensus.receive_tape:
+            _, chain_update, tree_update = self.consensus.local_state_update()
+            if tree_update:
+                self.forward(tree_update, OUTER_RCV_MSG)
+
+        if self.max_block_capacity == 0 and self._skip_pow_consensus:
+            return None
 
         input = I(round, self.input_tape)  # I function
         if self.max_block_capacity > 0 and getattr(self, 'dataitem_queue', None) is not None:
@@ -135,6 +141,9 @@ class Miner(object):
                 self.dataitem_queue.pop(0)
             input = self.dataitem_queue[:self.max_block_capacity].tobytes()
 
+        if self._skip_pow_consensus:
+            return None
+
         new_msgs, msg_available = self.launch_consensus(input, round)
 
         if msg_available:
@@ -147,11 +156,13 @@ class Miner(object):
     
     def clear_tapes(self):
         # clear the input tape
-        self.input_tape = []
+        if self.input_tape:
+            self.input_tape.clear()
         # clear the communication tape
-        self.consensus.receive_tape = []
-        self._NIC._receive_buffer.clear()
+        if self.consensus.receive_tape:
+            self.consensus.receive_tape.clear()
+        if self._NIC._receive_buffer:
+            self._NIC._receive_buffer.clear()
         # self._NIC.clear_forward_buffer()
     
         
-

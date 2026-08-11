@@ -267,7 +267,8 @@ class Environment(object):
                         continue
                     
                     # 诚实矿工 run backbone protocol
-                    miner.input_tape.append(("INSERT", inputfromz))
+                    if miner.requires_input_tape:
+                        miner.input_tape.append(("INSERT", inputfromz))
                     if (new_msgs := miner.BackboneProtocol(round)) is not None:
                         # self.network.access_network(new_msgs,temp_miner.miner_id,round)
                         for msg in new_msgs:
