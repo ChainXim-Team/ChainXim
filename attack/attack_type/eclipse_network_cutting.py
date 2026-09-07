@@ -75,13 +75,9 @@ class EclipseNetworkCutting(aa.AttackType):
         
     def info_getter(self):
         
-        loop_block = self.global_chain.last_block
-        main_chain_height = loop_block.height
-        adver_block_num = 0
-        while(loop_block):
-            if loop_block.isAdversaryBlock:
-                adver_block_num += 1
-            loop_block = loop_block.parentblock
+        path = self.global_chain.collect_ancestor_path(self.global_chain.last_block)
+        main_chain_height = path.heights[0]
+        adver_block_num = sum(path.adversarial)
         return {'Success Rate': '{:.4f}'.format(adver_block_num/main_chain_height),
                 'Theory rate in LockstepNetwork': '{:.4f}'.format(len(self.adver_list)/len(self.miner_list))}
     

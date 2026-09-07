@@ -14,8 +14,8 @@ class SolidPoW(PoW):
         def calculate_blockhash(self) -> bytes:
             return (2**(8*HASH_LEN) - 1).to_bytes(HASH_LEN, BYTE_ORDER)
 
-    def __init__(self,miner_id,consensus_params:dict):
-        super().__init__(miner_id,consensus_params)
+    def __init__(self, miner_id, consensus_params:dict, chain_factory=None):
+        super().__init__(miner_id, consensus_params, chain_factory)
         from .random_oracle import RandomOracleMining, RandomOracleVerifying
         self.mining_oracle:RandomOracleMining = None
         self.verifying_oracle:RandomOracleVerifying = None

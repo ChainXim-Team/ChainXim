@@ -2,7 +2,6 @@ import time
 from typing import List, Tuple
 
 import global_var
-from external import common_prefix
 from functions import BYTE_ORDER, INT_LEN, HASH_LEN, hash_bytes
 
 from .consensus_abc import Consensus
@@ -28,8 +27,8 @@ class PoW(Consensus):
                     self.nonce.to_bytes(INT_LEN, BYTE_ORDER)
             return hash_bytes(data).digest()
 
-    def __init__(self,miner_id,consensus_params:dict):
-        super().__init__(miner_id=miner_id)
+    def __init__(self, miner_id, consensus_params:dict, chain_factory=None):
+        super().__init__(miner_id=miner_id, chain_factory=chain_factory)
         self.INT_SIZE = INT_LEN
         self.BYTEORDER = BYTE_ORDER
         self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
@@ -118,10 +117,9 @@ class PoW(Consensus):
 
         if new_update:
             blocktmp = self.local_chain.get_last_block()
-            fork_point = common_prefix(blocktmp, original_last_block)
-            while blocktmp.blockhash != fork_point.blockhash:
-                chain_update.insert(0, blocktmp)
-                blocktmp = blocktmp.parentblock
+            fork_point = self.local_chain.common_prefix(blocktmp, original_last_block)
+            chain_update = list(self.local_chain.collect_ancestor_path(
+                blocktmp, fork_point, include_stop=False, reverse=True).blocks)
         return self.local_chain, chain_update, tree_update
 
     def valid_chain(self, lastblock: Consensus.Block):

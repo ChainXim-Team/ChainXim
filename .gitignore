@@ -9,6 +9,14 @@
 /Result_Data/
 /block/
 /pyproject.toml
+/benchmarks/
+/build/
+/data/blockchain_tree.cpp
+/data/blockchain_tree*.so
+/data/blockchain_tree*.pyd
+/consensus/powsolver/cpu_solver.c
+/consensus/powsolver/cpu_solver*.so
+/consensus/powsolver/cpu_solver*.pyd
 
 **/__pycache__
 

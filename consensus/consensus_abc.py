@@ -37,18 +37,21 @@ class Consensus(metaclass=ABCMeta):        #抽象类
                              blockextra:dict = None):
         '''为指定链生成创世区块'''
         genesis_blockhead = self.BlockHead()
-        for k,v in blockheadextra.items() or []:
+        for k,v in (blockheadextra or {}).items():
             setattr(genesis_blockhead,k,v)
-        chain.add_blocks(blocks=self.Block(genesis_blockhead))
-        for k,v in blockextra.items() or []:
-            setattr(chain.head,k,v)
+        genesis_block = self.Block(genesis_blockhead)
+        for k,v in (blockextra or {}).items():
+            setattr(genesis_block,k,v)
+        chain.add_blocks(blocks=genesis_block)
 
-    def __init__(self,miner_id):
+    def __init__(self, miner_id, chain_factory=None):
         self.INT_SIZE = INT_LEN
         self.BYTEORDER = BYTE_ORDER
         self.miner_id = miner_id
         self.miner_id_bytes = miner_id.to_bytes(self.INT_SIZE, self.BYTEORDER, signed=True)
-        self.local_chain = data.Chain(miner_id)   # 维护的区块链
+        if chain_factory is None:
+            chain_factory = data.ChainFactory()
+        self.local_chain = chain_factory.create(miner_id)   # 维护的区块链
         self.create_genesis_block(self.local_chain,self.genesis_blockheadextra,self.genesis_blockextra)
         self.receive_tape:list[data.Message] = [] # 接收到的消息
         self.block_buffer:dict[bytes, list[Consensus.Block]] = {} # 区块缓存

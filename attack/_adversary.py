@@ -41,7 +41,8 @@ class Adversary(metaclass=ABCMeta):
 
         self.__adver_consensus_param: dict = args.get('adver_consensus_param')
 
-        self.__consensus_type: consensus.Consensus = for_name(args.get('consensus_type'))(self.__Miner_ID, self.__adver_consensus_param)
+        self.__consensus_type: consensus.Consensus = for_name(args.get('consensus_type'))(
+            self.__Miner_ID, self.__adver_consensus_param, args.get('chain_factory'))
 
         self.__attack_arg:dict = args.get('attack_arg', None)
         

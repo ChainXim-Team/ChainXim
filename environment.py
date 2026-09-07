@@ -10,8 +10,8 @@ import numpy as np
 import consensus
 import global_var
 import network
-from data import Block, Chain, LocalChainTracker
-from external import chain_growth, chain_quality, common_prefix, MAX_SUFFIX
+from data import Block, ChainFactory, LocalChainTracker
+from external import chain_growth, chain_quality, MAX_SUFFIX
 from functions import for_name, INT_LEN, BYTE_ORDER
 from miner import Miner, network_interface
 from attack.adversary import Adversary
@@ -58,11 +58,14 @@ class Environment(object):
         consensus_type.genesis_blockextra = genesis_blockextra
         # Local chain tracker generation
         self.local_chain_tracker = LocalChainTracker()
+        self.chain_factory = ChainFactory()
         # generate miners
         self.miners:list[Miner] = []
         for miner_id in range(self.miner_num):
-            miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'], dataitem_param['dataitem_input_interval'] == 0)
-            miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
+            miner = Miner(miner_id, consensus_param, dataitem_param['max_block_capacity'],
+                          dataitem_param['dataitem_input_interval'] == 0, self.chain_factory)
+            if global_var.get_common_prefix_enable():
+                miner.get_local_chain().set_switch_tracker_callback(self.local_chain_tracker.get_switch_tracker(miner_id))
             # miner.get_local_chain().set_merge_tracker_callback(self.local_chain_tracker.get_merge_tracker(miner_id))
             self.miners.append(miner)
         self.envir_create_global_chain()
@@ -80,6 +83,7 @@ class Environment(object):
             miner_list = self.miners, 
             # eclipse = attack_param['eclipse'], 
             global_chain = self.global_chain, 
+            chain_factory = self.chain_factory,
             adver_consensus_param = copy.deepcopy(consensus_param), 
             attack_arg = attack_param['attack_arg'])
         # get honest miner IDs
@@ -177,7 +181,7 @@ class Environment(object):
     def envir_create_global_chain(self):
         '''create global chain and its genesis block by copying
           local chain from the first miner.'''
-        self.global_chain = Chain()
+        self.global_chain = self.chain_factory.create()
         self.global_chain.add_blocks(blocks=copy.deepcopy(self.miners[0].consensus.local_chain.head))
         # self.global_chain.head = copy.deepcopy(self.miners[0].consensus.local_chain.head)
         # self.global_chain.lastblock = self.global_chain.head
@@ -308,7 +312,7 @@ class Environment(object):
 
             cp = longest_honest_chain
             for i in self.honest_miner_ids:
-                cp = common_prefix(cp, miner_local_chain_tip[i])
+                cp = self.global_chain.common_prefix(cp, miner_local_chain_tip[i])
             len_cp = cp.get_height()
             for i in range(0, self.miner_num):
                 len_suffix = miner_local_chain_tip[i].get_height() - len_cp
@@ -332,11 +336,11 @@ class Environment(object):
                     if cp_stat[0, i] == 1:
                         cp_sum_k += 1
                         continue
-                    if cp_k == common_prefix(cp_k, miner_local_chain_tip[i]):
+                    if cp_k == self.global_chain.common_prefix(cp_k, miner_local_chain_tip[i]):
                         cp_stat[0, i] = 1
                         cp_sum_k += 1
                 cp_cdf_k[0, k] += cp_sum_k
-                cp_k = cp_k.parentblock
+                cp_k = self.global_chain.get_ancestor(cp_k)
             return cp_cdf_k
         
         if type == 'pdf':

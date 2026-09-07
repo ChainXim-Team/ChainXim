@@ -87,7 +87,7 @@ class EclipsedDoubleSpending(aa.AttackType):
                         if fork_tip.get_height() > newest_block_from_eclipse.get_height():
                             # 说明存在比adver掌握的eclipse最新状态 更新的状态
                             eclipse_update = True
-                            newest_block_from_eclipse = block
+                            newest_block_from_eclipse = fork_tip
                     else:
                         self.adver_consensus.block_buffer.setdefault(block.blockhead.prehash, [])
                         self.adver_consensus.block_buffer[block.blockhead.prehash].append(block)
@@ -105,21 +105,19 @@ class EclipsedDoubleSpending(aa.AttackType):
             # 3. 更新自honest
             #   fork-h-h-h-e <-
             #      |-a-a-a-a
-            from_block = newest_block_from_eclipse
             self._fork_block = self._fork_block if self._fork_block != None else self.adver_chain.head
-            while(from_block != None):
-                if from_block.blockhash == self._fork_block.blockhash:
+            ancestor_path = self.adver_chain.collect_ancestor_path(newest_block_from_eclipse)
+            source_hash = self.adver_chain.head.blockhash
+            for blockhash, is_adversary, miner_id in zip(
+                    ancestor_path.hashes, ancestor_path.adversarial, ancestor_path.miners):
+                source_hash = blockhash
+                if blockhash == self._fork_block.blockhash:
                     break
-                if from_block.isAdversaryBlock:
+                if is_adversary:
                     break
-                if not from_block.isAdversaryBlock and from_block.blockhead.miner not in self.eclipsed_list_ids:
+                if miner_id not in self.eclipsed_list_ids:
                     break
-                temp_block = self.adver_chain.search_block_by_hash(from_block.blockhead.prehash)
-                if from_block.parentblock == None:
-                    from_block.parentblock = temp_block
-                from_block = temp_block
-            from_block = from_block if from_block != None else self.adver_chain.head
-            self._eclipse_block_from = from_block
+            self._eclipse_block_from = self.adver_chain.search_block_by_hash(source_hash)
         else:
             # 不存在 eclipse 更新 则 最新eclipse区块来源不变
             self._eclipse_block_from = self._eclipse_block_from if self._eclipse_block_from != None else self.adver_chain.head

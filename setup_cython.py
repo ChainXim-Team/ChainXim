@@ -1,8 +1,13 @@
-from setuptools import setup, Extension
 from Cython.Build import cythonize
-import numpy
+from setuptools import Extension, setup
 
 extensions = [
+    Extension(
+        "data.blockchain_tree",
+        ["data/blockchain_tree.pyx"],
+        language="c++",
+        extra_compile_args=["-O3"],
+    ),
     Extension(
         "consensus.powsolver.cpu_solver",
         ["consensus/powsolver/cpu_solver.pyx"],
