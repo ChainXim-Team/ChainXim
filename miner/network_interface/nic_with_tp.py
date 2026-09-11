@@ -1,7 +1,7 @@
 import logging
 import random
 from copy import deepcopy
-from collections import defaultdict, deque
+from collections import defaultdict
 from typing import Iterable, MutableSequence
 import global_var
 
@@ -27,7 +27,7 @@ class NICWithTp(NetworkInterface):
         # 暂存本轮收到的数据包
         self._segment_buffer:dict[set] = dict()
         # 输出队列(拓扑网络)
-        self._output_queues = defaultdict(deque)
+        self._output_queues = defaultdict(list[Message | tuple[Message, int]])
         self._channel_states = {}
         self._ready_neighbors = set()
         self._neighbor_order = {}
@@ -48,7 +48,7 @@ class NICWithTp(NetworkInterface):
             return
         # 初始化发送队列
         for neighbor in self._neighbors:
-            self._output_queues[neighbor] = deque()
+            self._output_queues[neighbor] = []
             self._channel_states[neighbor] = _IDLE
 
     def remove_neighbor(self, remove_id:int):
@@ -64,8 +64,11 @@ class NICWithTp(NetworkInterface):
             neighbor: position for position, neighbor in enumerate(self._neighbors)
         }
         if self._channel_states[remove_id] != _IDLE:
-            logger.warning("M%d: removing active channel to M%d", self.miner_id, remove_id)
-            self._channel_states[remove_id] = _IDLE
+            disrupted_msgs = self._channel_states[remove_id]
+            if self._network.withSegments:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id])
+            else:
+                self._output_queues[remove_id].insert(0, self._channel_states[remove_id][0])
         if len(self._output_queues[remove_id]) == 0:
             self._output_queues.pop(remove_id, None)
         self._channel_states.pop(remove_id, None)
@@ -84,7 +87,7 @@ class NICWithTp(NetworkInterface):
         self._neighbor_order[add_id] = len(self._neighbors) - 1
         self._channel_states[add_id] = _IDLE
         if add_id not in self._output_queues.keys():
-            self._output_queues[add_id] = deque()
+            self._output_queues[add_id] = []
         # logger.info("round%d, M%d: added neighbour M%d", 
         #             round, self.miner.miner_id, add_id)
         self.__gossip_full_chain(add_id, round)
@@ -181,7 +184,7 @@ class NICWithTp(NetworkInterface):
             if len(self._output_queues[neighbor]) == 0:
                 continue    
             while len(self._output_queues[neighbor]) > 0:
-                msg = self._output_queues[neighbor].popleft()
+                msg = self._output_queues[neighbor].pop(0)
                 if logger.isEnabledFor(logging.INFO):
                     msg_name = (msg.name if isinstance(msg, Block) else str((msg.origin_block.name, msg.seg_id))
                         if isinstance(msg, DataSegment) else msg[0].name if isinstance(msg, tuple) else "other msg")
@@ -191,13 +194,13 @@ class NICWithTp(NetworkInterface):
                     self.sync_full_chain_count += 1
                     self.__gossip_full_chain(neighbor, round)
                     while (len(self._output_queues[neighbor]) != 0 and 
-                        self._output_queues[neighbor][0] == SYNC_LOC_CHAIN):
-                        self._output_queues[neighbor].popleft()
+                           self._output_queues[neighbor][0] == SYNC_LOC_CHAIN):
+                        self._output_queues[neighbor].pop(0)
                     if len(self._output_queues[neighbor]) == 0:
                         break
-                    msg = self._output_queues[neighbor].popleft()
+                    msg = self._output_queues[neighbor].pop(0)
 
-                gossip_msg, remaining_mb = msg if isinstance(msg, tuple) else (msg, None)
+                gossip_msg, rest_delay = msg if isinstance(msg, tuple) else (msg, None)
                 self.inv_count += 1
                 isMsgRequired = self.__gossip_single_msg(neighbor, gossip_msg, round)
                 if not isMsgRequired:
@@ -210,19 +213,14 @@ class NICWithTp(NetworkInterface):
                     self.inv_count += 1
                     while (seg_nums > 0 and len(self._output_queues[neighbor]) > 0 and 
                            isinstance(self._output_queues[neighbor][0], DataSegment)):
-                        send_msg = self._output_queues[neighbor].popleft()
+                        send_msg = self._output_queues[neighbor].pop(0)
                         if self.__gossip_single_msg(neighbor, send_msg, round):
                             send_msgs.append(send_msg)
                             seg_nums = seg_nums - 1
                 
-                if len(send_msgs) != 1:
-                    raise RuntimeError("TopologyNetwork only supports one active message per channel")
-                slot = self.__send_data(send_msgs, neighbor, round, sendTogether=True)
-                if slot is None:
-                    continue
-                self._channel_states[neighbor] = slot
+                self._channel_states[neighbor] = send_msgs
+                self.__send_data(send_msgs, neighbor, round, sendTogether=True)
                 break
-            self._ready_neighbors.discard(neighbor)
 
     def __send_inv(self, inv:INVMsg, round:int ):
         getDataReply = GetDataMsg(require=False) # 空getData，回应的getData会写入该结构中
@@ -254,7 +252,7 @@ class NICWithTp(NetworkInterface):
         if not getDataReply.isRequired:
             return
         if inv.target not in self._output_queues.keys():
-            self._output_queues[inv.target] = deque()
+            self._output_queues[inv.target] = []
         # logger.info("round%d, M%d -> M%d: getData %s", round, target, self.miner_id, 
         #              str([req_b.name for req_b in getDataReply.req_blocks]))
         if not self._network.withSegments:
@@ -329,12 +327,12 @@ class NICWithTp(NetworkInterface):
             req_b = req_b.parentblock
         return getData
     
-    def __send_data(self, msgs:list[Message|tuple[Message, float]], target:int,round:int, sendTogether:bool=False):
+    def __send_data(self, msgs:list[Message|tuple[Message, int]], target:int,round:int, sendTogether:bool=False):
         """
         inv没问题后发送数据
         """
         self.send_data_count += 1
-        return self._network.access_network(msgs, self.miner_id, round, target, sendTogether)
+        self._network.access_network(msgs, self.miner_id, round, target, sendTogether)
 
     def __select_target(self, msg:Message=None, strategy:str=FLOODING, spec_tgts:MutableSequence[int]=None):
         if strategy == FLOODING:
@@ -393,28 +391,17 @@ class NICWithTp(NetworkInterface):
             self._channel_states[target]=_IDLE
             self._mark_neighbor_ready(target)
             return
-        # Interruption recovery needs the original message and is handled by
-        # on_transmission_failed().
+        # 信道中断将msg重新放回队列，等待下轮重新发送
         if err == ERR_OUTAGE:
+            logger.info("round %d, M%d -> M%d: Forward  %s failed: link outage",
+                    cur_round, self.miner_id, target, msg_name)
+            sending_msgs = self._channel_states[target]
             self._channel_states[target] = _IDLE
-            self._mark_neighbor_ready(target)
-            logger.warning("round %d, M%d -> M%d: deprecated outage reply for %s",
-                           cur_round, self.miner_id, target, msg_name)
-            return
-
-    def on_transmission_complete(self, cur_round: int, target: int, transfer_slot: int):
-        if self._channel_states.get(target) == transfer_slot:
-            self._channel_states[target] = _IDLE
+            for msg in sending_msgs:
+                if isinstance(msg, tuple):
+                    resent_msg = (msg[0], rest_delay)
+                else:
+                    resent_msg = msg if rest_delay is None else (msg, rest_delay)
+                self._output_queues[target].insert(0, resent_msg)
             self._mark_neighbor_ready(target)
             return
-        logger.warning("round %d, M%d -> M%d: completed transfer slot %d is not active",
-                       cur_round, self.miner_id, target, transfer_slot)
-
-    def on_transmission_failed(self, cur_round: int, target: int, msg: Message,
-                               remaining_mb: float | None):
-        self._channel_states[target] = _IDLE
-        resent_msg = msg if remaining_mb is None else (msg, remaining_mb)
-        self._output_queues[target].appendleft(resent_msg)
-        self._mark_neighbor_ready(target)
-        logger.info("round %d, M%d -> M%d: transmission interrupted",
-                    cur_round, self.miner_id, target)

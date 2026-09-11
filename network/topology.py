@@ -35,137 +35,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-_FREE = np.uint8(0)
-_TRANSMITTING = np.uint8(1)
-_EPSILON = 1e-12
-
-
-class _TransferPool:
-    """Reusable slots for transmissions that currently consume bandwidth."""
-
-    def __init__(self, initial_capacity: int = 16):
-        self._capacity = max(initial_capacity, 1)
-        self.phase = np.full(self._capacity, _FREE, dtype=np.uint8)
-        self.source_ids = np.empty(self._capacity, dtype=np.int32)
-        self.target_ids = np.empty(self._capacity, dtype=np.int32)
-        self.remaining_mb = np.empty(self._capacity, dtype=np.float64)
-        self.total_size_mb = np.empty(self._capacity, dtype=np.float64)
-        self.start_rounds = np.empty(self._capacity, dtype=np.int64)
-        self.transfer_ids = np.empty(self._capacity, dtype=np.int64)
-        self.packet_refs:list[TPPacket | None] = [None] * self._capacity
-
-        self.active_slots = np.empty(self._capacity, dtype=np.int32)
-        self.active_positions = np.full(self._capacity, -1, dtype=np.int32)
-        self.active_count = 0
-        self.free_slots = list(range(self._capacity - 1, -1, -1))
-        self.edge_slots:dict[tuple[int, int], int] = {}
-        self._next_transfer_id = 0
-
-    def _grow(self):
-        old_capacity = self._capacity
-        self._capacity *= 2
-        growth = self._capacity - old_capacity
-
-        self.phase = np.concatenate((self.phase, np.full(growth, _FREE, dtype=np.uint8)))
-        self.source_ids = np.resize(self.source_ids, self._capacity)
-        self.target_ids = np.resize(self.target_ids, self._capacity)
-        self.remaining_mb = np.resize(self.remaining_mb, self._capacity)
-        self.total_size_mb = np.resize(self.total_size_mb, self._capacity)
-        self.start_rounds = np.resize(self.start_rounds, self._capacity)
-        self.transfer_ids = np.resize(self.transfer_ids, self._capacity)
-        self.packet_refs.extend([None] * growth)
-
-        self.active_slots = np.resize(self.active_slots, self._capacity)
-        self.active_positions = np.concatenate((
-            self.active_positions,
-            np.full(growth, -1, dtype=np.int32),
-        ))
-        self.free_slots.extend(range(self._capacity - 1, old_capacity - 1, -1))
-
-    def allocate(self, packet: "TPPacket", remaining_mb: float, round: int) -> int:
-        edge = (packet.source, packet.target)
-        if edge in self.edge_slots:
-            raise RuntimeError(f"M{packet.source}->M{packet.target} already has a transmission")
-        if remaining_mb <= 0:
-            raise ValueError("Transmission size must be positive")
-        if not self.free_slots:
-            self._grow()
-
-        slot = self.free_slots.pop()
-        self.phase[slot] = _TRANSMITTING
-        self.source_ids[slot] = packet.source
-        self.target_ids[slot] = packet.target
-        self.remaining_mb[slot] = remaining_mb
-        self.total_size_mb[slot] = packet.payload.size
-        self.start_rounds[slot] = round
-        self.transfer_ids[slot] = self._next_transfer_id
-        self._next_transfer_id += 1
-        self.packet_refs[slot] = packet
-        self.edge_slots[edge] = slot
-
-        self.active_slots[self.active_count] = slot
-        self.active_positions[slot] = self.active_count
-        self.active_count += 1
-        return slot
-
-    def snapshot_active_slots(self) -> np.ndarray:
-        return self.active_slots[:self.active_count].copy()
-
-    def release(self, slot: int):
-        if self.phase[slot] != _TRANSMITTING:
-            raise RuntimeError(f"Slot {slot} is not transmitting")
-
-        position = self.active_positions[slot]
-        last_position = self.active_count - 1
-        last_slot = self.active_slots[last_position]
-        self.active_slots[position] = last_slot
-        self.active_positions[last_slot] = position
-        self.active_count -= 1
-        self.active_positions[slot] = -1
-
-        edge = (int(self.source_ids[slot]), int(self.target_ids[slot]))
-        self.edge_slots.pop(edge, None)
-        self.packet_refs[slot] = None
-        self.phase[slot] = _FREE
-        self.free_slots.append(slot)
-
-
-class _BandwidthAllocator:
-    @staticmethod
-    def allocate_equal_share(
-        active_slots: np.ndarray,
-        source_ids: np.ndarray,
-        target_ids: np.ndarray,
-        remaining_mb: np.ndarray,
-        upload_windows: np.ndarray,
-        download_windows: np.ndarray,
-        node_count: int,
-    ) -> np.ndarray:
-        if len(active_slots) == 0:
-            return np.empty(0, dtype=np.float64)
-
-        sources = source_ids[active_slots]
-        targets = target_ids[active_slots]
-        out_count = np.bincount(sources, minlength=node_count)
-        in_count = np.bincount(targets, minlength=node_count)
-        upload_share = upload_windows[sources] / out_count[sources]
-        download_share = download_windows[targets] / in_count[targets]
-        return np.minimum.reduce((
-            remaining_mb[active_slots],
-            upload_share,
-            download_share,
-        ))
-
-
-@dataclass
-class _PropagationEvent:
-    packet: "TPPacket"
-    source: int
-    target: int
-    transfer_id: int
-    transmission_finish_round: int
-
 class TPPacket(Packet):
     def __init__(self, payload: Message, round, source: int = None, target: int = None, 
                  type: str = GLOBAL, destination:int=None):
@@ -233,15 +102,6 @@ class TopologyNetwork(Network):
         self._ave_degree = None
         self._bandwidth_honest = 0.5 # default 0.5 MB
         self._bandwidth_adv = 5 # default 5 MB
-        self._upload_bandwidth_honest = None
-        self._download_bandwidth_honest = None
-        self._upload_bandwidth_adv = None
-        self._download_bandwidth_adv = None
-        self._propagation_delay = 0.0
-        self._coo_edge_attribute = "bandwidth"
-        self._node_bandwidth_path = None
-        self._upload_windows = np.empty(self.MINER_NUM, dtype=np.float64)
-        self._download_windows = np.empty(self.MINER_NUM, dtype=np.float64)
         self._outage_prob = 0
         self._show_label = False
         self._save_routing_graph = False
@@ -249,16 +109,13 @@ class TopologyNetwork(Network):
         self._directed = False
 
         # 拓扑图，初始默认全不连接
-        self._graph = nx.Graph()
-        self._graph.add_nodes_from(range(self.MINER_NUM))
+        self._tp_adjacency = np.zeros((self.MINER_NUM, self.MINER_NUM))
+        self._graph = nx.Graph(self._tp_adjacency)
         self._network_histroy = []
         self._node_pos = None #后面由set_node_pos生成
 
-        # _active_links is retained for compatibility with old callers. New
-        # transmissions are maintained by _transfer_pool.
+        # 维护所有的活跃链路
         self._active_links:list[Link] = []
-        self._transfer_pool = _TransferPool()
-        self._propagation_events:dict[int, list[_PropagationEvent]] = defaultdict(list)
 
         self._dynamic = False
         self._tp_changes = []
@@ -282,7 +139,7 @@ class TopologyNetwork(Network):
 
     def __del__(self):
         # 在退出之前保存路由信息
-        if getattr(self, "_save_routing_history", False):
+        if self._save_routing_history:
             self.save_rest_routing_process()
 
     def set_net_param(self, init_mode = None, 
@@ -290,13 +147,6 @@ class TopologyNetwork(Network):
                       ave_degree = None, 
                       bandwidth_honest = None, 
                       bandwidth_adv = None,
-                      upload_bandwidth_honest = None,
-                      download_bandwidth_honest = None,
-                      upload_bandwidth_adv = None,
-                      download_bandwidth_adv = None,
-                      propagation_delay = None,
-                      coo_edge_attribute = None,
-                      node_bandwidth_path = None,
                       outage_prob = None, 
                       enable_resume_transfer = None,
                       directed = None,
@@ -330,23 +180,6 @@ class TopologyNetwork(Network):
             self._bandwidth_honest = bandwidth_honest 
         if bandwidth_adv is not None: # default 5 MB/round
             self._bandwidth_adv = bandwidth_adv 
-        if upload_bandwidth_honest is not None:
-            self._upload_bandwidth_honest = upload_bandwidth_honest
-        if download_bandwidth_honest is not None:
-            self._download_bandwidth_honest = download_bandwidth_honest
-        if upload_bandwidth_adv is not None:
-            self._upload_bandwidth_adv = upload_bandwidth_adv
-        if download_bandwidth_adv is not None:
-            self._download_bandwidth_adv = download_bandwidth_adv
-        if propagation_delay is not None:
-            self._propagation_delay = propagation_delay
-        if coo_edge_attribute is not None:
-            if coo_edge_attribute not in {"bandwidth", "latency"}:
-                raise ValueError("coo_edge_attribute must be 'bandwidth' or 'latency'")
-            self._coo_edge_attribute = coo_edge_attribute
-        if node_bandwidth_path is not None:
-            self._node_bandwidth_path = node_bandwidth_path
-        self._initialize_bandwidth_windows()
         if topology_path is not None:
             self._topology_path = topology_path
         if directed is not None:
@@ -388,78 +221,33 @@ class TopologyNetwork(Network):
             self._block_num_bpt = [0 for _ in range(len(stat_prop_times))]
   
 
-    def _initialize_bandwidth_windows(self):
-        upload_honest = self._upload_bandwidth_honest or self._bandwidth_honest
-        download_honest = self._download_bandwidth_honest or self._bandwidth_honest
-        upload_adv = self._upload_bandwidth_adv or self._bandwidth_adv
-        download_adv = self._download_bandwidth_adv or self._bandwidth_adv
-        if min(upload_honest, download_honest, upload_adv, download_adv) <= 0:
-            raise ValueError("All node upload and download bandwidths must be positive")
-        self._upload_windows = np.array([
-            upload_adv if miner._isAdversary else upload_honest
-            for miner in self._miners
-        ], dtype=np.float64)
-        self._download_windows = np.array([
-            download_adv if miner._isAdversary else download_honest
-            for miner in self._miners
-        ], dtype=np.float64)
-        if self._node_bandwidth_path is not None:
-            self._load_node_bandwidths(self._node_bandwidth_path)
-
-    def _load_node_bandwidths(self, path: str):
-        bandwidths = pd.read_csv(path)
-        required_columns = {
-            "node_id",
-            "upload_MB_per_round",
-            "download_MB_per_round",
-        }
-        missing_columns = required_columns - set(bandwidths.columns)
-        if missing_columns:
-            raise ValueError(f"Node bandwidth file is missing columns: {sorted(missing_columns)}")
-
-        node_ids = bandwidths["node_id"].to_numpy(dtype=np.int64)
-        if len(node_ids) != self.MINER_NUM or len(np.unique(node_ids)) != self.MINER_NUM:
-            raise ValueError("Node bandwidth file must contain every node exactly once")
-        if np.any(node_ids < 0) or np.any(node_ids >= self.MINER_NUM):
-            raise ValueError("Node bandwidth file contains an out-of-range node_id")
-
-        upload = bandwidths["upload_MB_per_round"].to_numpy(dtype=np.float64)
-        download = bandwidths["download_MB_per_round"].to_numpy(dtype=np.float64)
-        if not np.all(np.isfinite(upload)) or not np.all(np.isfinite(download)):
-            raise ValueError("Node bandwidth values must be finite")
-        if np.any(upload <= 0) or np.any(download <= 0):
-            raise ValueError("Node bandwidth values must be positive")
-        self._upload_windows[node_ids] = upload
-        self._download_windows[node_ids] = download
-
-    def access_network(self, new_msgs:list[Message|tuple[Message, float]], minerid:int, round:int, target:int,
+    def access_network(self, new_msgs:list[Message|tuple[Message, int]], minerid:int, round:int, target:int,
                        sendTogether:bool = False):
-        """Start one queued transmission for a directed neighbor channel.
+        '''本轮新产生的消息添加到network_tape.
 
-        A tuple payload contains the remaining MB after an interrupted transfer.
-        TopologyNetwork sends one message per channel at a time, so callers must
-        not use ``sendTogether`` to create parallel transmissions on one edge.
-        """
+        param
+        -----
+        new_msg (list) : The newly generated message
+        minerid (int) : Miner_ID of the miner generated the message.
+        round (int) : Current round.
+        '''
         if self.inv_handler(new_msgs):
-            return None
-        if len(new_msgs) != 1:
-            raise ValueError("TopologyNetwork only accepts one transmission per channel")
-
-        new_msg = new_msgs[0]
-        remaining_mb = new_msg[1] if isinstance(new_msg, tuple) else None
-        msg = new_msg[0] if isinstance(new_msg, tuple) else new_msg
-        if not self.message_preprocessing(msg):
-            return None
-        if remaining_mb is None:
-            remaining_mb = msg.size
-        if remaining_mb <= 0:
-            raise ValueError("TopologyNetwork cannot transmit an empty message")
-
-        packet = TPPacket(msg, round, minerid, target)
-        slot = self._transfer_pool.allocate(packet, remaining_mb, round)
-        self._rcv_miners[self._message_name(packet)].add(minerid)
-        logger.info("%s starts transmission: M%d -> M%d, round %d", msg.name, minerid, target, round)
-        return slot
+            return
+        for new_msg in new_msgs:
+            rest_delay = new_msg[1] if isinstance(new_msg, tuple) else None
+            msg = new_msg[0] if isinstance(new_msg, tuple) else new_msg
+            if not self.message_preprocessing(msg):
+                continue
+            packet = TPPacket(msg, round, minerid, target)
+            delay = self.cal_delay(msg, minerid, target) if rest_delay is None else rest_delay
+            if rest_delay is not None:
+                logger.info("round %d, M%d -> M%d, %s resume transfer delay %d", round, minerid, target, msg.name, rest_delay)
+            link = Link(packet, delay, self)
+            self._active_links.append(link)
+            self._rcv_miners[link.get_block_msg_name()].add(minerid)
+            # self.miners[minerid].receive(packet)
+            # 这一条防止adversary集团的代表，自己没有接收到该消息
+            logger.info("%s access network: M%d -> M%d, round %d", msg.name, minerid, target, round)
                 
     def inv_handler(self, new_msgs:list[Message]):
         """先处理inv消息"""
@@ -475,129 +263,75 @@ class TopologyNetwork(Network):
 
 
     def cal_delay(self, msg: Message, source:int, target:int):
-        """Legacy helper retained for callers using edge-bandwidth topologies."""
+        '''计算sourceid和targetid之间的时延'''
+        # 传输时延=消息大小除带宽 且传输时延至少1轮
         bandwidth = self._graph.edges[source, target]['bandwidth']
         transmision_delay = math.ceil(msg.size / bandwidth)
+        # 时延=处理时延+传输时延
         delay = self._miners[source]._NIC.processing_delay + transmision_delay
         return delay
 
-    def _message_name(self, packet: TPPacket) -> str:
-        payload = packet.payload
-        if isinstance(payload, Message):
-            return payload.name
-        raise TypeError("TopologyNetwork only supports Message payloads")
-
-    def _propagation_delay_for(self, source: int, target: int) -> float:
-        return self._graph.edges[source, target].get("latency", getattr(self, "_propagation_delay", 0.0))
-
     def pre_diffuse(self, round) -> int:
         self.forward_process(round)
-        has_work = (
-            self._transfer_pool.active_count > 0
-            or bool(self._propagation_events)
-            or bool(self._active_forward_miners)
-        )
+        has_work = bool(self._active_links) or bool(self._active_forward_miners)
         return 1 if self._dynamic else int(has_work)
 
     def diffuse(self, round):
-        """Advance transmitting and propagating messages by one round."""
-        self.transfer_process(round)
+        '''传播过程分为接收和转发两个过程'''
         self.receive_process(round)
         if self._dynamic:
             self.topology_changing(round)
-            
+
     def receive_process(self,round):
-        """Deliver messages whose propagation phase ends this round."""
-        events = self._propagation_events.pop(round, [])
-        if not events:
+        """接收过程"""
+        if len(self._active_links)==0:
             return
+        dead_links:dict[int, Link] = {}
+        previous_rn = len(self._rcv_miners)
+        # 传播完成，target接收数据包
+        for i, link in enumerate(self._active_links):
+            if link.delay > 0:
+                link.delay -= 1
+            if self.link_outage(round, link):
+                dead_links[i] = False
+                continue
+            if link.delay > 0:
+                continue
+            rcv_state = link.target_miner()._NIC.nic_receive(link.packet)
+            msg_name = link.get_block_msg_name()
+            rcv_state = rcv_state[msg_name]
+            link.source_miner()._NIC.get_reply(round,msg_name,link.target_id(), None)
+
+            dead_links[i] = rcv_state
+        # 清理传播结束的link
+        if len(dead_links) == 0:
+            return
+
         propagated_messages = {}
         previous_rn = {}
-        for event in events:
-            rcv_state = self._miners[event.target]._NIC.nic_receive(event.packet)
-            msg_name = self._message_name(event.packet)
-            if not rcv_state[msg_name]:
+        for i, rcv_state in dead_links.items():
+            if rcv_state is False:
+                # link outage or payload has been received before
                 continue
+            link = self._active_links[i]
+            msg_name = link.get_block_msg_name()
             if msg_name not in previous_rn:
+                # ensure the number of rcv_miners of msg is not changed by the codes that follow
                 previous_rn[msg_name] = len(self._rcv_miners[msg_name])
             if -1 not in self._rcv_miners[msg_name]:
-                self._rcv_miners[msg_name].add(event.target)
+                self._rcv_miners[msg_name].add(link.target_id())
                 if self._save_routing_history:
                     self._routing_proc[msg_name].append(
-                        [{event.source:event.packet.round}, {event.target:round}]
+                        [{int(link.source_id()):link.packet.round}, {int(link.target_id()): round}]
                     )
-                propagated_messages[msg_name] = event.packet.payload
+                propagated_messages[link.get_block_msg_name()] = link.packet.payload
 
         for msg_name, msg in propagated_messages.items():
+            # calculate block propagation time statistics after _rcv_miners have been updated
             self.stat_block_propagation_times(msg, round, previous_rn[msg_name])
 
-    def transfer_process(self, round: int):
-        """Allocate one round of node bandwidth to active transmissions."""
-        self._drop_outaged_transfers(round)
-        active_slots = self._transfer_pool.snapshot_active_slots()
-        if len(active_slots) == 0:
-            return
-
-        transmitted = _BandwidthAllocator.allocate_equal_share(
-            active_slots,
-            self._transfer_pool.source_ids,
-            self._transfer_pool.target_ids,
-            self._transfer_pool.remaining_mb,
-            self._upload_windows,
-            self._download_windows,
-            self.MINER_NUM,
-        )
-        self._transfer_pool.remaining_mb[active_slots] -= transmitted
-        completed = active_slots[self._transfer_pool.remaining_mb[active_slots] <= _EPSILON]
-        if len(completed) == 0:
-            return
-        completed = completed[np.argsort(self._transfer_pool.transfer_ids[completed])]
-        for slot in completed:
-            self._complete_transfer(int(slot), round)
-
-    def _drop_outaged_transfers(self, round: int):
-        if self._outage_prob <= 0:
-            return
-        for slot in self._transfer_pool.snapshot_active_slots():
-            if random.uniform(0, 1) > self._outage_prob:
-                continue
-            self._cancel_transfer(int(slot), round, self._enableResumeTransfer)
-
-    def _complete_transfer(self, slot: int, round: int):
-        pool = self._transfer_pool
-        packet = pool.packet_refs[slot]
-        source = int(pool.source_ids[slot])
-        target = int(pool.target_ids[slot])
-        transfer_id = int(pool.transfer_ids[slot])
-        pool.remaining_mb[slot] = 0.0
-        self._miners[source]._NIC.on_transmission_complete(round, target, slot)
-        pool.release(slot)
-
-        latency = self._propagation_delay_for(source, target)
-        if latency < 0 or not math.isfinite(latency):
-            raise ValueError(f"Invalid propagation delay for M{source}->M{target}: {latency}")
-        delivery_round = round + math.ceil(latency)
-        self._propagation_events[delivery_round].append(_PropagationEvent(
-            packet=packet,
-            source=source,
-            target=target,
-            transfer_id=transfer_id,
-            transmission_finish_round=round,
-        ))
-
-    def _cancel_transfer(self, slot: int, round: int, resume: bool):
-        pool = self._transfer_pool
-        packet = pool.packet_refs[slot]
-        source = int(pool.source_ids[slot])
-        target = int(pool.target_ids[slot])
-        remaining_mb = float(pool.remaining_mb[slot]) if resume else None
-        pool.release(slot)
-        self._miners[source]._NIC.on_transmission_failed(
-            round,
-            target,
-            packet.payload,
-            remaining_mb,
-        )
+        self._active_links = [link for i, link in enumerate(self._active_links)
+                            if i not in dead_links]
     
     def activate_miner(self, miner_id: int):
         self._active_forward_miners.add(miner_id)
@@ -611,6 +345,22 @@ class TopologyNetwork(Network):
             nic.nic_forward(round)
             if not nic.has_pending_forwarding():
                 self._active_forward_miners.discard(miner_id)
+
+    def link_outage(self, round:int, link:Link):
+        """每条链路都有概率中断"""
+        if self._outage_prob <= 0:
+            return False
+        outage = False
+        if link.delay == 0:
+            return outage
+        if random.uniform(0, 1) > self._outage_prob:
+            return outage
+        # 链路中断返回ERR_OUTAGE错误
+        rest_delay = link.delay + 1 if self._enableResumeTransfer else None # 加1表示本轮失败重传
+        link.source_miner()._NIC.get_reply(round, link.get_block_msg_name(), link.target_id(), ERR_OUTAGE, rest_delay)
+        outage = True
+        return outage
+
 
     def topology_changing(self, round):
         if round != self._nextTpChangeRound:
@@ -688,15 +438,6 @@ class TopologyNetwork(Network):
             self._graph.add_edge(node1, node2, **edge_attributes)
             return removed
         
-        transfer_pool = getattr(self, "_transfer_pool", None)
-        if transfer_pool is not None:
-            cancelled_edges = [(node1, node2)]
-            if not self._directed:
-                cancelled_edges.append((node2, node1))
-            for edge in cancelled_edges:
-                slot = transfer_pool.edge_slots.get(edge)
-                if slot is not None:
-                    self._cancel_transfer(slot, change_op.get("round", 0), resume=False)
         self._miners[node1]._NIC.remove_neighbor(node2)
         if not self._directed:
             self._miners[node2]._NIC.remove_neighbor(node1)
@@ -730,8 +471,8 @@ class TopologyNetwork(Network):
         added = True
         self._graph.add_edge(node1, node2)
         # 设置带宽（MB/round）
-        self._graph.edges[node1, node2]["bandwidth"] = self._bandwidth_honest
-        self._graph.edges[node1, node2]["latency"] = getattr(self, "_propagation_delay", 0.0)
+        bandwidths = {(node1,node2):(self._bandwidth_honest)}
+        nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
         self._miners[node1]._NIC.add_neighbor(node2, round)
         if not self._directed:
             self._miners[node2]._NIC.add_neighbor(node1, round)
@@ -937,7 +678,7 @@ class TopologyNetwork(Network):
                       and self._miners[v]._isAdversary else bw_honest)
                       for u,v in self._graph.edges}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-        nx.set_edge_attributes(self._graph, getattr(self, "_propagation_delay", 0.0), "latency")
+        self.tp_adjacency_matrix = nx.adjacency_matrix(self._graph).todense()
 
 
     def gen_network_by_adj(self):
@@ -963,7 +704,6 @@ class TopologyNetwork(Network):
                       and self._miners[v]._isAdversary else bw_honest)
                       for u,v in self._graph.edges}
         nx.set_edge_attributes(self._graph, bandwidths, "bandwidth")
-        nx.set_edge_attributes(self._graph, getattr(self, "_propagation_delay", 0.0), "latency")
                     
 
 
@@ -977,20 +717,15 @@ class TopologyNetwork(Network):
         tp_coo_ndarray = tp_coo_dataframe.values
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
-        edge_values = np.array([float(i) for i in tp_coo_ndarray[2]])
-        if not (len(row) == len(col) == len(edge_values)):
-            raise errors.NetAdjError('COO拓扑的from、to和attribute数量不一致!')
+        bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
+        if not (len(row) == len(col) == len(bw_arrary)):
+            raise errors.NetAdjError('COO拓扑的from、to和bandwidth数量不一致!')
         if np.any(row < 0) or np.any(row >= self.MINER_NUM):
             raise errors.NetAdjError('COO拓扑包含越界的from节点!')
         if np.any(col < 0) or np.any(col >= self.MINER_NUM):
             raise errors.NetAdjError('COO拓扑包含越界的to节点!')
-        if not np.all(np.isfinite(edge_values)):
-            raise errors.NetAdjError('COO拓扑属性必须是有限数!')
-        edge_attribute = getattr(self, "_coo_edge_attribute", "bandwidth")
-        if edge_attribute == "bandwidth" and np.any(edge_values <= 0):
+        if np.any(bw_arrary <= 0):
             raise errors.NetAdjError('COO拓扑的bandwidth必须大于0!')
-        if edge_attribute == "latency" and np.any(edge_values < 0):
-            raise errors.NetAdjError('COO拓扑的latency不能小于0!')
         if self._directed:
             adjacency_row = row
             adjacency_col = col
@@ -1000,19 +735,11 @@ class TopologyNetwork(Network):
         adj_values = np.ones(len(adjacency_row))
         self.tp_adjacency_matrix = sp.coo_matrix(
             (adj_values, (adjacency_row, adjacency_col)),
-            shape=(self.MINER_NUM, self.MINER_NUM))
+            shape=(self.MINER_NUM, self.MINER_NUM)).todense()
         self._graph = self._new_graph()
         self._graph.add_nodes_from([i for i in range(self.MINER_NUM)])
         for edge_idx, (src, tgt) in enumerate(zip(row, col)):
-            attributes = {
-                "bandwidth": self._bandwidth_honest,
-                "latency": getattr(self, "_propagation_delay", 0.0),
-            }
-            if edge_attribute == "latency":
-                attributes["latency"] = edge_values[edge_idx]
-            else:
-                attributes["bandwidth"] = edge_values[edge_idx]
-            self._graph.add_edge(src, tgt, **attributes)
+            self._graph.add_edge(src, tgt, bandwidth=bw_arrary[edge_idx])
 
 
     def read_adj_from_csv(self):
