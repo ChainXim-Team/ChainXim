@@ -66,6 +66,9 @@ class Network(metaclass=ABCMeta):
                 msg.segment_num = math.ceil(msg.size/global_var.get_segmentsize())
         return True
 
+    def block_needed_by(self, target: int, block: Block) -> bool:
+        return self._miners[target]._NIC.needs_block(block)
+
     @abstractmethod
     def set_net_param(self, *args, **kargs):
         pass

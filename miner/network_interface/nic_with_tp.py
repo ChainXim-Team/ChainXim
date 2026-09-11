@@ -26,6 +26,8 @@ class NICWithTp(NetworkInterface):
         self._neighbors:tuple[int] = []
         # 暂存本轮收到的数据包
         self._segment_buffer:dict[set] = dict()
+        self._blocks_in_flight: dict[str, int] = {}
+        self._full_chain_authorizations: set[str] = set()
         # 输出队列(拓扑网络)
         self._output_queues = defaultdict(list[Message | tuple[Message, int]])
         self._channel_states = {}
@@ -72,6 +74,14 @@ class NICWithTp(NetworkInterface):
         if len(self._output_queues[remove_id]) == 0:
             self._output_queues.pop(remove_id, None)
         self._channel_states.pop(remove_id, None)
+        interrupted_blocks = [
+            block_name
+            for block_name, source in self._blocks_in_flight.items()
+            if source == remove_id
+        ]
+        for block_name in interrupted_blocks:
+            self._blocks_in_flight.pop(block_name)
+            self._full_chain_authorizations.discard(block_name)
         
         # logger.info("M%d: removed neighbour M%d", self.miner_id, remove_id)
 
@@ -114,6 +124,8 @@ class NICWithTp(NetworkInterface):
         payload = packet.payload
         source = packet.source
         if  not (isinstance(payload, list) and isinstance(payload[0], DataSegment)):
+            self._blocks_in_flight.pop(payload.name, None)
+            self._full_chain_authorizations.discard(payload.name)
             return {payload.name : self.miner.receive(source, deepcopy(payload))}
 
         rcv_states = {}
@@ -135,6 +147,8 @@ class NICWithTp(NetworkInterface):
                 update_rcv_states(seg.origin_block.name, False)
                 continue
             self._segment_buffer[block_name] = None
+            self._blocks_in_flight.pop(block_name, None)
+            self._full_chain_authorizations.discard(block_name)
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
             update_rcv_states(seg.origin_block.name, self.miner.receive(source, deepcopy(seg.origin_block)))
@@ -143,6 +157,13 @@ class NICWithTp(NetworkInterface):
     def __forward_buffer_to_output_queue(self, msg_source_type):
         for [msg, strategy, spec_tgts] in self._forward_buffer[msg_source_type]:
             targets = self.__select_target(msg, strategy, spec_tgts) # 选择目标节点
+            if strategy == FLOODING and (isinstance(msg, Block) or msg == SYNC_LOC_CHAIN):
+                block = (self.miner.get_local_chain().get_last_block()
+                         if msg == SYNC_LOC_CHAIN else msg)
+                targets = [
+                    target for target in targets
+                    if self._network.block_needed_by(target, block)
+                ]
             out_msgs = self.__seg_blocks(msg) if (isinstance(msg, Block) 
                 and self._network.withSegments) else [msg]
             for target in  targets:
@@ -294,10 +315,28 @@ class NICWithTp(NetworkInterface):
                 logger.info("M%d->M%d: %d, %s", inv.source, self.miner_id, req_b.segment_num, self._segment_buffer.get(req_b.name))
             return getData
 
-        getData.isRequired = not self.miner.has_received(inv.block_or_seg)
+        block_name = inv.block_or_seg.name
+        requested_source = self._blocks_in_flight.get(block_name)
 
         if not inv.isFullChain:
+            getData.isRequired = not self.miner.has_received(inv.block_or_seg)
+            if not getData.isRequired:
+                return getData
+            if requested_source is None:
+                self._blocks_in_flight[block_name] = inv.source
+                return getData
+            getData.isRequired = (
+                requested_source == inv.source
+                and block_name in self._full_chain_authorizations
+            )
+            if getData.isRequired:
+                self._full_chain_authorizations.discard(block_name)
             return getData
+
+        getData.isRequired = (
+            not self.miner.has_received(inv.block_or_seg)
+            and requested_source is None
+        )
         
         if getData.isRequired is False:
             return getData
@@ -314,18 +353,36 @@ class NICWithTp(NetworkInterface):
             else:
                 getData.isRequired = True
                 getData.req_blocks = [inv.block_or_seg]
+                self._blocks_in_flight[block_name] = inv.source
+                self._full_chain_authorizations.add(block_name)
                 return getData
-        getData.isRequired = True
         getData.req_blocks = []
         req_b = inv.block_or_seg
         while req_b is not None and not loc_chain.search_block(req_b):
+            if req_b.name in self._blocks_in_flight:
+                req_b = req_b.parentblock
+                continue
             if self._network.withSegments and (sids_notrcv := self._segment_buffer.get(req_b.name)):
                 # 已经收到部分分段，请求需要的分段
                 getData.req_segs.append((req_b, sids_notrcv))
             else:
                 getData.req_blocks.append(req_b)
             req_b = req_b.parentblock
+        getData.isRequired = bool(getData.req_blocks or getData.req_segs)
+        if getData.isRequired:
+            self._blocks_in_flight.update(
+                {block.name: inv.source for block in getData.req_blocks}
+            )
+            self._full_chain_authorizations.update(
+                block.name for block in getData.req_blocks
+            )
         return getData
+
+    def needs_block(self, block: Block) -> bool:
+        return (
+            not self.miner.has_received(block)
+            and block.name not in self._blocks_in_flight
+        )
     
     def __send_data(self, msgs:list[Message|tuple[Message, int]], target:int,round:int, sendTogether:bool=False):
         """
