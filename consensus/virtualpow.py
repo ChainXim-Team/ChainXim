@@ -18,8 +18,8 @@ class VirtualPoW(PoW):
             data = self.nonce
             return data
 
-    def __init__(self,miner_id,consensus_params:dict):
-        super().__init__(miner_id,consensus_params)
+    def __init__(self, miner_id, consensus_params:dict, chain_factory=None):
+        super().__init__(miner_id, consensus_params, chain_factory)
         self.ctr=0 #计数器
         self.target = int(consensus_params['target'],16)    
         if consensus_params['q_distr'] == 'equal':

@@ -36,7 +36,7 @@ class MinerBackboneFastPathTest(unittest.TestCase):
         return miner
 
     def construct_miner(self, consensus, max_block_capacity=0):
-        constructor = lambda miner_id, consensus_params: consensus
+        constructor = lambda miner_id, consensus_params, chain_factory: consensus
         with (
             patch("miner.miner.for_name", return_value=constructor),
             patch("miner.miner.global_var.get_consensus_type", return_value="unused"),

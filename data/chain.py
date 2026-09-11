@@ -1,5 +1,6 @@
 import copy
 import logging
+from array import array
 from collections import defaultdict
 
 import graphviz
@@ -253,342 +254,44 @@ class Chain(object):
         return blocklist
 
     def ShowStructure1(self):
-        # 打印树状结构
-        blocklist = [self.head]
-        printnum = 1
-        while blocklist:
-            length = 0
-            print("|    ", end="")
-            print("-|   " * (printnum - 1))
-            while printnum > 0:
-                blocklist.extend(blocklist[0].next)
-                blockprint = blocklist.pop(0)
-                length += len(blockprint.next)
-                print("{}   ".format(blockprint.name), end="")
-                printnum -= 1
-            print("")
-            printnum = length
+        return show_structure(self)
 
     def ShowStructure(self, miner_num=10):
-        # 打印树状结构
-        # 可能需要miner数量 也许放在这里不是非常合适？
-        plt.figure()
-        plt.rcParams['font.size'] = 16
-        plt.rcParams['font.family'] = 'Times New Roman'
-        blocktmp = self.head
-        fork_list = []
-        while blocktmp:
-            if blocktmp.isGenesis is False:
-                rd2 = blocktmp.blockhead.timestamp + blocktmp.blockhead.miner / miner_num
-                rd1 = blocktmp.parentblock.blockhead.timestamp + blocktmp.parentblock.blockhead.miner / miner_num
-                ht2 = blocktmp.height
-                ht1 = ht2 - 1
-                if blocktmp.isAdversaryBlock:
-                    plt.scatter(rd2, ht2, color='r', marker='o')
-                    plt.plot([rd1, rd2], [ht1, ht2], color='r')
-                else:
-                    plt.scatter(rd2, ht2, color='b', marker='o')
-                    plt.plot([rd1, rd2], [ht1, ht2], color='b')
-            else:
-                plt.scatter(0, 0, color='b', marker='o')
-            list_tmp = copy.copy(blocktmp.next)
-            if list_tmp:
-                blocktmp = list_tmp.pop(0)
-                fork_list.extend(list_tmp)
-            else:
-                if fork_list:
-                    blocktmp = fork_list.pop(0)
-                else:
-                    blocktmp = None
-        plt.xlabel('Round')
-        plt.ylabel('Block Height')
-        plt.grid(True)
-        RESULT_PATH = global_var.get_result_path()
-        plt.savefig(RESULT_PATH / 'blockchain visualisation.svg')
-        if global_var.get_show_fig():
-            plt.show()
-        plt.close()
+        return plot_structure(self, miner_num)
 
-    def ShowStructureWithGraphviz(self,other_list:list[int] = None):
-        '''借助Graphviz将区块链可视化'''
-        # 采用有向图
-        dot = graphviz.Digraph('Blockchain Structure',engine='dot')
-        blocktmp = self.head
-        fork_list = []
-        while blocktmp:
-            if blocktmp.isGenesis is False:
-                # 建立区块节点
-                if blocktmp.isAdversaryBlock:
-                    dot.node(blocktmp.name, shape='rect', color='red')
-                else:
-                    if other_list is None:
-                        dot.node(blocktmp.name,shape='rect',color='blue')
-                    else:
-                        dot.node(blocktmp.name,shape='rect',color='orange' if blocktmp.blockhead.miner in other_list else 'blue')
-                # 建立区块连接
-                dot.edge(blocktmp.parentblock.name, blocktmp.name)
-            else:
-                dot.node('B0',shape='rect',color='black',fontsize='20')
-            list_tmp = copy.copy(blocktmp.next)
-            if list_tmp:
-                blocktmp = list_tmp.pop(0)
-                fork_list.extend(list_tmp)
-            else:
-                if fork_list:
-                    blocktmp = fork_list.pop(0)
-                else:
-                    blocktmp = None
-        # 生成矢量图,展示结果
-        dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
-                   format='svg', view=global_var.get_show_fig())
+    def ShowStructureWithGraphviz(self, other_list=None):
+        return render_graphviz(self, other_list)
 
     def GetBlockIntervalDistribution(self):
-        stat = []
-        blocktmp2 = self.last_block
-        height = blocktmp2.height
-        while not blocktmp2.isGenesis:
-            blocktmp1 = blocktmp2.parentblock
-            stat.append(blocktmp2.blockhead.timestamp - blocktmp1.blockhead.timestamp)
-            blocktmp2 = blocktmp1
-        if height <= 1000:
-            bins = 10
-        else:
-            bins = 20
-        plt.rcParams['font.size'] = 16
-        plt.rcParams['font.family'] = 'Times New Roman'
-        plt.hist(stat, bins=bins, histtype='bar', range=(0, max(stat)))
-        plt.xlabel('Rounds')
-        plt.ylabel('Times')
-        # plt.title('Block generation interval distribution')
-        RESULT_PATH = global_var.get_result_path()
-        plt.savefig(RESULT_PATH / 'block_interval_distribution.svg')
-        if global_var.get_show_fig():
-            plt.show()
-        plt.close()
-    
-    def printchain2txt(self, chain_data_url='chain_data.txt'):
-        '''
-        前向遍历打印链中所有块到文件
-        param:
-            chain_data_url:打印文件位置,默认'chain_data.txt'
-        '''
-        def save_chain_structure(chain,f):
-            blocklist = [chain.head]
-            printnum = 1
-            while blocklist:
-                length = 0
-                print("|    ", end="",file=f)
-                print("-|   " * (printnum - 1),file=f)
-                while printnum > 0:
-                    blocklist.extend(blocklist[0].next)
-                    blockprint = blocklist.pop(0)
-                    length += len(blockprint.next)
-                    print("{}   ".format(blockprint.name), end="",file=f)
-                    printnum -= 1
-                print("",file=f)
-                printnum = length
+        return plot_intervals(self)
 
-        CHAIN_DATA_PATH=global_var.get_chain_data_path()
-        if not self.head:
-            with open(CHAIN_DATA_PATH / chain_data_url,'a') as f:
-                print("empty chain",file=f)
-            return
-        
-        with open(CHAIN_DATA_PATH /chain_data_url,'a') as f:
-            print("Blockchain maintained BY Miner",self.miner_id,file=f)
-            # 打印主链
-            save_chain_structure(self,f)
-            #打印链信息
-            q:list[Block] = [self.head]
-            blocklist = []
-            while q:
-                block = q.pop(0)
-                blocklist.append(block)
-                print(block,file=f)
-                for i in block.next:
-                    q.append(i)
+    def printchain2txt(self, chain_data_url="chain_data.txt"):
+        return printchain2txt(self, chain_data_url)
 
+    def CalculateStatistics(
+        self,
+        rounds,
+        honest_miners,
+        adver_ids,
+        confirm_delay,
+        dataitem_params,
+        valid_dataitems,
+        quantile,
+        eclipsed_ids=None,
+        chain_switch_events=None,
+    ):
+        return calculate_statistics(
+            self,
+            rounds,
+            honest_miners,
+            adver_ids,
+            confirm_delay,
+            dataitem_params,
+            valid_dataitems,
+            quantile,
+            eclipsed_ids,
+        )
 
-    def CalculateStatistics(self, rounds, honest_miners: list, adver_ids: list[int], confirm_delay: int,
-                            dataitem_params: dict, valid_dataitems: set, quantile: float,
-                            eclipsed_ids: list = None, chain_switch_events: list = None):
-        eclipsed_ids = eclipsed_ids or []
-        # 统计一些数据
-        stats = {
-            "num_of_generated_blocks": -1,
-            "height_of_longest_chain": 0,
-            "num_of_valid_blocks": 0,
-            "num_of_stale_blocks": 0,
-            "stale_rate": 0,
-            "num_of_forks": 0,
-            "num_of_heights_with_fork":0,
-            "fork_rate": 0,
-            "average_block_time_main": 0,
-            "block_throughput_main": 0,
-            "throughput_main_MB": 0,
-            "average_block_time_total": 0,
-            "block_throughput_total": 0,
-            "throughput_total_MB": 0,
-            "double_spending_success_times": 0,
-            # "double_spending_success_times_ver2": 0,
-            # "double_spending_success_count_by_switch": 0,
-            "attack_fail": 0
-        }
-        q = [self.head]
-        while q:
-            stats["num_of_generated_blocks"] = stats["num_of_generated_blocks"] + 1
-            blocktmp = q.pop(0)
-            if blocktmp.height > stats["height_of_longest_chain"]:
-                stats["height_of_longest_chain"] = blocktmp.height
-            nextlist = blocktmp.next
-            q.extend(nextlist)
-
-        from external import common_prefix
-        honest_cp = self.last_block
-        honest_miner_ids = set(miner.miner_id for miner in honest_miners)
-        honest_miner_sorted_by_height = honest_miners.copy()
-        honest_miner_sorted_by_height.sort(key=lambda x: x.get_local_chain().get_height(), reverse=True)
-        quantile = quantile if quantile > 0 else 1 / len(honest_miners)
-        consensus_miner_num = int(len(honest_miners) * quantile)
-        consensus_miner_num = max(consensus_miner_num, 1)
-        for miner in honest_miner_sorted_by_height[:consensus_miner_num]:
-            honest_miner_ids.add(miner.miner_id)
-            honest_cp = common_prefix(honest_cp, miner.get_local_chain().get_last_block())
-        stats["num_of_valid_blocks"] = honest_cp.height
-
-        # Check the dataitems in the honest_cp
-        from external import R                                                                                                                                                                         
-        valid_item_count = 0
-        anomalous_item_count = 0
-        if dataitem_params['dataitem_enable']:
-            dataitem_set = set()
-            dataitems_reversed = R(honest_cp)
-            previous_item = int.from_bytes((255).to_bytes(1, BYTE_ORDER) * 2 * INT_LEN, BYTE_ORDER)
-            for dataitem in dataitems_reversed:
-                if dataitem.to_bytes(2*INT_LEN, BYTE_ORDER) in valid_dataitems:
-                    if previous_item < dataitem and dataitem_params['dataitem_input_interval'] > 0:
-                        anomalous_item_count += 1
-                        logger.warning("A dataitem is out of order: %s", dataitem)
-                    else:
-                        valid_item_count += 1
-                        previous_item = dataitem
-                        if dataitem not in dataitem_set:
-                            dataitem_set.add(dataitem)
-                        else:
-                            logger.warning("A dataitem duplicates")
-                else:
-                    anomalous_item_count += 1
-            stats.update({
-                'valid_dataitem_throughput': valid_item_count / rounds,
-                'input_dataitem_rate': 1/dataitem_params['dataitem_input_interval'] \
-                    if dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / rounds
-            })
-            if stats['num_of_valid_blocks'] > 0:
-                stats['block_average_size'] = \
-                    (valid_item_count+anomalous_item_count) * dataitem_params['dataitem_size'] / stats['num_of_valid_blocks']
-                stats['valid_dataitem_rate'] = valid_item_count / (valid_item_count + anomalous_item_count)
-            else:
-                stats['valid_dataitem_rate'] = 0
-                stats['block_average_size'] = 0
-
-        mainchain_block = {}
-        current_block = honest_cp
-        while current_block:
-            mainchain_block[current_block.name] = current_block
-            current_block = current_block.parentblock
-
-        last_block_iter = honest_cp.parentblock
-        while last_block_iter:
-            stats["num_of_forks"] += len(last_block_iter.next) - 1
-            stats["num_of_heights_with_fork"] += (len(last_block_iter.next) > 1)
-
-            if len(last_block_iter.next) > 1:  # 发生分叉
-                attacker_block_on_main = None
-                # 1. 确认攻击者的区块在主链上
-                for child_block in last_block_iter.next:
-                    if (child_block.blockhead.miner in adver_ids or \
-                        child_block.blockhead.miner in eclipsed_ids) and \
-                            child_block.name in mainchain_block:
-                        attacker_block_on_main = child_block
-                        break
-
-                if attacker_block_on_main:
-                    # 攻击者区块已在主链，现在检查是否有符合条件的被孤立分支
-                    found_qualifying_orphaned_branch = False
-                    for other_child_block in last_block_iter.next:
-                        if other_child_block == attacker_block_on_main:
-                            continue  # 跳过攻击者所在的主链分支
-
-                        # 条件1: 被孤立分支的第一个块 (other_child_block) 需要是诚实块
-                        if other_child_block.blockhead.miner in honest_miner_ids:  # 确保是被孤立的分支
-
-                            # 条件2: 这个被孤立的分支长度需要大于等于 N
-                            # DFS栈: (区块, 从other_child_block开始的当前路径长度)
-                            dfs_stack = [(other_child_block, 1)]
-
-                            # 记录这个孤立分支的最长路径
-                            # 这个DFS只关心路径长度，不关心路径上后续块的诚实性
-                            temp_longest_path_for_orphan = 0
-
-                            while dfs_stack:
-                                current_orphan_node, current_path_length = dfs_stack.pop()
-
-                                if current_path_length > temp_longest_path_for_orphan:
-                                    temp_longest_path_for_orphan = current_path_length
-
-                                for next_orphan_node_candidate in current_orphan_node.next:
-                                    dfs_stack.append((next_orphan_node_candidate, current_path_length + 1))
-
-                            # 现在 temp_longest_path_for_orphan 是这条以诚实块开始的孤立分支的最长长度
-                            if temp_longest_path_for_orphan >= confirm_delay:
-                                found_qualifying_orphaned_branch = True
-                                break  # 找到了一个符合条件的被孤立分支
-
-                    if found_qualifying_orphaned_branch:
-                        stats["double_spending_success_times"] += 1
-
-            last_block_iter = last_block_iter.parentblock
-
-        # # 第二种静态计算双花攻击成功的方法
-        # last_block = honest_cp
-        # attack_flag = False if last_block.blockhead.miner  in honest_miner_ids else True
-        # last_block = honest_cp.parentblock
-        # while last_block:
-        #     if len(last_block.next) > 1 and attack_flag:
-        #         attack_flag = False
-        #         stats["double_spending_success_times_ver2"] += 1
-        #     if last_block.blockhead.miner in adver_ids and not attack_flag:
-        #         attack_flag = True
-        #     last_block = last_block.parentblock
-
-        # 计算双花攻击成功次数-按照链切换事件
-        # honest_chains = [miner.get_local_chain() for miner in honest_miners]
-        # stats["double_spending_success_count_by_switch"] = double_spending_success_by_switch(honest_chains, adver_ids,
-        #                                                            mainchain_block, confirm_delay, eclipsed_ids,
-        #                                                            chain_switch_events, quantile)
-
-        # Chain Quality Property
-        from external import chain_quality
-        cq_dict, chain_quality_property = chain_quality(honest_cp, adver_ids)
-        stats.update({
-            'chain_quality_property': cq_dict,
-            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 5),
-            'upper_bound t/(n-t)': round(len(adver_ids) / len(honest_miner_ids), 5)
-        })
-
-        stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
-        stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else -1
-        stats["block_throughput_main"] = stats["num_of_valid_blocks"] / rounds
-        blocksize = global_var.get_blocksize()
-        stats["throughput_main_MB"] = blocksize * stats["block_throughput_main"]
-        stats["average_block_time_total"] = rounds / stats["num_of_generated_blocks"]
-        stats["block_throughput_total"] = 1 / stats["average_block_time_total"]
-        stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
-        stats["fork_rate"] = stats["num_of_heights_with_fork"] / stats["num_of_valid_blocks"] if stats["num_of_valid_blocks"] > 0 else 0
-        stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
-
-        return stats
-    
     def set_switch_tracker_callback(self, callback):
         self.switch_tracker_callback = callback
 
@@ -597,6 +300,266 @@ class Chain(object):
 
     def set_merge_callback(self, callback):
         self.merge_callback = callback
+
+
+def printchain2txt(chain, chain_data_url):
+    snapshot = chain.collect_visible_tree()
+    chain_data_path = global_var.get_chain_data_path()
+    with open(chain_data_path / chain_data_url, 'a') as output:
+        if len(snapshot) == 0:
+            print("empty chain", file=output)
+            return
+        print("Blockchain maintained BY Miner", chain.miner_id, file=output)
+        names = snapshot.names
+        child_offsets = snapshot.child_offsets
+        child_indices = snapshot.child_indices
+        level = [0]
+        while level:
+            print("|    ", end="", file=output)
+            print("-|   " * (len(level) - 1), file=output)
+            print("".join(f"{names[index]}   " for index in level), file=output)
+            level = [child for index in level
+                     for child in child_indices[child_offsets[index]:child_offsets[index + 1]]]
+        for blockhash in snapshot.hashes:
+            print(chain.block_set[blockhash], file=output)
+
+
+def _snapshot_levels(snapshot):
+    child_offsets = snapshot.child_offsets
+    child_indices = snapshot.child_indices
+    level = [0] if len(snapshot) else []
+    while level:
+        yield level
+        level = [child for index in level
+                 for child in child_indices[child_offsets[index]:child_offsets[index + 1]]]
+
+
+def show_structure(chain):
+    snapshot = chain.collect_visible_tree()
+    names = snapshot.names
+    for level in _snapshot_levels(snapshot):
+        print("|    ", end="")
+        print("-|   " * (len(level) - 1))
+        print("".join(f"{names[index]}   " for index in level))
+
+
+def plot_structure(chain, miner_num):
+    snapshot = chain.collect_visible_tree()
+    names = snapshot.names
+    heights = snapshot.heights
+    timestamps = snapshot.timestamps
+    miners = snapshot.miners
+    adversarial = snapshot.adversarial
+    genesis = snapshot.genesis
+    parents = snapshot.parent_indices
+    plt.figure()
+    plt.rcParams['font.size'] = 16
+    plt.rcParams['font.family'] = 'Times New Roman'
+    for index, name in enumerate(names):
+        if genesis[index]:
+            plt.scatter(0, 0, color='b', marker='o')
+            continue
+        parent = parents[index]
+        rd2 = timestamps[index] + miners[index] / miner_num
+        rd1 = timestamps[parent] + miners[parent] / miner_num
+        color = 'r' if adversarial[index] else 'b'
+        plt.scatter(rd2, heights[index], color=color, marker='o')
+        plt.plot([rd1, rd2], [heights[parent], heights[index]], color=color)
+    plt.xlabel('Round')
+    plt.ylabel('Block Height')
+    plt.grid(True)
+    result_path = global_var.get_result_path()
+    plt.savefig(result_path / 'blockchain visualisation.svg')
+    if global_var.get_show_fig():
+        plt.show()
+    plt.close()
+
+
+def render_graphviz(chain, other_list):
+    snapshot = chain.collect_visible_tree()
+    names = snapshot.names
+    miners = snapshot.miners
+    adversarial = snapshot.adversarial
+    genesis = snapshot.genesis
+    parents = snapshot.parent_indices
+    dot = graphviz.Digraph('Blockchain Structure', engine='dot')
+    for index, name in enumerate(names):
+        if genesis[index]:
+            dot.node(name, shape='rect', color='black', fontsize='20')
+            continue
+        if adversarial[index]:
+            color = 'red'
+        elif other_list is None:
+            color = 'blue'
+        else:
+            color = 'orange' if miners[index] in other_list else 'blue'
+        dot.node(name, shape='rect', color=color)
+        dot.edge(names[parents[index]], name)
+    dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
+               format='svg', view=global_var.get_show_fig())
+
+
+def plot_intervals(chain):
+    path = chain.collect_ancestor_path(chain.last_block)
+    timestamps = path.timestamps
+    stat = [timestamps[index] - timestamps[index + 1]
+            for index in range(len(timestamps) - 1)]
+    bins = 10 if path.heights[0] <= 1000 else 20
+    plt.rcParams['font.size'] = 16
+    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.hist(stat, bins=bins, histtype='bar', range=(0, max(stat)))
+    plt.xlabel('Rounds')
+    plt.ylabel('Times')
+    result_path = global_var.get_result_path()
+    plt.savefig(result_path / 'block_interval_distribution.svg')
+    if global_var.get_show_fig():
+        plt.show()
+    plt.close()
+
+
+def _restore_snapshot_chain(miner_id, blocks, tip_hash):
+    from .blockchain_tree import ChainFactory
+
+    chain = ChainFactory().create(miner_id)
+    for block in blocks:
+        if block.isGenesis:
+            chain.add_blocks(block)
+            continue
+        parent = chain.search_block_by_hash(block.blockhead.prehash)
+        chain.add_blocks(block, insert_point=parent)
+    if tip_hash is not None:
+        chain.set_last_block(chain.search_block_by_hash(tip_hash))
+    return chain
+
+
+def calculate_statistics(chain, rounds, honest_miners, adver_ids, confirm_delay,
+                         dataitem_params, valid_dataitems, quantile, eclipsed_ids):
+    eclipsed_ids = eclipsed_ids or []
+    snapshot = chain.collect_visible_tree()
+    hashes = snapshot.hashes
+    heights = snapshot.heights
+    miners = snapshot.miners
+    child_offsets = snapshot.child_offsets
+    child_indices = snapshot.child_indices
+    index_by_hash = {blockhash: index for index, blockhash in enumerate(hashes)}
+    generated_blocks = max(len(snapshot) - 1, 0)
+    stats = {
+        "num_of_generated_blocks": generated_blocks,
+        "height_of_longest_chain": max(heights, default=0),
+        "num_of_valid_blocks": 0,
+        "num_of_stale_blocks": 0,
+        "stale_rate": 0,
+        "num_of_forks": 0,
+        "num_of_heights_with_fork": 0,
+        "fork_rate": 0,
+        "average_block_time_main": 0,
+        "block_throughput_main": 0,
+        "throughput_main_MB": 0,
+        "average_block_time_total": 0,
+        "block_throughput_total": 0,
+        "throughput_total_MB": 0,
+        "double_spending_success_times": 0,
+        "attack_fail": 0,
+    }
+
+    honest_miner_ids = {miner.miner_id for miner in honest_miners}
+    miners_by_height = sorted(
+        honest_miners, key=lambda miner: miner.get_local_chain().get_height(), reverse=True)
+    quantile = quantile if quantile > 0 else 1 / len(honest_miners)
+    consensus_miner_num = max(int(len(honest_miners) * quantile), 1)
+    honest_cp = chain.last_block
+    for miner in miners_by_height[:consensus_miner_num]:
+        honest_cp = chain.common_prefix(honest_cp, miner.get_local_chain().get_last_block())
+    stats["num_of_valid_blocks"] = honest_cp.height
+    main_path = chain.collect_ancestor_path(honest_cp)
+
+    valid_item_count = 0
+    anomalous_item_count = 0
+    if dataitem_params['dataitem_enable']:
+        dataitem_set = set()
+        dataitems_reversed = array('Q')
+        for content in main_path.contents:
+            dataitems_reversed.extend(reversed(array('Q', content)))
+        previous_item = int.from_bytes((255).to_bytes(1, BYTE_ORDER) * 2 * INT_LEN, BYTE_ORDER)
+        for dataitem in dataitems_reversed:
+            if dataitem.to_bytes(2 * INT_LEN, BYTE_ORDER) in valid_dataitems:
+                if previous_item < dataitem and dataitem_params['dataitem_input_interval'] > 0:
+                    anomalous_item_count += 1
+                    logger.warning("A dataitem is out of order: %s", dataitem)
+                else:
+                    valid_item_count += 1
+                    previous_item = dataitem
+                    if dataitem in dataitem_set:
+                        logger.warning("A dataitem duplicates")
+                    else:
+                        dataitem_set.add(dataitem)
+            else:
+                anomalous_item_count += 1
+        stats.update({
+            'valid_dataitem_throughput': valid_item_count / rounds,
+            'input_dataitem_rate': 1 / dataitem_params['dataitem_input_interval']
+                if dataitem_params['dataitem_input_interval'] > 0 else valid_item_count / rounds,
+        })
+        item_count = valid_item_count + anomalous_item_count
+        if stats['num_of_valid_blocks'] > 0:
+            stats['block_average_size'] = (
+                item_count * dataitem_params['dataitem_size'] / stats['num_of_valid_blocks'])
+            stats['valid_dataitem_rate'] = valid_item_count / item_count if item_count else 0
+        else:
+            stats['valid_dataitem_rate'] = 0
+            stats['block_average_size'] = 0
+
+    main_hashes = set(main_path.hashes)
+    attacker_ids = set(adver_ids) | set(eclipsed_ids)
+    for parent_hash in main_path.hashes[1:]:
+        parent_index = index_by_hash[parent_hash]
+        children = child_indices[child_offsets[parent_index]:child_offsets[parent_index + 1]]
+        stats["num_of_forks"] += len(children) - 1
+        stats["num_of_heights_with_fork"] += len(children) > 1
+        if len(children) <= 1:
+            continue
+        attacker_main = next((child for child in children
+                              if miners[child] in attacker_ids and hashes[child] in main_hashes), None)
+        if attacker_main is None:
+            continue
+        for orphan_root in children:
+            if orphan_root == attacker_main or miners[orphan_root] not in honest_miner_ids:
+                continue
+            longest = 0
+            stack = [(orphan_root, 1)]
+            while stack:
+                current, depth = stack.pop()
+                longest = max(longest, depth)
+                stack.extend((child, depth + 1) for child in
+                             child_indices[child_offsets[current]:child_offsets[current + 1]])
+            if longest >= confirm_delay:
+                stats["double_spending_success_times"] += 1
+                break
+
+    adversary_block_num = sum(miner in adver_ids for miner in main_path.miners)
+    honest_block_num = len(main_path) - adversary_block_num
+    stats.update({
+        'chain_quality_property': {
+            'Honest Block': honest_block_num,
+            'Adversary Block': adversary_block_num,
+        },
+        'ratio_of_blocks_contributed_by_malicious_players': round(
+            adversary_block_num / len(main_path), 5),
+        'upper_bound t/(n-t)': round(len(adver_ids) / len(honest_miner_ids), 5),
+    })
+
+    valid_blocks = stats["num_of_valid_blocks"]
+    stats["num_of_stale_blocks"] = generated_blocks - valid_blocks
+    stats["average_block_time_main"] = rounds / valid_blocks if valid_blocks > 0 else -1
+    stats["block_throughput_main"] = valid_blocks / rounds
+    blocksize = global_var.get_blocksize()
+    stats["throughput_main_MB"] = blocksize * stats["block_throughput_main"]
+    stats["average_block_time_total"] = rounds / generated_blocks if generated_blocks else -1
+    stats["block_throughput_total"] = generated_blocks / rounds
+    stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
+    stats["fork_rate"] = stats["num_of_heights_with_fork"] / valid_blocks if valid_blocks else 0
+    stats["stale_rate"] = stats["num_of_stale_blocks"] / generated_blocks if generated_blocks else 0
+    return stats
 
 
 def double_spending_success_by_switch(honest_chains:list[Chain], adver_ids:list[int], mainchain_block:dict,

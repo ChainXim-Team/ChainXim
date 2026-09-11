@@ -1,15 +1,128 @@
 import copy
-from itertools import chain
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from itertools import chain
+from typing import ClassVar, NamedTuple
 
 from functions import BYTE_ORDER, INT_LEN, hash_bytes
 
 from .message import Message
 
 
+class BlockTreeRecord(NamedTuple):
+    blockhash: bytes
+    parent_hash: bytes
+    name: str
+    height: int
+    miner: int
+    timestamp: int
+    content: bytes
+    adversarial: bool
+    genesis: bool
+    size: float
+
+
+@dataclass(frozen=True, slots=True)
+class TreeField:
+    name: str
+    owner: str
+    attribute: str
+    value_type: type | tuple[type, ...]
+
+    def __post_init__(self):
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("tree field name must be a non-empty string")
+        if self.owner not in {"block", "blockhead"}:
+            raise ValueError("tree field owner must be 'block' or 'blockhead'")
+        if not isinstance(self.attribute, str) or not self.attribute:
+            raise ValueError("tree field attribute must be a non-empty string")
+
+    def read(self, block):
+        owner = block if self.owner == "block" else block.blockhead
+        value = getattr(owner, self.attribute)
+        if not isinstance(value, self.value_type):
+            raise TypeError(
+                f"tree field {self.name!r} must be {self.value_type}, "
+                f"got {type(value)}"
+            )
+        try:
+            hash(value)
+        except TypeError as error:
+            raise TypeError(f"tree field {self.name!r} must be immutable") from error
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class BlockTreeSchema:
+    block_type: type
+    blockhead_type: type
+    fields: tuple[TreeField, ...]
+    field_names: tuple[str, ...] = dataclass_field(init=False)
+
+    CORE_FIELDS: ClassVar[frozenset[str]] = frozenset({
+        "blockhash", "parent_hash", "name", "height", "miner", "timestamp",
+        "content", "adversarial", "genesis", "size",
+    })
+
+    def __post_init__(self):
+        fields = tuple(self.fields)
+        names = [field.name for field in fields]
+        if len(names) != len(set(names)):
+            raise ValueError("tree field names must be unique")
+        if self.CORE_FIELDS.intersection(names):
+            raise ValueError("custom tree fields cannot replace core fields")
+        object.__setattr__(self, "fields", fields)
+        object.__setattr__(self, "field_names", tuple(names))
+
+    @staticmethod
+    def _declared_fields(value_type, owner):
+        fields = []
+        for base in reversed(value_type.__mro__):
+            for field in base.__dict__.get("__tree_fields__", ()):
+                if not isinstance(field, TreeField):
+                    raise TypeError("__tree_fields__ must contain TreeField objects")
+                if field.owner != owner:
+                    raise ValueError(
+                        f"{value_type.__name__} declares {field.name!r} for {field.owner}"
+                    )
+                fields.append(field)
+        return fields
+
+    @classmethod
+    def from_block(cls, block):
+        fields = cls._declared_fields(type(block), "block")
+        fields.extend(cls._declared_fields(type(block.blockhead), "blockhead"))
+        return cls(type(block), type(block.blockhead), tuple(fields))
+
+    def read(self, block):
+        if type(block) is not self.block_type or type(block.blockhead) is not self.blockhead_type:
+            raise TypeError(
+                "all blocks in one BlockchainTree must use the schema bound by its genesis block"
+            )
+        head = block.blockhead
+        record = BlockTreeRecord(
+            block.blockhash,
+            head.prehash,
+            block.name,
+            block.height,
+            head.miner,
+            head.timestamp,
+            head.content,
+            bool(block.isAdversaryBlock),
+            bool(block.isGenesis),
+            block.size,
+        )
+        return record, self.read_fields(block)
+
+    def read_fields(self, block):
+        return tuple(field.read(block) for field in self.fields)
+
+
 class BlockHead(metaclass=ABCMeta):
-    __slots__ = ['prehash', 'timestamp', 'content', 'miner']
-    __omit_keys = {} # The items to omit when printing the object
+    __slots__ = ['content', 'miner', 'prehash', 'timestamp']
+    __tree_fields__ = ()
+    __omit_keys: ClassVar[set[str]] = set() # The items to omit when printing the object
     
     def __init__(self, prehash=b'', timestamp=0, content = b'', Miner = -1):
         self.prehash:bytes = prehash  # 前一个区块的hash
@@ -33,13 +146,16 @@ class BlockHead(metaclass=ABCMeta):
             hash type:bytes
         '''
         data = self.miner.to_bytes(INT_LEN, BYTE_ORDER,signed=True) + \
-                self.content.to_bytes(INT_LEN, BYTE_ORDER) + \
+                self.content + \
                 self.prehash
         return hash_bytes(data).digest()
 
     def __repr__(self) -> str:
         bhlist = []
-        keys = chain.from_iterable(list(getattr(s, '__slots__', []) for s in self.__class__.__mro__) + list(getattr(self, '__dict__', {}).keys()))
+        keys = chain.from_iterable(
+            [getattr(base, '__slots__', []) for base in self.__class__.__mro__]
+            + [getattr(self, '__dict__', {}).keys()]
+        )
         for k in keys:
             if k not in self.__omit_keys:
                 v = getattr(self, k)
@@ -48,8 +164,9 @@ class BlockHead(metaclass=ABCMeta):
 
 
 class Block(Message):
-    __slots__ = ['__blockhead', 'height', 'blockhash', 'isAdversaryBlock', 'next', 'parentblock', 'isGenesis']
-    __omit_keys = {'segment_num'} # The items to omit when printing the object
+    __slots__ = ['__blockhead', 'blockhash', 'height', 'isAdversaryBlock', 'isGenesis', 'next', 'parentblock']
+    __tree_fields__ = ()
+    __omit_keys: ClassVar[set[str]] = {'segment_num'} # The items to omit when printing the object
 
     def __init__(self, name, blockhead: BlockHead, height = None, 
                  isadversary=False, isgenesis=False, blocksize_MB=2):
@@ -59,7 +176,7 @@ class Block(Message):
         self.blockhash = blockhead.calculate_blockhash()
         self.isAdversaryBlock = isadversary
         self.next:list[Block] = []  # 子块列表
-        self.parentblock:Block = None  # 母块
+        self.parentblock:Block | None = None  # 母块
         self.isGenesis = isgenesis
         # super().__init__(int(random.uniform(0.5, 2)))
         # 单位:MB 随机 0.5~1 MB
@@ -71,13 +188,12 @@ class Block(Message):
 
         slots = chain.from_iterable((getattr(s, '__slots__', [])) for s in self.__class__.__mro__)
         for k in slots:
-            if cls.__name__ == 'Block':
-                if k == 'next':
-                    setattr(result, k, [])
-                    continue
-                if k == 'parentblock':
-                    setattr(result, k, None)
-                    continue
+            if k == 'next':
+                setattr(result, k, [])
+                continue
+            if k == 'parentblock':
+                setattr(result, k, None)
+                continue
             if k == '__name':
                 key = '_Message__name'
             elif k == '__blockhead':
@@ -120,8 +236,7 @@ class Block(Message):
         var_dict.update({'next': [b.name for b in self.next if self.next], 
                       'parentblock': self.parentblock.name if self.parentblock is not None else None})
         for omk in self.__omit_keys:
-            if omk in var_dict:
-                del var_dict[omk]
+            var_dict.pop(omk, None)
         return '\n'+ _formatter(var_dict)
 
     def __eq__(self, value):

@@ -14,12 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class Miner(object):
-    def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0, disable_dataitem_queue=False):
+    def __init__(self, miner_id, consensus_params:dict, max_block_capacity:int = 0,
+                 disable_dataitem_queue=False, chain_factory=None):
         self.miner_id = miner_id #矿工ID
         self._isAdversary = False
         #共识相关
         self.consensus:Consensus = for_name(
-            global_var.get_consensus_type())(miner_id, consensus_params)# 共识
+            global_var.get_consensus_type())(miner_id, consensus_params, chain_factory)# 共识
         self._skip_pow_consensus = isinstance(self.consensus, PoW) and self.consensus.q == 0
         #输入内容相关
         self.input_tape = []
@@ -164,5 +165,4 @@ class Miner(object):
         if self._NIC._receive_buffer:
             self._NIC._receive_buffer.clear()
         # self._NIC.clear_forward_buffer()
-    
         
