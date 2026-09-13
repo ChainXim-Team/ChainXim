@@ -1,6 +1,7 @@
-import numpy as np
 import os
-from typing import List
+from typing import cast
+
+import numpy as np
 
 try:
     import pyopencl as cl
@@ -9,16 +10,96 @@ except ImportError:
 
 from .pow import PoW
 
+GPU_SELECTOR_ENV = "CHAINXIM_GPU_ID"
+REQUIRE_GPU_ENV = "CHAINXIM_REQUIRE_GPU"
+MAX_SEARCH_ROUND = 0xFFFFFFFF
+
+
+def _search_window(start_round: int, total_rounds: int) -> int:
+    if not 0 <= start_round <= MAX_SEARCH_ROUND:
+        raise OverflowError(
+            f"FastPoW round {start_round} exceeds the 4-byte round range "
+            f"0..{MAX_SEARCH_ROUND}"
+        )
+    if total_rounds <= 0:
+        raise ValueError("FastPoW search length must be positive")
+    return min(total_rounds, MAX_SEARCH_ROUND - start_round + 1)
+
+
+def _require_gpu() -> bool:
+    return os.environ.get(REQUIRE_GPU_ENV, "").lower() in {"1", "true", "yes"}
+
+
+def list_gpu_devices() -> list[dict[str, object]]:
+    """Return flattened OpenCL GPU IDs used by the batch experiment runner."""
+    if cl is None:
+        return []
+
+    devices: list[dict[str, object]] = []
+    for platform_id, platform in enumerate(cl.get_platforms()):
+        for device_id, device in enumerate(platform.get_devices(device_type=cl.device_type.GPU)):
+            devices.append(
+                {
+                    "id": len(devices),
+                    "platform_id": platform_id,
+                    "device_id": device_id,
+                    "platform": platform.name,
+                    "name": device.name,
+                }
+            )
+    return devices
+
+
+def _select_gpu(selector: str):
+    devices = list_gpu_devices()
+    if ":" in selector:
+        try:
+            platform_id, device_id = (int(part) for part in selector.split(":", 1))
+        except ValueError as exc:
+            raise ValueError(
+                f"{GPU_SELECTOR_ENV} must be a flattened integer ID or platform:device"
+            ) from exc
+        matches = [
+            item
+            for item in devices
+            if item["platform_id"] == platform_id and item["device_id"] == device_id
+        ]
+    else:
+        try:
+            flattened_id = int(selector)
+        except ValueError as exc:
+            raise ValueError(
+                f"{GPU_SELECTOR_ENV} must be a flattened integer ID or platform:device"
+            ) from exc
+        matches = [item for item in devices if item["id"] == flattened_id]
+
+    if len(matches) != 1:
+        available = ", ".join(
+            f"{item['id']}={item['platform_id']}:{item['device_id']} {item['name']}"
+            for item in devices
+        ) or "none"
+        raise RuntimeError(f"GPU selector {selector!r} is unavailable; available GPUs: {available}")
+    match = matches[0]
+    platforms = cl.get_platforms()
+    platform_id = cast(int, match["platform_id"])
+    device_id = cast(int, match["device_id"])
+    return platforms[platform_id].get_devices(
+        device_type=cl.device_type.GPU
+    )[device_id], match
+
+
 class FastPoW(PoW):
     has_fast_track = True
 
     class PoWFastTrack:
-        def __init__(self, consensus_collection: List['FastPoW']):
+        def __init__(self, consensus_collection: list['FastPoW']):
             self.consensus_collection = consensus_collection
             self.STEP = 1000
             
-            # Auto-detect device
-            self.device_id = 0 # positive integer for GPU, -1 for CPU
+            # Worker 通过环境变量固定一个 OpenCL GPU；未设置时保留旧的 0 号选择。
+            self.device_id = os.environ.get(GPU_SELECTOR_ENV, "0")
+            self.require_gpu = _require_gpu()
+            self.gpu_info = None
             self.ctx = None
             self.queue = None
             self.program = None
@@ -28,15 +109,18 @@ class FastPoW(PoW):
             self.max_qs_np = np.array([m.q for m in self.consensus_collection], dtype=np.int32)
             
             try:
-                if platforms:= cl.get_platforms() if cl and self.device_id >= 0 else None: # Find a GPU
-                    dev = platforms[self.device_id].get_devices(device_type=cl.device_type.GPU)
-                    self.device_type = 'gpu'
-                    self.ctx = cl.Context([dev[0]])
-                    self.queue = cl.CommandQueue(self.ctx)
-                    self._init_opencl()
-                else:
-                    self.device_type = 'cpu'
+                if cl is None:
+                    raise RuntimeError("pyopencl is not installed")
+                dev, self.gpu_info = _select_gpu(self.device_id)
+                self.device_type = 'gpu'
+                self.ctx = cl.Context([dev])
+                self.queue = cl.CommandQueue(self.ctx)
+                self._init_opencl()
             except Exception as e:
+                if self.require_gpu:
+                    raise RuntimeError(
+                        f"FastPoW GPU is required, but selector {self.device_id!r} failed"
+                    ) from e
                 print(f"OpenCL init failed, fallback to CPU solver: {e}")
                 self.device_type = 'cpu'
 
@@ -95,6 +179,7 @@ class FastPoW(PoW):
             self.max_solutions = 100
 
         def solve_gpu(self, start_round: int, total_rounds: int):
+            total_rounds = _search_window(start_round, total_rounds)
             num = len(self.consensus_collection)
 
             # Load Data
@@ -109,7 +194,7 @@ class FastPoW(PoW):
 
             self.h_stop_flag[0] = 0
             self.h_output[0] = 0
-            self.h_best_round[0] = 0x7FFFFFFF
+            self.h_best_round[0] = MAX_SEARCH_ROUND
 
             cl.enqueue_copy(self.queue, self.buf_ids, self.h_ids[:num])
             cl.enqueue_copy(self.queue, self.buf_prehash, self.h_prehash[:num*8])
@@ -155,6 +240,7 @@ class FastPoW(PoW):
             return None
 
         def solve_cpu(self, start_round: int, total_rounds: int):
+            total_rounds = _search_window(start_round, total_rounds)
             num = len(self.consensus_collection)
 
             # Prepare arrays for Cython
@@ -185,32 +271,32 @@ class FastPoW(PoW):
             
             current_round = start_round
             while True:
+                search_rounds = _search_window(current_round, self.STEP)
                 # Execute Solver
                 if self.device_type == 'gpu':
-                     result = self.solve_gpu(current_round, self.STEP)
+                     result = self.solve_gpu(current_round, search_rounds)
                 else:
-                     result = self.solve_cpu(current_round, self.STEP)
+                     result = self.solve_cpu(current_round, search_rounds)
                 
                 if result:
-                    found_round, winner_id, winner_nonce = result
+                    found_round, _winner_id, _winner_nonce = result
                     # Update States (Elapsed in this step)
                     elapsed = found_round - current_round
                     for m in self.consensus_collection:
                         m.ctr += elapsed * m.q
                     return found_round
                 
-                # No block found, advance states by STEP
+                # No block found, advance states by the searched rounds.
                 for m in self.consensus_collection:
-                    m.ctr += self.STEP * m.q
-                current_round += self.STEP
+                    m.ctr += search_rounds * m.q
+                current_round += search_rounds
 
     @classmethod
     def get_fast_track(cls, miner_list, adver_ids, adver_consensus):
         collection = []
         for m in miner_list:
-            if m.miner_id not in adver_ids:
-                if isinstance(m.consensus, FastPoW):
-                    collection.append(m.consensus)
+            if m.miner_id not in adver_ids and isinstance(m.consensus, FastPoW):
+                collection.append(m.consensus)
         
         if adver_consensus:
             collection.append(adver_consensus)

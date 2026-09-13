@@ -41,7 +41,7 @@ __kernel void search_chainxim(
     uint start_round,
     uint total_rounds,
     int max_solutions,
-    __global volatile int* best_round // Global Best Round Tracker
+    __global volatile uint* best_round // Round comparisons and atomic_min must stay unsigned.
 ) {
     // 2D Work Item: (Miner, Round)
     int miner_id_idx = get_global_id(0);
