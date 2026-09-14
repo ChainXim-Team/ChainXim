@@ -238,7 +238,7 @@ class Environment(object):
         max_height = stop_condition.get('max_height')
         if num_rounds is None or max_height is None:
             raise ValueError("stop_condition must contain 'total_round' and 'max_height'")
-        max_attack_attempts = stop_condition.get('max_attack_attempts')
+        max_attack_attempts = 1 # stop_condition.get('max_attack_attempts')
 
         ## 开始循环
         t_0 = time.time() # 记录起始时间
@@ -399,6 +399,50 @@ class Environment(object):
             yield events
             return
 
+    def confirmation_latency_honest_only(self, confirmation_depth:int):
+        # 通过BFS找到最长的诚实链，并确认诚实链上只有诚实方产生的区块\
+        def find_honest_chain_tip(chain):
+            queue = [chain.head]
+            longest_honest_chain_tip = None
+            longest_honest_chain_height = 0
+            for block in queue:
+                queue.extend(block.next)
+                if block.isAdversaryBlock:
+                    continue
+                if block.get_height() > longest_honest_chain_height:
+                    longest_honest_chain_tip = block
+                    longest_honest_chain_height = block.get_height()
+            return longest_honest_chain_tip, longest_honest_chain_height
+
+        longest_honest_chain_tip, longest_honest_chain_height = find_honest_chain_tip(self.adversary.get_attack_type().honest_chain)
+
+        assert longest_honest_chain_tip is not None, "No honest chain found."
+
+        last_block_tmp = longest_honest_chain_tip
+        attack_initial_height = global_var.get_attack_initial_height()
+
+        while last_block_tmp:
+            assert not last_block_tmp.isAdversaryBlock, "The longest honest chain contains adversary blocks."
+            last_block_tmp = last_block_tmp.parentblock
+
+        last_block_iter = longest_honest_chain_tip
+        block_confirming_fork_block = None
+        fork_block = None
+        # print(f"Longest honest chain tip: {longest_honest_chain_tip.name}, height: {longest_honest_chain_height}")
+        while last_block_iter:
+            if last_block_iter.get_height() == attack_initial_height + confirmation_depth:
+                block_confirming_fork_block = last_block_iter
+            if last_block_iter.get_height() == attack_initial_height:
+                fork_block = last_block_iter
+                break
+            last_block_iter = last_block_iter.parentblock
+
+        assert fork_block is not None, "Fork block not found at the specified attack initial height."
+        assert block_confirming_fork_block is not None, "Block confirming the fork block not found at the specified height."
+        # print(block_confirming_fork_block.name, block_confirming_fork_block.get_height(), block_confirming_fork_block.blockhead.timestamp)
+        # print(fork_block.name, fork_block.get_height(), fork_block.blockhead.timestamp)
+        return block_confirming_fork_block.blockhead.timestamp - fork_block.blockhead.timestamp
+
     def view(self, quantile) -> dict:
         # 展示一些仿真结果
         print('\n')
@@ -411,6 +455,7 @@ class Environment(object):
         stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.adversary.get_adver_ids(),
                                                       self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile,
                                                       self.adversary.get_eclipsed_ids(), self.local_chain_tracker.chain_switch_events)
+        stats["confirmation_latency_honest_only"] = self.confirmation_latency_honest_only(confirmation_depth=self.confirm_delay)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0

@@ -32,17 +32,17 @@ context.prec = 79
 MINER_NUM = 100
 TOTAL_HEIGHT = 50000
 TOTAL_ROUNDS = 999_999_999
-TOTAL_TRAILS = 8000
+TOTAL_TRAILS = 12000
 PROCESS_BAR_TYPE = "height"
-ADVER_RATIOS = [0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45] # [0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]
-N_VALUES = [6]
-MAX_DELAY_VALUES = [100, 95, 90, 85, 80, 85, 70] # [70, 65, 60, 55, 50] # [120, 90, 60, 30] # [160, 130, 100] # [100, 80, 50] # [60, 75] # [50, 20] # [2, 10, 20, 50] # [2, 4, 6, 8]
-# MAX_DELAY_VALUES = [30, 40, 50, 60, 70] # [80, 90, 100] # 平均出块间隔为70轮次 
+ADVER_RATIOS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]
+N_VALUES = [6, 3]
+MAX_DELAY_VALUES = [120, 90, 60, 30] # [180, 170, 160, 150, 140] # [100, 95, 90, 85, 80, 75, 70] # [70, 65, 60, 55, 50] # [120, 90, 60, 30] # [160, 130, 100] # [100, 80, 50] # [60, 75] # [50, 20] # [2, 10, 20, 50] # [2, 4, 6, 8]
+# MAX_DELAY_VALUES = [80, 90, 100, 110, 120, 140] # [30, 40, 50, 60, 70] # 平均出块间隔为70轮次 
 CONFIG_PATH = "successprob_adver_ratio_max_delay.ini"
 ATTACK_TYPE = "DoubleSpending"
 NETWORK_TYPE = "network.DeterPropNetwork"
 NG_FIXED = 50 # 8
-PLOT_MARKERS = ["d", "^", "x", "v", "+", "P", "X", "*", "<", ">"]
+PLOT_MARKERS = ["d", "^", "x", "v", "+", "1", "*", "<", ">"]
 DIFFICULTY = 13.66622400280318 # 使平均出块间隔为130轮次
 # DIFFICULTY = 12.773139207 # 平均出块间隔为70轮次
 TARGET = f"{(int(Decimal(2) ** Decimal(256 - DIFFICULTY)) - 1):0>64X}"
@@ -434,9 +434,15 @@ def simulate_configuration(
 
     adver_num = max(1, int(round(alpha * MINER_NUM)))
     actual_alpha = adver_num / MINER_NUM
-    theoretical_prob = double_spending_with_delay(n_value, NG_FIXED, actual_alpha, max_delay)
+    theoretical_prob = None # double_spending_with_delay(n_value, NG_FIXED, actual_alpha, max_delay)
 
-    prop_vector = prop_vec_generator(max_delay)
+    if max_delay > 0:
+        network_type = NETWORK_TYPE
+        prop_vector = prop_vec_generator(max_delay)
+    else:
+        network_type = "network.LockstepNetwork"
+        prop_vector = None
+        print(f"Currently using ZeroDelayNetwork for max_delay={max_delay} in the place of DeterPropNetwork.")
 
     result_subdir = (
         base_output_dir
@@ -454,7 +460,7 @@ def simulate_configuration(
         total_height=TOTAL_HEIGHT,
         miner_num=MINER_NUM,
         process_bar_type=PROCESS_BAR_TYPE,
-        network_type=NETWORK_TYPE,
+        network_type=network_type,
         attack_type=ATTACK_TYPE,
         attack_arg={"Ng": NG_FIXED},
         Ng=NG_FIXED,
@@ -491,7 +497,7 @@ def _build_simulation_tasks(
     for delay_idx, max_delay in enumerate(max_delays):
         for n_idx, n_value in enumerate(N_VALUES):
             for alpha in alphas:
-                seed = int(((delay_idx + 1) * 100 + (n_idx + 1)) * MINER_NUM + alpha * MINER_NUM)
+                seed = int(((delay_idx + 1) * 11 + (n_idx + 1)) * MINER_NUM + alpha * MINER_NUM)
                 tasks.append((alpha, n_value, max_delay, base_output_dir, seed))
     return tasks
 
@@ -511,7 +517,7 @@ def run_experiments(
     if not tasks:
         raise ValueError("No simulation tasks generated. Check input parameters.")
 
-    pool_size = max(1, min(35, cpu_count(), len(tasks)))
+    pool_size = max(1, min(40, cpu_count(), len(tasks)))
     with Pool(processes=pool_size, maxtasksperchild=1) as pool:
         records: list[SimulationRecord] = pool.starmap(simulate_configuration, tasks)
 
@@ -637,7 +643,7 @@ def plot_results(df: pd.DataFrame, output_dir: Path) -> list[Path]:
                         #    linestyle='None', label=f'$w_1$ = {max_delay}')
             )
         labels = [line.get_label() for line in dummy_lines]
-        ax.legend(dummy_lines, labels, loc='upper left')
+        ax.legend(dummy_lines, labels, loc='lower right') # 'upper left' or 'best'
         
         svg_path = output_dir / f"successprob_adver_ratio_N{n_value}_by_delay.svg"
         print_fig_to_paper(

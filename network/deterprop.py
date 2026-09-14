@@ -98,7 +98,7 @@ class DeterPropNetwork(Network):
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners
 
-    def attacker_instant_receive(self, packet: PacketPVNet):
+    def attacker_instant_receive(self, packet: PacketPVNet, round):
         for miner in self.adv_miners:
             # 攻击者直接接收来自诚实矿工的消息
             packet.update_trans_process(miner.miner_id, round)
@@ -119,7 +119,7 @@ class DeterPropNetwork(Network):
             if not self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
 
-                self.attacker_instant_receive(packet)
+                self.attacker_instant_receive(packet, round)
 
                 self.network_tape.append(packet)
         
