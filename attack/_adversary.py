@@ -117,8 +117,28 @@ class Adversary(metaclass=ABCMeta):
         '''
         Adversary的核心功能 每轮执行一次attack
         '''
+        # Keep the same honest-chain synchronization rule as the reference
+        # project. During an active DoubleSpending run, the attack's view of
+        # the honest chain is refreshed from miner-local chains unless the
+        # attacker is already close to the Ng failure boundary.
+        if self.get_attack_type_name() == 'DoubleSpending':
+            honest_height = self.honest_chain.get_height()
+            if (global_var.get_attack_initial_height() < honest_height
+                    < self.__attack_type.adver_chain.get_height()
+                    + self.__attack_type.attack_arg['Ng'] - 1):
+                for miner in self.__miner_list:
+                    self.honest_chain.add_block_forcibly(
+                        miner.consensus.local_chain.last_block
+                    )
+
         self.__excute_attack.excute_this_attack_per_round(round)
-        self.__global_chain.add_block_forcibly(self.__attack_type.adver_chain.last_block)
+        # During pre-mining the adversary chain is private.  Only the normal
+        # double-spending phase may mirror its tip into the global chain.
+        should_publish = getattr(self.__attack_type,
+                                 'should_publish_adver_chain',
+                                 lambda: True)()
+        if should_publish:
+            self.__global_chain.add_block_forcibly(self.__attack_type.adver_chain.last_block)
         
 
     def get_info(self):

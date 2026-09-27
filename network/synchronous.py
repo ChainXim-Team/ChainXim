@@ -31,6 +31,12 @@ class LockstepNetwork(Network):
     def set_net_param(self):
         pass
 
+    def attacker_instant_receive(self, packet: PacketSyncNet, round):
+        for miner in self.miners:
+            if miner._isAdversary:
+                # 攻击者直接接收来自诚实矿工的消息
+                miner._NIC.nic_receive(packet)
+
     def access_network(self, new_msgs:list[Message], minerid:int, round:int,sendTogether:bool = False):
         """ 本轮新产生的消息添加到network_tape
 
@@ -41,8 +47,15 @@ class LockstepNetwork(Network):
         round (int) : Current round. 
         """
         for msg in new_msgs:
-            packet = PacketSyncNet(msg, minerid)
-            self.network_tape.append(packet)
+            if not self.miners[minerid]._isAdversary:
+                packet = PacketSyncNet(msg, minerid)
+                self.attacker_instant_receive(packet, round)
+                self.network_tape.append(packet)
+        
+            if self.miners[minerid]._isAdversary:
+                packet = PacketSyncNet(msg, minerid)
+                for miner in self.miners:
+                    miner._NIC.nic_receive(packet)
 
     def clear_NetworkTape(self):
         """清空network_tape"""

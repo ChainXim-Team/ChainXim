@@ -1,3 +1,4 @@
+from attack.attack_type import selfish_mining
 import copy
 import logging
 import math
@@ -176,6 +177,72 @@ class Environment(object):
         if getattr(self, 'new_block_this_round', None) is not None:
             self.global_chain.set_merge_callback(lambda block: self.new_block_this_round.append(block))
 
+    def build_full_block_tree(self):
+        """Build an output-only tree containing every block still recorded.
+
+        ``global_chain`` represents the blocks that were connected to the
+        simulated public chain. It deliberately does not contain every
+        private/stale branch. In particular, a pre-mining branch abandoned by
+        ``adopt`` may only exist in the adversary chain, while a losing honest
+        branch may only exist in one of the miner-local trees.
+
+        The returned tree is used only for output and visualization. Consensus
+        decisions and evaluation statistics continue to use ``global_chain``.
+        """
+        source_chains = [self.global_chain]
+        source_chains.extend(miner.consensus.local_chain for miner in self.miners)
+
+        attack_type = self.adversary.get_attack_type()
+        for chain_name in ('honest_chain', 'adver_chain'):
+            chain = getattr(attack_type, chain_name, None)
+            if chain is not None:
+                source_chains.append(chain)
+
+        # Deduplicate copies of the same block held by different miners.
+        blocks_by_hash = {}
+        for chain in source_chains:
+            if chain is not None:
+                blocks_by_hash.update(chain.block_set)
+
+        full_tree = Chain()
+        genesis = copy.deepcopy(self.global_chain.head)
+        genesis.parentblock = None
+        genesis.next = []
+        full_tree.add_blocks(blocks=genesis)
+
+        pending = sorted(
+            (block for blockhash, block in blocks_by_hash.items()
+             if blockhash != genesis.blockhash),
+            key=lambda block: (
+                block.get_height(),
+                block.blockhead.timestamp,
+                block.name,
+            )
+        )
+
+        # Normally one height-ordered pass is enough. The retry loop also
+        # handles a source tree whose parent was collected from another view.
+        while pending:
+            next_pending = []
+            inserted = 0
+            for block in pending:
+                parent = full_tree.search_block_by_hash(block.blockhead.prehash)
+                if parent is None:
+                    next_pending.append(block)
+                    continue
+                full_tree.add_blocks(blocks=block, insert_point=parent)
+                inserted += 1
+
+            if inserted == 0:
+                logger.warning(
+                    "Unable to connect %d blocks to the full output tree",
+                    len(next_pending)
+                )
+                break
+            pending = next_pending
+
+        return full_tree
+
     def generate_dataitem(self, round):
         dataitem = random.randint(1, MAX_INT).to_bytes(INT_LEN, BYTE_ORDER)
         dataitem += round.to_bytes(INT_LEN, BYTE_ORDER)
@@ -225,7 +292,7 @@ class Environment(object):
         else:
             return True
 
-    def exec(self, num_rounds, max_height, process_bar_type, post_verification):
+    def exec(self, stop_condition: dict, process_bar_type, post_verification):
 
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -234,6 +301,18 @@ class Environment(object):
         '''
         if process_bar_type != 'round' and process_bar_type != 'height':
             raise ValueError('process_bar_type should be \'round\' or \'height\'')
+        num_rounds = stop_condition.get('total_round')
+        max_height = stop_condition.get('max_height')
+        if num_rounds is None or max_height is None:
+            raise ValueError("stop_condition must contain 'total_round' and 'max_height'")
+        max_attack_attempts = stop_condition.get('max_attack_attempts')
+        # Preserve the original single-run behavior while allowing callers
+        # (including experiment()) to override it explicitly. Pre-mining does
+        # not increment attack_times, so it cannot trigger this stop early.
+        if (max_attack_attempts is None
+                and self.adversary.get_attack_type_name() == 'DoubleSpending'):
+            max_attack_attempts = 1
+
         ## 开始循环
         t_0 = time.time() # 记录起始时间
         cached_height = self.global_chain.get_height()
@@ -267,8 +346,29 @@ class Environment(object):
                     miner.clear_tapes()
                     
                 # diffuse(C)
+                # if self.adversary.get_attack_type_name() == 'DoubleSpending' and self.adversary.get_attack_type()._attack_success_detect:
+                #     for miner in self.miners:
+                #         if not miner._isAdversary:
+                #             miner._NIC.clear_forward_buffer() # 防止当轮出的块又超过攻击链？
                 self.network.diffuse(round)
+                if self.adversary.get_attack_type_name() == 'DoubleSpending' and self.adversary.get_attack_type()._attack_success_detect:
+                    adver_chain:Chain = self.adversary.get_attack_type().adver_chain
+                    adver_last_block = adver_chain.last_block
+                    adver_height = adver_last_block.get_height()
+                    for miner in self.miners:
+                        if miner._isAdversary:
+                            miner.consensus.local_chain.set_last_block(adver_last_block)
+                        else:
+                            # 强行降低诚实矿工的链到攻击链的高度以下，模拟攻击成功后诚实矿工被迫接受攻击链的情况
+                            miner_last_block = miner.consensus.local_chain.last_block
+                            while miner_last_block.get_height() >= adver_height:
+                                miner_last_block = miner_last_block.parentblock
+                            miner.consensus.local_chain.set_last_block(miner_last_block)
             
+                if self.adversary.get_attack_type_name() == 'DoubleSpending' and max_attack_attempts is not None:
+                    if self.adversary.get_attack_type().get_attack_times() >= max_attack_attempts:
+                        print(f"\nMaximum attack attempts {max_attack_attempts} reached, stopping simulation...")
+                        break
                 # 全局链高度超过max_height之后就提前停止
                 current_height = self.global_chain.get_height()
                 if current_height > max_height:
@@ -372,6 +472,50 @@ class Environment(object):
             yield events
             return
 
+    def confirmation_latency_honest_only(self, confirmation_depth:int):
+        # 通过BFS找到最长的诚实链，并确认诚实链上只有诚实方产生的区块\
+        def find_honest_chain_tip(chain):
+            queue = [chain.head]
+            longest_honest_chain_tip = None
+            longest_honest_chain_height = 0
+            for block in queue:
+                queue.extend(block.next)
+                if block.isAdversaryBlock:
+                    continue
+                if block.get_height() > longest_honest_chain_height:
+                    longest_honest_chain_tip = block
+                    longest_honest_chain_height = block.get_height()
+            return longest_honest_chain_tip, longest_honest_chain_height
+
+        longest_honest_chain_tip, longest_honest_chain_height = find_honest_chain_tip(self.adversary.get_attack_type().honest_chain)
+
+        assert longest_honest_chain_tip is not None, "No honest chain found."
+
+        last_block_tmp = longest_honest_chain_tip
+        attack_initial_height = global_var.get_attack_initial_height()
+
+        while last_block_tmp:
+            assert not last_block_tmp.isAdversaryBlock, "The longest honest chain contains adversary blocks."
+            last_block_tmp = last_block_tmp.parentblock
+
+        last_block_iter = longest_honest_chain_tip
+        block_confirming_fork_block = None
+        fork_block = None
+        # print(f"Longest honest chain tip: {longest_honest_chain_tip.name}, height: {longest_honest_chain_height}")
+        while last_block_iter:
+            if last_block_iter.get_height() == attack_initial_height + confirmation_depth:
+                block_confirming_fork_block = last_block_iter
+            if last_block_iter.get_height() == attack_initial_height:
+                fork_block = last_block_iter
+                break
+            last_block_iter = last_block_iter.parentblock
+
+        assert fork_block is not None, "Fork block not found at the specified attack initial height."
+        assert block_confirming_fork_block is not None, "Block confirming the fork block not found at the specified height."
+        # print(block_confirming_fork_block.name, block_confirming_fork_block.get_height(), block_confirming_fork_block.blockhead.timestamp)
+        # print(fork_block.name, fork_block.get_height(), fork_block.blockhead.timestamp)
+        return block_confirming_fork_block.blockhead.timestamp - fork_block.blockhead.timestamp
+
     def view(self, quantile) -> dict:
         # 展示一些仿真结果
         print('\n')
@@ -384,6 +528,7 @@ class Environment(object):
         stats = self.global_chain.CalculateStatistics(self.total_round, list(honest_miners), self.adversary.get_adver_ids(),
                                                       self.confirm_delay, self.dataitem_params, self.dataitem_validator, quantile,
                                                       self.adversary.get_eclipsed_ids(), self.local_chain_tracker.chain_switch_events)
+        stats["confirmation_latency_honest_only"] = self.confirmation_latency_honest_only(confirmation_depth=self.confirm_delay)
         stats.update({'total_round':self.total_round})
         # Chain Growth Property
         growth = 0
@@ -485,8 +630,12 @@ class Environment(object):
 
     def view_and_write(self, quantile):
         stats = self.view(quantile)
-        
+
+        # Reconstruct an output-only tree containing honest, adversarial,
+        # stale, abandoned pre-mining and successful double-spending branches.
+        full_block_tree = self.build_full_block_tree()
         self.global_chain.printchain2txt()
+        full_block_tree.printchain2txt('chain_data_all.txt')
 
         # save the results in the evaluation results.txt
         RESULT_PATH = global_var.get_result_path()
@@ -517,11 +666,13 @@ class Environment(object):
 
         # show or save figures
         # self.global_chain.ShowStructure(self.miner_num)
+        # Generate the complete block tree first so an unrelated matplotlib
+        # backend problem cannot prevent the Graphviz result from being saved.
+        other_list = self.adversary.get_eclipsed_ids()
+        full_block_tree.ShowStructureWithGraphviz(other_list=other_list)
+
         # block interval distribution
         self.miners[0].consensus.local_chain.GetBlockIntervalDistribution()
-
-        other_list = self.adversary.get_eclipsed_ids()
-        self.global_chain.ShowStructureWithGraphviz(other_list= other_list)
         if isinstance(self.network,network.TopologyNetwork):
             # 利用 isinstance 指定类型 方便调用类方法gen_routing_gragh_from_json()
             # self.network.save_rest_routing_process()

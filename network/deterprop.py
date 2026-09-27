@@ -3,7 +3,7 @@ import logging
 import math
 import random
 from typing import TYPE_CHECKING
-
+from collections import defaultdict
 import global_var
 from data import Block, Message
 
@@ -21,8 +21,8 @@ class PacketPVNet(Packet):
         self.round = round
         self.outnetobj = outnetobj  # 外部网络类实例
         # 传播过程记录
-        self.received_miners:set[int] = set([source_id])
-        self.trans_process = {f'miner {source_id}': round}
+        self.received_miners:set[int] = set() # set([source_id])
+        self.trans_process = {} # {f'miner {source_id}': round}
         # 每轮都pop第一个，记录剩余的传播向量
         self.remain_prop_vector = copy.deepcopy(prop_vector)
 
@@ -98,6 +98,12 @@ class DeterPropNetwork(Network):
                 rcv_miners = random.sample(remain_miners, rcv_miner_num)
         return rcv_miners
 
+    def attacker_instant_receive(self, packet: PacketPVNet, round):
+        for miner in self.adv_miners:
+            # 攻击者直接接收来自诚实矿工的消息
+            packet.update_trans_process(miner.miner_id, round)
+            miner._NIC.nic_receive(packet)
+
     def access_network(self, new_msg:list[Message], minerid:int, round:int,sendTogether:bool = False):
         """
         Package the new message and related information to network_tape.
@@ -112,15 +118,25 @@ class DeterPropNetwork(Network):
         for msg in new_msg:
             if not self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
+
+                self.attacker_instant_receive(packet, round)
+
                 self.network_tape.append(packet)
         
             # 如果是攻击者发出的，攻击者集团的所有成员都在此时收到
+            # if self.miners[minerid]._isAdversary:
+            #     packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
+            #     for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+            #         packet.update_trans_process(miner.miner_id, round)
+            #         miner._NIC.nic_receive(packet)
+            #     self.network_tape.append(packet)
+
+            # 如果是攻击者发出的，诚实矿工立即收到
             if self.miners[minerid]._isAdversary:
                 packet = PacketPVNet(msg, minerid, round, self.prop_vector, self)
-                for miner in [m for m in self.adv_miners if m.miner_id != minerid]:
+                for miner in self.miners:
                     packet.update_trans_process(miner.miner_id, round)
                     miner._NIC.nic_receive(packet)
-                self.network_tape.append(packet)
 
 
     def diffuse(self, round):

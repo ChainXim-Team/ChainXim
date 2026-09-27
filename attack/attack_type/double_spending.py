@@ -33,6 +33,154 @@ class DoubleSpending(aa.AttackType):
         self._lastattackblock: Block = None # 用于记录上传的最新的attackblock
         self._attack_success_detect: bool = False
         self.attackers_with_honest_neighbors:Optional[dict] = None # 记录每个攻击者的转发对象，记录至少有一个诚实邻居的攻击者列表
+        # Pre-mining is an optional preparation phase for double spending.
+        # It deliberately has a different base block from the block that is
+        # eventually attacked (self._fork_block).
+        self._premining_enabled = False
+        self._premining_end_condition = 'height'
+        self._premining_target_height = None
+        self._premining_target_round = None
+        self._premining_start_height = None
+        self._premining_started = False
+        self._premining_base_block: Block = None
+        self._premining_end_tip_hash = None
+        self._premining_end_height = None
+        self._premining_end_round = None
+        self._premining_end_lead = None
+        self._premining_max_lead = 0
+        self._phase = 'DOUBLE_SPENDING'
+
+    def set_init(self, honest_chain, adver_list, adver_consensus, attack_arg,
+                 eclipsed_list_ids=None):
+        super().set_init(honest_chain=honest_chain,
+                         adver_list=adver_list,
+                         adver_consensus=adver_consensus,
+                         attack_arg=attack_arg,
+                         eclipsed_list_ids=eclipsed_list_ids)
+        attack_arg = attack_arg or {}
+        self._premining_enabled = bool(attack_arg.get('premining_enabled', False))
+        self._premining_end_condition = str(
+            attack_arg.get('premining_end_condition', 'height')
+        ).lower()
+        if self._premining_end_condition not in ('height', 'round'):
+            raise ValueError("premining_end_condition must be 'height' or 'round'")
+        self._premining_start_height = int(
+            attack_arg.get('premining_start_height', global_var.get_attack_initial_height())
+        )
+        self._premining_target_height = attack_arg.get('premining_target_height')
+        self._premining_target_round = attack_arg.get('premining_target_round')
+        if self._premining_target_height is not None:
+            self._premining_target_height = int(self._premining_target_height)
+        if self._premining_target_round is not None:
+            self._premining_target_round = int(self._premining_target_round)
+        if self._premining_enabled:
+            if self._premining_end_condition == 'height':
+                if self._premining_target_height is None:
+                    raise ValueError('premining_target_height is required for height mode')
+                if self._premining_target_height < self._premining_start_height:
+                    raise ValueError('premining_target_height must be >= premining_start_height')
+            elif self._premining_target_round is None:
+                raise ValueError('premining_target_round is required for round mode')
+            self._phase = 'PREMINING'
+
+    def should_publish_adver_chain(self):
+        """Whether Adversary may mirror the private chain into global_chain."""
+        return self._phase == 'DOUBLE_SPENDING'
+
+    @staticmethod
+    def _block_at_height(tip, height):
+        cur = tip
+        while cur is not None and cur.get_height() > height:
+            cur = cur.parentblock
+        return cur if cur is not None and cur.get_height() == height else None
+
+    def _first_block_after_premining_end(self):
+        """Find the first honest block produced after the end round.
+
+        The attacker may execute before honest miners in the round in which
+        round-mode pre-mining ends. Blocks stamped with that same round still
+        belong to the pre-mining boundary; the first block with a later round
+        is the DoubleSpending target.
+        """
+        if self._premining_end_tip_hash is None:
+            return None
+        path = []
+        cur = self.honest_chain.get_last_block()
+        while cur is not None and cur.blockhash != self._premining_end_tip_hash:
+            path.append(cur)
+            cur = cur.parentblock
+        if cur is None or not path:
+            return None
+        for candidate in reversed(path):
+            timestamp = getattr(candidate.blockhead, 'timestamp', None)
+            if (self._premining_end_round is None
+                    or timestamp is None
+                    or timestamp > self._premining_end_round):
+                return candidate
+        # All newly observed blocks were produced in the ending round. They
+        # form the boundary tip, not the target, so advance the snapshot.
+        newest = path[0]
+        self._premining_end_tip_hash = newest.blockhash
+        self._premining_end_height = newest.get_height()
+        return None
+
+    def _start_premining_if_ready(self, honest_height):
+        if self._premining_started or honest_height < self._premining_start_height:
+            return False
+        # This is only the private-chain base. It is never used as the
+        # double-spending target or for confirmation counting.
+        self._premining_base_block = self.behavior.adopt(
+            adver_chain=self.adver_chain,
+            honest_chain=self.honest_chain
+        )
+        self._premining_started = True
+        return True
+
+    def _finish_premining_by_height(self):
+        target = self._block_at_height(
+            self.honest_chain.get_last_block(), self._premining_target_height
+        )
+        if target is None:
+            return False
+        # In height mode, the block reaching the configured height is the
+        # block being double-spent (e.g. H10, not H11).
+        self._fork_block = target
+        self._fork_height = target.get_height()
+        self._phase = 'DOUBLE_SPENDING'
+        self._premining_end_tip_hash = target.blockhash
+        self._premining_end_height = target.get_height()
+        # Capture the lead exactly at the PREMINING -> DOUBLE_SPENDING
+        # transition, before any normal double-spending mining in this round.
+        self._premining_end_lead = (
+            self.adver_chain.get_height() - self.honest_chain.get_height()
+        )
+        return True
+
+    def _finish_premining_by_round(self, round):
+        # Round mode ends at the current honest tip. The attacker immediately
+        # keeps mining, while the first honest block after this tip becomes
+        # the double-spending target.
+        self._premining_end_tip_hash = self.honest_chain.get_last_block().blockhash
+        self._premining_end_height = self.honest_chain.get_height()
+        self._premining_end_round = round
+        self._premining_end_lead = (
+            self.adver_chain.get_height() - self.honest_chain.get_height()
+        )
+        self._phase = 'DOUBLE_SPENDING_PENDING_TARGET'
+        return True
+
+    def _update_premining_lead(self):
+        lead = self.adver_chain.get_height() - self.honest_chain.get_height()
+        self._premining_max_lead = max(self._premining_max_lead, lead)
+
+    def _execute_private_mining(self, round, mine_input, current_miner):
+        self.behavior.mine(adver_list=self.adver_list,
+                           current_miner=current_miner,
+                           miner_input=mine_input,
+                           adver_chain=self.adver_chain,
+                           consensus=self.adver_consensus,
+                           round=round)
+        self._update_premining_lead()
     
     def renew_stage(self, round):
         ## 1. renew stage
@@ -47,21 +195,21 @@ class DoubleSpending(aa.AttackType):
                                  honest_chain = self.honest_chain,round = round,
                                  attackers_with_honest_neighbors=self.attackers_with_honest_neighbors)
 
-        if self._attack_success_detect and self.honest_chain.search_block(self._lastattackblock):
+        if self._attack_success_detect and (not self.adver_list[0].network_has_topology \
+                                             or self.honest_chain.search_block(self._lastattackblock)):
             self._log['success'] = self._log['success'] + 1
             self._attack_success_detect = False
             self._fork_block = self._lastattackblock
             self._fork_height = self._fork_block.get_height()
         return newest_block, mine_input
     
+    ATTACK_INITIAL_HEIGHT = 3 # 攻击开始的高度
 
     def attack_stage(self, round, mine_input):
         mine_input = self.behavior.ATTACKER_INPUT or mine_input
         bh = self.behavior
         n = self.attack_arg['N']
         ng = self.attack_arg['Ng']
-        honest_height = self.honest_chain.last_block.get_height()
-        adver_height = self.adver_chain.last_block.get_height()
 
         # 如果找到了合适的攻击者，随机选一个；
         if self.attackers_with_honest_neighbors:
@@ -70,6 +218,78 @@ class DoubleSpending(aa.AttackType):
         else:
             current_miners = random.sample(self.adver_list, 1)
             current_miner = current_miners[0]
+
+        honest_height = self.honest_chain.last_block.get_height()
+        if self._premining_enabled:
+            # Before the configured start height the attacker does not mine.
+            if honest_height < self._premining_start_height:
+                return
+
+            self._start_premining_if_ready(honest_height)
+
+            if self._phase == 'PREMINING':
+                # At the beginning of every pre-mining round, the attacker adopts the honest chain whenever its private chain
+                # is behind.  The end-condition check and private mining must use the post-adoption height.
+                adver_height = self.adver_chain.last_block.get_height()
+                if adver_height < honest_height:
+                    self.behavior.adopt(
+                        adver_chain=self.adver_chain,
+                        honest_chain=self.honest_chain
+                    )
+                    adver_height = self.adver_chain.last_block.get_height()
+
+                if self._premining_end_condition == 'height':
+                    if honest_height >= self._premining_target_height:
+                        self._finish_premining_by_height()
+                    else:
+                        self._execute_private_mining(round, mine_input, current_miner)
+                        return
+                elif round >= self._premining_target_round:
+                    self._finish_premining_by_round(round)
+                else:
+                    self._execute_private_mining(round, mine_input, current_miner)
+                    return
+
+                # In round mode this phase transition happens immediately at
+                # the target round. The attacker still mines in this call;
+                # it never idles while waiting for the first honest target.
+                if self._phase == 'DOUBLE_SPENDING_PENDING_TARGET':
+                    self._execute_private_mining(round, mine_input, current_miner)
+                    return
+
+            if self._phase == 'DOUBLE_SPENDING_PENDING_TARGET':
+                target = self._first_block_after_premining_end()
+                if target is not None:
+                    self._fork_block = target
+                    self._fork_height = target.get_height()
+                    self._phase = 'DOUBLE_SPENDING'
+                else:
+                    self._execute_private_mining(round, mine_input, current_miner)
+                    return
+
+        elif honest_height < global_var.get_attack_initial_height():
+            # 进行诚实挖矿，期间不计算攻击成功或者失败   # 为了确保攻击者能比诚实矿工抢先delta获得区块，攻击者在攻击初期不进行攻击，确保攻击开始时的区块来自诚实矿工
+            # if self.honest_chain.get_height() > self.adver_chain.get_height():       
+            #     self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+            # attack_mine,block = self.behavior.mine(adver_list = self.adver_list,
+            #                                 current_miner = current_miner,
+            #                                 miner_input = mine_input,
+            #                                 adver_chain = self.adver_chain,
+            #                                 consensus = self.adver_consensus,
+            #                                 round = round)
+            # if attack_mine:
+            #     self.behavior.upload(adver_chain = self.adver_chain,
+            #                         current_miners = current_miners,
+            #                         round = round,
+            #                         adver_list = self.adver_list,
+            #                         fork_block = self.honest_chain.get_last_block(),
+            #                         syncLocalChain = False)
+            return
+        elif self._fork_block is None:
+            self._fork_block = self.behavior.adopt(adver_chain = self.adver_chain, honest_chain = self.honest_chain)
+            self._fork_height = self._fork_block.get_height()
+        
+        adver_height = self.adver_chain.last_block.get_height()
 
         if honest_height - self._fork_height < n:
             attack_mine,blocks = bh.mine(adver_list = self.adver_list,
@@ -94,7 +314,7 @@ class DoubleSpending(aa.AttackType):
                     self._log['fail'] = self._log['fail'] + 1
                 self._log['behavior'] = 'adopt'
                 self._attack_success_detect = False
-            elif adver_height > honest_height:
+            elif adver_height >= honest_height:
                 # 攻击链比诚实链长
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
                                          current_miner = current_miner,
@@ -107,33 +327,42 @@ class DoubleSpending(aa.AttackType):
                         current_miners = current_miners, 
                         round = round,
                         adver_list = self.adver_list,
-                        fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+                        fork_block = self._fork_block, # if self._fork_block != None else self.honest_chain.head,
                         syncLocalChain = False)
                 if self._log['behavior'] != 'override':
                     self._attack_success_detect = True
 
                 self._log['behavior'] = 'override'
-            elif adver_height == honest_height:
-                attack_mine,blocks = bh.mine(adver_list = self.adver_list,
-                                         current_miner = current_miner,
-                                         miner_input = mine_input,
-                                         adver_chain = self.adver_chain,
-                                         consensus = self.adver_consensus,
-                                         round = round)
-                if attack_mine:
-                    # 等长时，如果挖出来，则立刻发布
-                    blocks = bh.upload(adver_chain = self.adver_chain,
-                                 current_miners = current_miners, 
-                                 round = round,
-                                 adver_list = self.adver_list,
-                                 fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
-                                 syncLocalChain = False)
-                    self._lastattackblock = self.adver_chain.get_last_block()
-                    if self._log['behavior'] != 'override':
-                        self._attack_success_detect = True
-                    self._log['behavior'] = 'override'
-                else:
-                    self._log['behavior'] = 'matching'
+            # elif adver_height == honest_height - 1:
+            #     attack_mine,blocks = bh.mine(adver_list = self.adver_list,
+            #                              current_miner = current_miner,
+            #                              miner_input = mine_input,
+            #                              adver_chain = self.adver_chain,
+            #                              consensus = self.adver_consensus,
+            #                              round = round)
+            #     if attack_mine:
+            #         # 等长时，如果挖出来，则立刻发布
+            #         blocks = bh.upload(adver_chain = self.adver_chain,
+            #                      current_miners = current_miners, 
+            #                      round = round,
+            #                      adver_list = self.adver_list,
+            #                      fork_block = self._fork_block if self._fork_block != None else self.honest_chain.head,
+            #                      syncLocalChain = False)
+            #         self._lastattackblock = self.adver_chain.get_last_block()
+            #         if self._log['behavior'] != 'override':
+            #             self._attack_success_detect = True
+            #         self._log['behavior'] = 'override'
+            #     else:
+            #         self._log['behavior'] = 'matching'
+            # else:
+            #     # 攻击链与诚实链 matching
+            #     attack_mine,blocks = bh.mine(adver_list = self.adver_list,
+            #                              current_miner = current_miner,
+            #                              miner_input = mine_input,
+            #                              adver_chain = self.adver_chain, 
+            #                              consensus = self.adver_consensus,
+            #                              round = round)
+            #     self._log['behavior'] = 'matching'
             else:
                 # 攻击链与诚实链 matching
                 attack_mine,blocks = bh.mine(adver_list = self.adver_list,
@@ -142,7 +371,27 @@ class DoubleSpending(aa.AttackType):
                                          adver_chain = self.adver_chain, 
                                          consensus = self.adver_consensus,
                                          round = round)
-                self._log['behavior'] = 'matching'
+                cur_adver_height = self.adver_chain.get_height()
+                if cur_adver_height >= honest_height:
+                    latest_adver_chain_tip = self.adver_chain.get_last_block()
+                    # 如果挖到了与诚实链等高或更高的块，则立刻发布与诚实链等高的块
+                    send_chain_tip = self.adver_chain.get_last_block()
+                    while send_chain_tip.get_height() > honest_height:
+                        send_chain_tip = send_chain_tip.parentblock
+                    self._lastattackblock = send_chain_tip
+                    self.adver_chain.set_last_block(send_chain_tip) # 让攻击链回退到与诚实链等高的状态，以便上传
+                    blocks = bh.upload(adver_chain = self.adver_chain,
+                                 current_miners = current_miners, 
+                                 round = round,
+                                 adver_list = self.adver_list,
+                                 fork_block = self._fork_block, # if self._fork_block != None else self.honest_chain.head,
+                                 syncLocalChain = False)
+                    self.adver_chain.set_last_block(latest_adver_chain_tip) # 恢复攻击链的状态
+                    if self._log['behavior'] != 'override':
+                        self._attack_success_detect = True
+                    self._log['behavior'] = 'override'
+                else:
+                    self._log['behavior'] = 'matching'
 
     def clear_record_stage(self, round):
         bh = self.behavior
@@ -165,16 +414,30 @@ class DoubleSpending(aa.AttackType):
         ## 3. clear and record stage
         self.clear_record_stage(round)
 
-        
+    def get_attack_times(self):
+        return self._log['success']+self._log['fail']
+    
     def info_getter(self,miner_num):
         rate, thr_rate = self.__success_rate(miner_num)
-        return {'Success Rate': '{:.4f}'.format(self._log['success']/(self._log['success']+self._log['fail'])),
+        total_attempts = self._log['success'] + self._log['fail']
+        result = {'Success Rate': '{:.4f}'.format(self._log['success']/total_attempts) if total_attempts else '-1',
                 'Theory rate in LockstepNetwork': '{:.4f}'.format(thr_rate),
-                'Attack times': self._log['success']+self._log['fail'],
+                'Attack times': total_attempts,
                 # 'Success times': self._log['success'],
                 'Ng': self.attack_arg['Ng'],
-                'N': self.attack_arg['N']
+                'N': self.attack_arg['N'],
+                'attack_fail': self._log['fail'],
+                'attack_success': self._log['success']
                 }
+        if self._premining_enabled:
+            result.update({
+                'Premining End Condition': self._premining_end_condition,
+                'Premining Max Lead': self._premining_max_lead,
+                'Premining End Height': self._premining_end_height,
+                'Premining End Lead': self._premining_end_lead,
+                'Premining Phase': self._phase,
+            })
+        return result
     
     def __success_rate(self,miner_num):
         if self._log['success'] != 0 or self._log['fail'] != 0:

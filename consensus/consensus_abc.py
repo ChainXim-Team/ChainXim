@@ -37,10 +37,10 @@ class Consensus(metaclass=ABCMeta):        #抽象类
                              blockextra:dict = None):
         '''为指定链生成创世区块'''
         genesis_blockhead = self.BlockHead()
-        for k,v in blockheadextra or {}:
+        for k,v in blockheadextra.items() or {}:
             setattr(genesis_blockhead,k,v)
         chain.add_blocks(blocks=self.Block(genesis_blockhead))
-        for k,v in blockextra or {}:
+        for k,v in blockextra.items() or {}:
             setattr(chain.head,k,v)
 
     def __init__(self,miner_id):
@@ -122,7 +122,8 @@ class Consensus(metaclass=ABCMeta):        #抽象类
         newblock, success = self.mining_consensus(self.miner_id_bytes, isadversary, x, round)
         if success is False:
             return None, False
-        newblock = self.local_chain.add_blocks(blocks=newblock)
+        # 确保挖出的区块的矿工等待max_delay之后才能接收到
+        # newblock = self.local_chain.add_blocks(blocks=newblock)
         # add_blocks默认执行深拷贝 因此要获取当前加到链上的newblock地址
         # self.local_chain.lastblock = newblock
         logger.info("round %d, M%d mined %s", round, self.miner_id, newblock.name)
