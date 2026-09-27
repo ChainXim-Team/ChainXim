@@ -23,15 +23,6 @@ delta = d / theory_slices
 python premining_theory_compare.py
 ```
 
-可以指定输入、输出和截断参数：
-
-```powershell
-python premining_theory_compare.py `
-  --results-dir Results/premining_parallel `
-  --output-dir Results/premining_theory_comparison `
-  --theory-slices 100 `
-  --lead-cap 100
-```
 
 脚本自动从每个 TXT 和其中记录的 `system_config.ini` 读取诚实矿工数、攻击者数、`N`、`Ng`、目标值及固定传播延迟。攻击者算力比例按当前仿真的实际配置计算为：
 
