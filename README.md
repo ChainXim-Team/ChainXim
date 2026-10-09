@@ -12,14 +12,21 @@ Built upon Bitcoin Backbone Protocol, ChainXim features a highly extensible arch
 
 ## ChainXim-Based Projects
 
-- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Source Code](https://github.com/RayJ9/VDF-based-PoVD)
+- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Preprint](https://arxiv.org/abs/2609.21627) [Source Code](https://github.com/RayJ9/VDF-based-PoVD)
 
-  The VDF-based PoVD blockchain simulation platform is developed based on ChainXim, a blockchain simulator. Upon ChainXim, this project incorporates PoVD-related mechanisms while retaining PoW and other baseline experimental capabilities. Its primary purpose is to compare the forking behavior of different consensus mechanisms under varying network conditions, propagation models, and target block times.
+  The VDF-based PoVD blockchain simulation platform is developed based on ChainXim, a blockchain simulator. Upon ChainXim, this project incorporates PoVD-related mechanisms while retaining PoW and other capabilities. Its primary purpose is to compare the forking behavior of different consensus mechanisms under varying network conditions, propagation models, and target block times.
 
 - BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Publication](https://doi.org/10.1109/TMC.2025.3624804) [Source Code](https://github.com/czxdev/BagChain)
 
   BagChain integrates blockchain with distributed machine learning by replacing the computationally costly hash operations in proof-of-work with machine-learning model training. It utilizes individual miners’ private data samples and limited computing resources to train base models and further aggregates them into strong ensemble models. A three-layer blockchain structure and the corresponding generation and validation mechanisms are designed to enable distributed machine learning among uncoordinated miners in a permissionless and open setting.
 
+## Related Project
+
+For users interested in other blockchain simulation and emulation tools, the following open-source project may also be useful.
+
+- BlockEmulator: An Emulator Enabling to Test Blockchain Sharding Protocols. [Publication](https://doi.org/10.1109/TSC.2025.3547222) [Source Code](https://github.com/HuangLab-SYSU/block-emulator)
+
+  BlockEmulator is an open-source emulation platform for blockchain sharding protocols. Its modular, extensible, and layered architecture facilitates the flexible development and testing of mechanisms including intra-shard consensus and cross-shard interactions. In BlockEmulator, multiple blockchain nodes running on a single machine communicate via TCP connections, enabling performance evaluation of different sharding protocols. It also supports experiments using real-world transaction data to measure metrics such as throughput, transaction confirmation latency, and workload distribution across shards.
 
 ## Quick Start
 ### Download

@@ -12,10 +12,22 @@ ChainXim以Bitcoin Backbone Protocol为理论基础构建，架构高度可扩�
 
 ## 基于ChainXim的项目 ChainXim-Based Projects
 
-- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Source Code](https://github.com/RayJ9/VDF-based-PoVD) 
+- PoVD: Efficient Consensus Protocol based on Verifiable Delay Function. [Preprint](https://arxiv.org/abs/2609.21627) [Source Code](https://github.com/RayJ9/VDF-based-PoVD) 
+
+  基于可验证延迟函数的PoVD区块链仿真平台基于区块链仿真器ChainXim开发。该项目在保留ChainXim原有工作量证明及其他功能的同时，引入了PoVD相关机制。其主要目的是比较不同共识机制在不同网络条件、消息传播模型及目标出块时间下的分叉行为。
 
 - BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning. [Publication](https://doi.org/10.1109/TMC.2025.3624804) [Source Code](https://github.com/czxdev/BagChain)
 
+  BagChain以机器学习模型训练替代工作量证明中计算成本高昂的哈希运算，实现区块链与分布式机器学习的融合。该框架利用各矿工的私有数据样本和有限计算资源训练基模型，并进一步将其聚合为性能更强的集成模型。BagChain设计了三层区块链结构及相应的区块生成与验证机制，使矿工在公网环境中无需经过中心节点协调即可开展分布式机器学习。
+  
+
+## 相关项目 Related Project
+
+如果您对区块链仿真器感兴趣，以下开源项目可能也会对您有帮助。
+
+- BlockEmulator: An Emulator Enabling to Test Blockchain Sharding Protocols. [Publication](https://doi.org/10.1109/TSC.2025.3547222) [Source Code](https://github.com/HuangLab-SYSU/block-emulator)
+
+  BlockEmulator是一个面向区块链分片协议的开源仿真平台，采用模块化、可扩展的分层架构，支持分片共识、跨分片交互等机制的灵活开发与测试。该平台运行时多个区块链节点通过TCP连接在单机上通信，实现对不同分片协议的性能评估，并支持使用真实交易数据测量吞吐量、确认时延及分片负载等指标。
 
 ## Quick Start
 ### 下载 Download
