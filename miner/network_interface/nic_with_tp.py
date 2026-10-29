@@ -1,7 +1,7 @@
 import logging
 import random
-from copy import deepcopy
 from collections import defaultdict
+from copy import deepcopy
 from typing import Iterable, MutableSequence
 import global_var
 
@@ -24,14 +24,30 @@ class NICWithTp(NetworkInterface):
     def __init__(self, miner) -> None:
         super().__init__(miner)
         self._neighbors:tuple[int] = []
-        # 暂存本轮收到的数据包
-        self._segment_buffer:dict[set] = dict()
+        # 键缺失：无接收记录；set：尚缺的分段；int：完整消息成功投递的上一跳（含0）。
+        # 空集合仅存在于分段收齐到完成投递处理之间。
+        self._receive_records: dict[str, int | set[int]] = {}
         # 输出队列(拓扑网络)
         self._output_queues = defaultdict(list[Message | tuple[Message, int]])
         self._channel_states = {}
 
-    def __has_received(self, block_name:str):
-        return self._segment_buffer.get(block_name, False) is None # None表示已经收到完整区块,segment_buffer已经清空
+    def get_receive_history(self, msg_name: str) -> int | None:
+        record = self._receive_records.get(msg_name)
+        return record if isinstance(record, int) else None
+
+    def clear_receive_record(self, msg_name: str) -> None:
+        self._receive_records.pop(msg_name, None)
+
+    def _has_received(self, msg: Message):
+        return isinstance(self._receive_records.get(msg.name), int) or self.miner.has_received(msg)
+
+    def _receive_message(self, source: int, msg: Message):
+        if self._has_received(msg):
+            return False
+        newly_received = self.miner.receive(source, deepcopy(msg))
+        if newly_received:
+            self._receive_records[msg.name] = source
+        return newly_received
 
     def nic_join_network(self, network):
         self._network = network
@@ -88,7 +104,7 @@ class NICWithTp(NetworkInterface):
         payload = packet.payload
         source = packet.source
         if  not (isinstance(payload, list) and isinstance(payload[0], DataSegment)):
-            return {payload.name : self.miner.receive(source, deepcopy(payload))}
+            return {payload.name : self._receive_message(source, payload)}
 
         rcv_states = {}
         def update_rcv_states(block_name, rcv_state):
@@ -101,17 +117,18 @@ class NICWithTp(NetworkInterface):
                 raise TypeError("Segment not contains a block!")
             block_name = seg.origin_block.name
             # 如果这个段中的区块已经收到过了，就不再处理
-            if self.__has_received(block_name):
+            if self._has_received(seg.origin_block):
                 update_rcv_states(block_name, False)
                 continue
-            self._segment_buffer[block_name].discard(seg.seg_id)
-            if len(self._segment_buffer[block_name]) != 0:
+            missing_segments = self._receive_records.get(block_name)
+            assert isinstance(missing_segments, set), f"Missing INV receive state for {block_name}"
+            missing_segments.discard(seg.seg_id)
+            if len(missing_segments) != 0:
                 update_rcv_states(seg.origin_block.name, False)
                 continue
-            self._segment_buffer[block_name] = None
             logger.info("M%d: All %d segments of %s collected", self.miner.miner_id, 
                         seg.origin_block.segment_num, seg.origin_block.name)
-            update_rcv_states(seg.origin_block.name, self.miner.receive(source, deepcopy(seg.origin_block)))
+            update_rcv_states(block_name, self._receive_message(source, seg.origin_block))
         return rcv_states
     
     def __forward_buffer_to_output_queue(self, msg_source_type):
@@ -242,19 +259,19 @@ class NICWithTp(NetworkInterface):
 
         if isinstance(inv.block_or_seg, DataSegment):
             req_b = inv.block_or_seg.origin_block
-            if self.__has_received(req_b.name):
+            record = self._receive_records.get(req_b.name)
+            if self._has_received(req_b):
                 getData.isRequired = False
-            elif req_b.name in self._segment_buffer:
-                # segment_buffer已经建立，部分分段未收到
-                getData.isRequired = inv.block_or_seg.seg_id in self._segment_buffer[req_b.name]
+            elif isinstance(record, set):
+                getData.isRequired = inv.block_or_seg.seg_id in record
             else:
                 getData.isRequired = True
-                self._segment_buffer[req_b.name] = set(range(req_b.segment_num))
+                self._receive_records[req_b.name] = set(range(req_b.segment_num))
             if not getData.isRequired:
-                logger.info("M%d->M%d: %d, %s", inv.source, self.miner_id, req_b.segment_num, self._segment_buffer.get(req_b.name))
+                logger.info("M%d->M%d: %d, %s", inv.source, self.miner_id, req_b.segment_num, self._receive_records.get(req_b.name))
             return getData
 
-        getData.isRequired = not self.miner.has_received(inv.block_or_seg)
+        getData.isRequired = not self._has_received(inv.block_or_seg)
 
         if not inv.isFullChain:
             return getData
@@ -279,9 +296,13 @@ class NICWithTp(NetworkInterface):
         getData.req_blocks = []
         req_b = inv.block_or_seg
         while req_b is not None and not loc_chain.search_block(req_b):
-            if self._network.withSegments and (sids_notrcv := self._segment_buffer.get(req_b.name)):
+            if self._has_received(req_b):
+                req_b = req_b.parentblock
+                continue
+            record = self._receive_records.get(req_b.name)
+            if self._network.withSegments and isinstance(record, set):
                 # 已经收到部分分段，请求需要的分段
-                getData.req_segs.append((req_b, sids_notrcv))
+                getData.req_segs.append((req_b, record))
             else:
                 getData.req_blocks.append(req_b)
             req_b = req_b.parentblock

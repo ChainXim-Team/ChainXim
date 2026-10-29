@@ -31,33 +31,35 @@ class AtomizationBehavior(aa.AtomizationBehavior):
         imcoming_block_from_eclipse:dict[any,Block] = {}
         # 根据消息来源确认coming block的上一跳
         for temp_miner in adver_list:
+            if not temp_miner.network_has_topology:
+                continue
             filtered_receive_tape = []
-            # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
             for i,incoming_block in enumerate(temp_miner.consensus.receive_tape):
                 if not isinstance(incoming_block, Consensus.Block):
+                    temp_miner.clear_receive_record(incoming_block.name)
                     continue
-                last_hop = temp_miner.receive_history[incoming_block.name]
+                last_hop = temp_miner.get_receive_history(incoming_block.name)
                 if last_hop in adver_ids:
+                    temp_miner.clear_receive_record(incoming_block.name)
                     continue
                 if eclipse_list_ids is not None and last_hop in eclipse_list_ids:
                     # 如果是消息区块 判断区块来源 根据来源标记该区块
                     imcoming_block_from_eclipse[incoming_block.blockhash] = incoming_block
-                    if temp_miner not in attackers_with_honest_neighbors:
+                    if attackers_with_honest_neighbors is not None and temp_miner not in attackers_with_honest_neighbors:
                         # 如果攻击者没有诚实邻居 则需要将区块合并到本地链，避免被月蚀攻击矿工反复发区块
                         filtered_receive_tape.append(incoming_block)
+                    else:
+                        temp_miner.clear_receive_record(incoming_block.name)
                 else: # 从攻击节点的准进消息中剔除对应标记区块 防止二次处理
                     filtered_receive_tape.append(incoming_block)
             temp_miner.consensus.receive_tape = filtered_receive_tape
 
             
         input_tape = []
-        # receive_history = {}
         for temp_miner in adver_list:
             updated_chain, _, tree_update = temp_miner.consensus.local_state_update(round) 
             input_tape.extend(temp_miner.input_tape) # 模拟诚实矿工的BBP--输入
-            # receive_history.update(temp_miner.receive_history)
-            # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.receive_history}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} : {temp_miner.consensus.receive_tape}')
             # logger.info(f'M{temp_miner.miner_id} at round {round} last block is {temp_miner.consensus.local_chain.last_block.name}')
             # 如果存在更新将更新的区块添加到基准链上   
@@ -73,8 +75,6 @@ class AtomizationBehavior(aa.AtomizationBehavior):
                         temp_miner.forward(tree_update, OUTER_RCV_MSG, forward_strategy = SPEC_TARGETS, spec_targets = forward_targets)
             updated_chain:Chain
             if updated_chain.get_height()>=newest_block.get_height():
-                # \ and (updated_chain.get_last_block().name in temp_miner.receive_history \
-                #                                                          and temp_miner.receive_history[updated_chain.get_last_block().name] not in eclipse_list_ids):
                 newest_block = updated_chain.get_last_block()
 
         # 检测最新区块是否是来源于eclipse miner

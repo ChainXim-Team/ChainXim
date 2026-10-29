@@ -298,11 +298,17 @@ Miner组件定义了矿工类，用于创建矿工并进行相关的操作。其
 | forward             | msgs:list[Message], msg_source_type:str, forward_strategy:str, spec_targets:list, syncLocalChain:bool | -                 | 通过网络接口层将消息转发给其他节点。 msgs需要转发的消息列表; msg_source_type消息来源类型, SELF_GEN_MSG表示由本矿工产生, OUTER_RCV_MSG表示由网络接收; forward_strategy 消息转发策略; spec_targets 如果forward_strategy为SPECIFIC, 则spec_targets为转发的目标节点列表; syncLocalChain 是否向邻居同步本地链，尽量在产生新区块时同步. |
 | set_adversary       | _isAdversary:bool                                            | -                 | 设置各矿工是否为攻击者                                       |
 | set_auto_forwarding | auto_forwarding:bool                                         | -                 | 设置矿工是否要自动转发接收到的Message                        |
-| receive             | source:int, msg:Message                                      | bool              | 处理接收的信息，实际为调用consensus组件中的receive方法，同时在receive_history中记录msg的来源 |
+| receive             | source:int, msg:Message                                      | bool              | 将接收的信息交给共识组件处理，由拓扑网络接口在成功投递后记录来源 |
+| get_receive_history | msg_name:str | int\|None | 仅限拓扑网络，查询指定完整消息的上一跳；记录缺失或仍在组装时返回None，来源ID 0有效 |
+| clear_receive_record | msg_name:str | None | 仅限拓扑网络，删除指定消息的分段进度或完整接收记录；可重复调用 |
 | launch_consensus    | input:any                                                    | Block\|None, bool | 开始共识过程，实际为调用consensus组件中的consensus_process方法，返回新消息new_msg（没有新消息则为None）以及是否有新消息的标识符msg_available |
 | BackboneProtocol    | round:int                                                    | Block\|None       | 诚实矿工每轮次执行的操作。首先从网络中接收信息（区块链更新），其次调用挖矿函数尝试生成区块。如果区块链有更新（接收到新区块或产生了新区块），则将新消息返回给环境组件，否则返回空 |
 
 考虑到仿真器的拓展性，miner组件自身定义的函数实际是很少的，主要的函数都在consensus组件与environment组件中定义，该组件实际上为联系各组件的桥梁。miner只能通过网络接口`self._NIC:NetworkInterface`与网络进行交互，网络接口调用`receive`函数将其他节点发送的消息传递给当前节点，当前节点通过`forward`函数将要转发的消息发给网络接口层，网络接口层通过网络层将消息发送给其他节点。
+
+接收记录由`NICWithTp`的`_receive_records: dict[str, int | set[int]]`维护：键缺失表示没有记录，集合保存尚缺少的分段，整数保存成功交给Miner的完整消息的上一跳。缺段集合在INV握手时初始化，分段接收处断言集合状态存在。空集合是收齐分段到新消息交给Miner并记录来源之间的瞬时状态。当前区块路径中，True表示本次新加入接收队列，False表示此前已收到；重复消息保留已有接收记录与成功来源，由接收记录及共识状态去重。分段消息来源取最后一个分段的上一跳，断连和重连保留部分接收进度。
+
+拓扑攻击通过Miner的`get_receive_history`和`clear_receive_record`操作单条记录，主动丢弃消息时同步排除待处理消息并清除其记录。无拓扑攻击跳过基于来源的过滤，挖矿使用`adver_chain`，发布阶段沿用已有的发布者本地链同步逻辑。
 
 ## 区块链数据 Chain Data
 

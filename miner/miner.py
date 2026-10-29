@@ -25,7 +25,6 @@ class Miner(object):
         self.round = -1
         #网络接口
         self._NIC:NetworkInterface =  None
-        self.receive_history = dict()
         # maximum data items in a block
         self.max_block_capacity = max_block_capacity
         if self.max_block_capacity > 0 and not disable_dataitem_queue:
@@ -44,6 +43,16 @@ class Miner(object):
 
     def has_received(self, block:Message):
         return self.consensus.has_received(block)
+
+    def get_receive_history(self, msg_name: str) -> int | None:
+        if not self.network_has_topology:
+            raise NotImplementedError("Receive history requires a topology network")
+        return self._NIC.get_receive_history(msg_name)
+
+    def clear_receive_record(self, msg_name: str) -> None:
+        if not self.network_has_topology:
+            raise NotImplementedError("Receive records require a topology network")
+        self._NIC.clear_receive_record(msg_name)
 
     def _join_network(self, network):
         """初始化网络接口"""
@@ -71,13 +80,7 @@ class Miner(object):
 
     def receive(self, source:int, msg: Message):
         '''处理接收到的消息，直接调用consensus.receive'''
-        rcvSuccess = self.consensus.receive_filter(msg)
-        if not rcvSuccess:
-            return rcvSuccess
-        else:
-            self.receive_history[msg.name] = source
-
-        return rcvSuccess
+        return self.consensus.receive_filter(msg)
     
        
     def forward(self, msgs:list[Message], msg_source_type, forward_strategy:str=FLOODING, 
@@ -153,5 +156,3 @@ class Miner(object):
         self._NIC._receive_buffer.clear()
         # self._NIC.clear_forward_buffer()
     
-        
-
