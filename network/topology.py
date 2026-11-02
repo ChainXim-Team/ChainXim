@@ -350,7 +350,7 @@ class TopologyNetwork(Network):
         changed = False
         change_op = {"round": round}
         for (node1, node2) in list(self._graph.edges):
-            changed = changed or self.try_remove_edge(int(node1), int(node2), change_op)
+            changed |= self.try_remove_edge(int(node1), int(node2), change_op)
 
         
         for node1 in list(self._graph.nodes):
@@ -359,7 +359,7 @@ class TopologyNetwork(Network):
             if len(non_neighbors) == 0:
                 continue
             node2 = random.choice(list(non_neighbors))
-            changed = changed or self.try_add_edge(int(node1), int(node2), change_op,round)
+            changed |= self.try_add_edge(int(node1), int(node2), change_op,round)
 
         self._nextTpChangeRound += int(np.random.uniform(self._avgTpChangeInterval-self._TpChangeSpan,
                                                          self._avgTpChangeInterval+self._TpChangeSpan))
