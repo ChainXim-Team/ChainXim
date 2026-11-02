@@ -3,7 +3,7 @@ ChainXim仿真系统在共识、网络以及攻击模块上均提供了多个可
 
 ### 1. 锁步网络中矿工数量与出块时间的关系
 
-ChainXim的锁步网络组件可以模拟没有时延存在的场景，本示例通过这一组件来探究理想状态下节点数量对出块时间的影响，并对照验证不同的共识组件，其具体参数设置如下：
+ChainXim的锁步网络组件在每轮结束时将消息广播给所有矿工，矿工在下一轮处理收到的消息。本示例通过这一组件来探究理想状态下节点数量对出块时间的影响，并对照验证不同的共识组件，其具体参数设置如下：
 
 * 仿真次数：600000轮
 
@@ -64,7 +64,7 @@ python main.py -c conf/stochprop_noadv.ini --total_round 3000000 --rcvprob_start
 
 ![latency-fork](doc/latency-fork.png)
 
-下图展示了系统一致性随最大传播时延的变化情况，Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量,其中序数代表共同前缀与主链长度的差值（详见“仿真器输出”一节），可见一致性指标总是随时延增大而下降。
+下图展示了系统一致性随最大传播时延的变化情况。Common Prefix[0]、[1]、[2]分别代表共同前缀PDF的前三个分量，其中序数表示矿工本地链相对于诚实矿工共同前缀的后缀长度（详见“仿真器输出”一节）。图中一致性指标随时延增大而下降。
 
 ---
 一致性指标随最大传播时延的变化示意图
@@ -124,7 +124,7 @@ ChainXim的拓扑网络组件可以模拟节点与边构成的网络拓扑，从
 
 * 网络类型：TopologyNetwork
 
-* 网络参数：init_mode=coo; 采用环形拓扑
+* 网络参数：init_mode=coo; 采用32节点静态环形拓扑
 
 
 使用配置文件[topology_noadv.ini](conf/topology_noadv.ini)，执行以下命令（需要相应修改difficulty和共识类型）：
@@ -138,14 +138,15 @@ python main.py -c conf/topology_noadv.ini --total_round 4000000 --consensus_type
 ---
 分叉率随难度目标的变化示意图
 
-![target-fork](doc/target-fork.png)
+![target-fork](doc/target-fork.svg)
 
 图中的理论曲线由以下公式得到：
 
-$$ f=1 - (1 - t)^{mq\sum_{n=1}^{d} i_n} $$
+$$ f=1 - (1 - t)^{mq\sum_{n=1}^{\Delta} (1-i_n)} $$
 
-$t$即为图中横坐标展示的难度目标，$m$为矿工数量，$q$即为q_ave，表示平均每个矿工每一轮进行哈希查询的次数。
-$i_n$表示在区块发出后的第n个轮次，收到该区块的矿工在全网的占比。
+$t=T/2^{256}$为归一化难度目标，其中$T$为配置文件中的十六进制目标值；命令行参数`--difficulty`指定前导零比特数，因此$t\approx 2^{-\mathrm{difficulty}}$。$m$为矿工数量，$q$即为q_ave，表示平均每个矿工每一轮进行哈希查询的次数。$\Delta$为完全传播所需的轮数，$i_n$表示截至第$n$轮结束时，已接收到该区块的矿工在全网的累计占比，包含出块矿工。
+
+本例的传播向量为$\mathbf{i}=[3/32,5/32,\ldots,31/32,1]$，因此$\Delta=16$，$\sum_{n=1}^{\Delta}(1-i_n)=225/32$。代入$m=32$、$q=1$，可得图中的理论曲线$f=1-(1-t)^{225}$。
 
 ### 5. 不同区块大小下的吞吐量与分叉率
 
@@ -188,7 +189,7 @@ python main.py -c conf/adhoc_noadv.ini --total_round 4000000 --path_loss_level l
 
 ![blocksize-fork](doc/blocksize-fork.png)
 
-### 6. 不同攻击向量下的攻击者出块占比示意图
+### 6. 不同攻击策略与网络条件下的安全性
 
 本示例依次演示了四种可用攻击组件的使用方法：
 
@@ -203,8 +204,9 @@ ChainXim的算力攻击组件模拟了最简单的攻击手段，即攻击者联
 - 共识类型：PoW
 - 难度：000FFF...
 - q_ave = 1
-- 网络参数：blocksize=4; TopologyNetwork中带宽均为2，ave_degree=25，且开启断点续传与动态拓扑，avg_tp_change_interval=100; AdhocNetwork中最大带宽为40;
-    其余网络参数为默认参数。
+- 网络类型：LockstepNetwork、ZeroDelayNetwork、DeterPropNetwork、StochPropNetwork、TopologyNetwork、AdHocNetwork
+- 网络参数：blocksize=4; TopologyNetwork中带宽均为2 MB/轮、ave_degree=25，且开启断点续传与动态拓扑，avg_tp_change_interval=100; AdHocNetwork中最大带宽为40 MB/轮。
+    其余网络参数沿用conf/pow_doublespending.ini中的设置。
 
 使用配置文件[pow_doublespending.ini](conf/pow_doublespending.ini)，执行以下命令（需要相应修改攻击者数量和网络类型）：
 
@@ -212,13 +214,19 @@ ChainXim的算力攻击组件模拟了最简单的攻击手段，即攻击者联
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
+切换为TopologyNetwork时，还需指定随机拓扑、平均度和拓扑变化间隔。例如：
+
+```bash
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.TopologyNetwork --init_mode rand --ave_degree 25 --avg_tp_change_interval 100 --adver_num 5
+```
+
 ---
 不同网络对算力攻击的影响示意图
 
-![HonestMining-network](doc/HonestMining-network.png)
+![HonestMining-network](doc/HonestMining-network.svg)
 
 对于算力攻击和自私挖矿，一次攻击成功的定义为攻击者产出区块，并被网络接受。
-图中纵坐标为链质量指标，即攻击者产出区块在主链中的占比与1之差。
+图中纵坐标为链质量指标，即统计链前缀中诚实矿工产出的区块占比，等于1减去攻击者区块占比。若攻击者算力占比为$\alpha$，图中的Ideal参考线为$1-\alpha$，Worst-case参考线为$1-\alpha/(1-\alpha)$。灰色区域表示两条参考线之间的范围。
 
 ---
 #### b. 区块截留攻击（selfish mining）
@@ -240,18 +248,20 @@ ChainXim的区块截留攻击组件模拟了自私矿工的攻击手段，即选
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
+切换为TopologyNetwork时，同样需要添加`--init_mode rand --ave_degree 25 --avg_tp_change_interval 100`。
+
 ---
 不同网络对区块截留攻击的影响示意图
 
-![SelfishMining-network](doc/SelfishMining-network.png)
+![SelfishMining-network](doc/SelfishMining-network.svg)
 
-锁步网络下，这一攻击的链质量可以理论求得，而在其它网络下，链质量会依照各自网络的时延情况产生高低不一的下降。
+锁步网络下，这一攻击的收益占比可以理论求得；不同网络条件会影响攻击者的实际收益，从而改变链质量。
 
-图中的理论曲线由以下公式得到：
+当$\gamma=0$时，攻击者的理论收益占比由以下公式得到：
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
 
-其中$\alpha$表示攻击者的占比。
+其中$\alpha$表示攻击者的算力占比，$\gamma$表示诚实矿工在等长分叉竞争中选择攻击者分叉的算力比例。图中Theory ($\gamma=0$)绘制的是链质量$1-R$。Worst-case参考线与算力攻击图相同，为$1-\alpha/(1-\alpha)$；灰色区域表示两条参考线之间的范围。
 
 ---
 #### c. 双花攻击（double spending）
@@ -274,12 +284,14 @@ ChainXim的双花攻击组件模拟了这一经典的回滚交易历史的攻击
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.LockstepNetwork --adver_num 5
 ```
 
+切换为TopologyNetwork时，需要添加`--init_mode rand --ave_degree 25 --avg_tp_change_interval 30`。
+
 ---
 不同网络对双花攻击的影响示意图
 
-![DoubleSpending-Network](doc/DoubleSpending-Network.png)
+![DoubleSpending-Network](doc/DoubleSpending-Network.svg)
 
-与自私挖矿的结果较为类似，网络条件越差，攻击成功率就越高。
+图中纵坐标为双花攻击成功率，即成功次数除以成功与失败次数之和。相同攻击算力下，传播条件会影响攻击成功率。Theory (LockstepNet)参考线采用下文的$P(N,N_g,\beta)$，其中$N=1$、$N_g=3$、$\beta=\alpha/(1-\alpha)$。
 
 ---
 除了时延，攻击者的策略也是影响双花攻击成功率的一个重要因素。可以使用锁步网络组件直观地探究这一因素的影响：
@@ -326,7 +338,7 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 
 ![eclipse_topology2](doc/eclipse_topology2.svg)
 
-可以看到各拓扑中被攻击节点只与攻击者链接，便于攻击者发动攻击，而攻击者与其它所有节点则是全连接，便于与全连接拓扑网络进行对照仿真。
+各拓扑中，被日蚀矿工仅与攻击者及同组被日蚀矿工相连；攻击者与未被日蚀的诚实矿工构成全连接子图。这样的连接关系限制了被日蚀矿工接收诚实区块的途径，便于与全连接拓扑网络进行对照仿真。
 
 **参数设置如下：**
 
@@ -341,21 +353,21 @@ $\beta$为攻击者与诚实矿工算力之比，$0\leqslant\beta\leqslant1$。
 先在全连接网络条件下进行仿真，执行以下命令：
 
 ````bash
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1,2)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1,2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1,2)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1,2,3)"
 ````
 
 然后使用配置文件[topology_eclipsed.ini](conf/topology_eclipsed.ini)，执行以下命令（需要相应修改攻击者ID、被日蚀攻击的矿工ID和网络拓扑）：
 
 ```bash
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_1.csv --eclipse_target "(0,)" --adver_list "(1,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_12.csv --eclipse_target "(0,)" --adver_list "(1,2)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_123.csv --eclipse_target "(0,)" --adver_list "(1,2,3)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_2.csv --eclipse_target "(0,1)" --adver_list "(2,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_list "(2,3)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_list "(3,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_1.csv --eclipse_target "(0,)" --adver_lists "(1,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_12.csv --eclipse_target "(0,)" --adver_lists "(1,2)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_123.csv --eclipse_target "(0,)" --adver_lists "(1,2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_01_2.csv --eclipse_target "(0,1)" --adver_lists "(2,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_lists "(2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_lists "(3,)"
 ```
 
 ---
@@ -363,6 +375,5 @@ python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_pa
 
 ![eclipse_doublespending](doc/eclipse_doublespending.png)
 
-攻击顺利进行时，被攻击节点只会在攻击节点的区块后挖掘，可以视为其算力完全被攻击者所用。因此，这种情况下双花攻击的成功率会等于两者算力之和在全连接网络下发动攻击的成功率。
+在攻击者能使被日蚀矿工持续沿攻击分叉挖矿的理想条件下，可以将两者算力之和用于构造全连接网络下的双花攻击参考值。
 本例的绘图代码详见文件[result_plot.py](util/result_plot.py)
-

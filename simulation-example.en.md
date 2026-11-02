@@ -3,7 +3,7 @@ The ChainXim simulation system offers multiple pluggable component types across 
 
 ### 1. Relationship between the Number of Miners and Block Time in Lockstep Network
 
-ChainXim's lockstep network component can simulate scenarios with zero latency. This example employs this component to investigate the impact of node quantity on block generation time under ideal conditions, while also providing comparative validation of different consensus components. The specific parameter configurations are as follows:
+ChainXim's lockstep network component broadcasts messages to all miners at the end of each round, and miners process the received messages in the next round. This example uses this component to investigate the impact of the number of miners on block generation time under ideal conditions, while also comparing different consensus components. The specific parameter configurations are as follows:
 
 **Parameter settings:**
 
@@ -58,7 +58,7 @@ Fork rate/Stale block rate variation with maximum propagation delay
 
 ![latency-fork](doc/latency-fork.png)
 
-The figure below illustrates the variation of system consistency with the maximum propagation delay, and Common Prefix[0], [1], [2] represent the first three components of the common prefix PDF, where the ordinal number represents the difference between the common prefix and the main chain length (see the "Simulator Output" section for details).
+The figure below shows how system consistency varies with the maximum propagation delay. Common Prefix[0], [1], and [2] are the first three components of the common prefix PDF. Each index is the suffix length of a miner's local chain relative to the common prefix of the honest miners' chains (see the "Simulator Output" section for details). The consistency metric decreases as delay increases in the figure.
 
 ---
 Consistency metrics variation with maximum propagation delay
@@ -101,9 +101,10 @@ ChainXim's topology network component can simulate network topologies composed o
 - Number of miners: 32
 - Consensus type: PoW/VirtualPoW/SolidPoW
 - q_ave: 1
+- Block size: 0 MB
 - Difficulty: 0000FF...-000FFF... (difficulty=12~16)
 - Network types: TopologyNetwork
-- Network parameters: init_mode=coo; use round topology
+- Network parameters: init_mode=coo; use a static ring topology with 32 nodes
 
 By using the configuration file [topology_noadv.ini](conf/topology_noadv.ini)，execute the following commands（with corresponding modifications to the difficulty and consensus type）to reproduce simulation results：
 
@@ -116,13 +117,15 @@ The figure illustrates how the fork rate changes with the difficulty target. The
 ---
 ​​Fork rate variation with difficulty target
 
-![target-fork](doc/target-fork.png)
+![target-fork](doc/target-fork.svg)
 
 The theoretical curve in the figure is obtained by the following formula:
 
-$$ f=1 - (1 - t)^{mq\sum_{n=1}^{d} i_n} $$
+$$ f=1 - (1 - t)^{mq\sum_{n=1}^{\Delta} (1-i_n)} $$
 
-Here, $t$ represents the difficulty target shown on the horizontal axis of the graph, $m$ is the number of miners, and $q$ is the q_ave, denoting the average number of hash queries performed by each miner per round. $i_n$ represents the proportion of miners in the entire network that receive the block in the nth round after the block is propagated.
+Here, $t=T/2^{256}$ is the normalized difficulty target, where $T$ is the hexadecimal target in the configuration file. The command-line parameter `--difficulty` specifies the number of leading zero bits, so $t\approx 2^{-\mathrm{difficulty}}$. $m$ is the number of miners, and $q$ is q_ave, the average number of hash queries performed by each miner per round. $\Delta$ is the number of rounds required for full propagation, and $i_n$ is the cumulative proportion of miners having received the block by the end of round $n$, including the miner that produced it.
+
+The propagation vector in this example is $\mathbf{i}=[3/32,5/32,\ldots,31/32,1]$, giving $\Delta=16$ and $\sum_{n=1}^{\Delta}(1-i_n)=225/32$. Substituting $m=32$ and $q=1$ yields the theoretical curve $f=1-(1-t)^{225}$.
 
 
 ### 5. Throughput and Fork Rate under Different Block Sizes
@@ -160,7 +163,7 @@ Fork rate variation with block size
 ![blocksize-fork](doc/blocksize-fork.png)
 
 
-### 6. Attacker's Block Proportion under Different Attack Vectors
+### 6. Security under Different Attack Strategies and Network Conditions
 
 This example sequentially demonstrates the usage of four available attack modules:
 
@@ -180,7 +183,9 @@ ChainXim's honest mining attack component simulates the most basic attack method
 
 * q_ave = 1
 
-* Network parameters: `blocksize=4`, the bandwidth of the edges in `TopologyNetwork` is `2MB/round` with dynamic topology and outage resume enabled, ave_degree=25, avg_tp_change_interval=100, and bandwidth_max=40 in `AdhocNetwork`. Other network parameters are set to default values.
+* Network types: LockstepNetwork, ZeroDelayNetwork, DeterPropNetwork, StochPropNetwork, TopologyNetwork, AdHocNetwork
+
+* Network parameters: `blocksize=4`; `TopologyNetwork` has bandwidths of `2 MB/round`, `ave_degree=25`, dynamic topology and transfer resumption enabled, and `avg_tp_change_interval=100`; `AdHocNetwork` uses `bandwidth_max=40 MB/round`. Other network parameters follow conf/pow_doublespending.ini.
 
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
@@ -188,12 +193,18 @@ By using the configuration file [pow_doublespending.ini](conf/pow_doublespending
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
+When switching to TopologyNetwork, also specify random initialization, the average degree, and the topology change interval. For example:
+
+```bash
+python main.py -c conf/pow_doublespending.ini --total_round 3000000 --q_ave 1 --attack_type HonestMining --network_type network.TopologyNetwork --init_mode rand --ave_degree 25 --avg_tp_change_interval 100 --adver_num 5
+```
+
 ---
 Impact of Different Networks on Honest Mining Attack
 
-![HonestMining-network](doc/HonestMining-network.png)
+![HonestMining-network](doc/HonestMining-network.svg)
 
-Definition of a successful attack is that the attacker produces a block and is accepted by the network. The vertical axis represents the chain quality, defined as the difference between 1 and the proportion of blocks produced by the attackers that are included in the main chain.
+For honest mining and selfish mining, a successful attack means that a block produced by the attacker is accepted by the network. The vertical axis shows chain quality: the proportion of blocks produced by honest miners in the chain prefix used for statistics, equal to 1 minus the adversarial block proportion. For an adversarial hash-power share $\alpha$, the Ideal reference is $1-\alpha$ and the Worst-case reference is $1-\alpha/(1-\alpha)$. The gray area spans the two reference curves.
 
 ---
 #### b. Selfish Mining Attack
@@ -213,7 +224,6 @@ ChainXim's selfish mining attack component simulates the strategy that malicious
 * q_ave = 10
 
 * Network parameters: identical to that of honest mining
-[pow_doublespending.ini](conf/pow_doublespending.ini)
 
 By using the configuration file [pow_doublespending.ini](conf/pow_doublespending.ini), execute the following commands（with corresponding modifications to the network_type and adver_num）to reproduce simulation results：
 
@@ -221,18 +231,20 @@ By using the configuration file [pow_doublespending.ini](conf/pow_doublespending
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --difficulty 16 --q_ave 10 --attack_type SelfishMining --network_type network.LockstepNetwork --adver_num 5
 ```
 
+When switching to TopologyNetwork, also add `--init_mode rand --ave_degree 25 --avg_tp_change_interval 100`.
+
 ---
 Impact of Different Networks on Selfish Mining Attack
 
-![SelfishMining-network](doc/SelfishMining-network.png)
+![SelfishMining-network](doc/SelfishMining-network.svg)
 
-Under lockstep network, the chain quality of this attack can be theoretically determined, while in other networks, the chain quality will experience varying degrees of degradation depending on their respective latency conditions.
+Under a lockstep network, the attacker's revenue share can be theoretically determined. Different network conditions affect the attacker's actual revenue and thus the chain quality.
 
-The theoretical curve in the figure is obtained by the following formula:
+For $\gamma=0$, the attacker's theoretical revenue share is given by:
 
 $$ R=\frac{4\alpha^{2}(1-\alpha)^{2}-\alpha^{3}}{1-\alpha(1+(2-\alpha)\alpha)} $$
 
-Here $\alpha$ represents the attackers' proportion.
+Here $\alpha$ is the attackers' hash-power share, and $\gamma$ is the fraction of honest hash power that mines on the attacker's fork during an equal-length fork race. The figure's Theory ($\gamma=0$) curve shows chain quality $1-R$. The Worst-case reference is the same as in the honest mining figure, $1-\alpha/(1-\alpha)$; the gray area spans the two reference curves.
 
 ---
 #### c. Double Spending Attack
@@ -261,12 +273,14 @@ By using the configuration file [pow_doublespending.ini](conf/pow_doublespending
 python main.py -c conf/pow_doublespending.ini --total_round 3000000 --network_type network.LockstepNetwork --adver_num 5
 ```
 
+When switching to TopologyNetwork, add `--init_mode rand --ave_degree 25 --avg_tp_change_interval 30`.
+
 ---
 Impact of Different Networks on Double Spending Attack
 
-![DoubleSpending-Network](doc/DoubleSpending-Network.png)
+![DoubleSpending-Network](doc/DoubleSpending-Network.svg)
 
-This result is somewhat similar to that of selfish mining, where networks with poorer latency conditions exhibit higher attack success rates.
+The vertical axis shows the double-spending success rate, calculated as successful attempts divided by the sum of successful and failed attempts. For a fixed adversarial hash-power share, propagation conditions affect the success rate. The Theory (LockstepNet) reference uses $P(N,N_g,\beta)$ given below, with $N=1$, $N_g=3$, and $\beta=\alpha/(1-\alpha)$.
 
 ---
 Besides latency, the attacker's strategy is also a critical factor affecting the success rate of a double-spending attack. The lockstep network component can be employed to directly investigate this influencing.
@@ -319,7 +333,7 @@ This example shows how to use the eclipse attack component. The attacking nodes 
 
   ![eclipse_topology2](doc/eclipse_topology2.svg)
 
-  In each topology, the attacked node is only connected to the attacker, facilitating the attacker's ability to launch attacks, while the attacker maintains full connections with all other nodes. This configuration enables comparative simulations with fully-connected topology networks.
+In each topology, eclipsed miners are connected only to the attackers and other eclipsed miners in the same group. The attackers and uneclipsed honest miners form a fully connected subgraph. These connections restrict the paths through which eclipsed miners can receive honest blocks, enabling comparison with a fully connected topology.
 
 **Parameter settings:**
 
@@ -340,21 +354,21 @@ This example shows how to use the eclipse attack component. The attacking nodes 
 First, simulate under fully connected network conditions and execute the commands:
 
 ````bash
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1,2)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --adver_list "(0,1,2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1,2)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --eclipse_target "()" --adver_lists "(0,1,2,3)"
 ````
 
 Then, using the configuration file [topology_eclipsed.ini](conf/topology_eclipsed.ini)，execute the following command (modify accordingly with the attacker's ID, the attacked miner ID, and network topology)：
 
 ```bash
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_1.csv --eclipse_target "(0,)" --adver_list "(1,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_12.csv --eclipse_target "(0,)" --adver_list "(1,2)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_0_123.csv --eclipse_target "(0,)" --adver_list "(1,2,3)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_2.csv --eclipse_target "(0,1)" --adver_list "(2,)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_list "(2,3)"
-python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_list "(3,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_1.csv --eclipse_target "(0,)" --adver_lists "(1,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_12.csv --eclipse_target "(0,)" --adver_lists "(1,2)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_0_123.csv --eclipse_target "(0,)" --adver_lists "(1,2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_01_2.csv --eclipse_target "(0,1)" --adver_lists "(2,)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_01_23.csv --eclipse_target "(0,1)" --adver_lists "(2,3)"
+python main.py -c conf/topology_eclipsed.ini --total_round 5000000 --q_ave 10 --topology_path conf/topologies/eclipse_012_3.csv --eclipse_target "(0,1,2)" --adver_lists "(3,)"
 ```
 
 ---
@@ -362,6 +376,4 @@ Double Spending Attack under Eclipse Attack
 
 ![eclipse_doublespending](doc/eclipse_doublespending.png)
 
-When the attack proceeds smoothly, the attacked node will only mine after the attacker's block, meaning its computing power is effectively utilized by the attacker. Consequently, the success rate of the eclipsed double-spending attack becomes equivalent to that of the double-spending attack launched under a fully connected network scenario with the combined computing power of both parties. The plotting code for this example can be found in the file [result_plot.py](util/result_plot.py).
-        
-
+Under ideal conditions where the attacker keeps eclipsed miners mining on the attack fork, their combined hash power can be used to construct a double-spending reference value for a fully connected network. The plotting code for this example can be found in the file [result_plot.py](util/result_plot.py).
