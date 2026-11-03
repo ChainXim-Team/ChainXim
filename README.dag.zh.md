@@ -23,7 +23,7 @@ python main.py --config conf/conflux_lockstep.ini --miner_num 4 --total_round 20
 | Topology | conf/conflux_topology.ini |
 | AdHoc | conf/conflux_adhoc.ini |
 
-`python main.py`继续读取原system_config.ini并执行原单链默认配置。运行DAG需显式选择conf/conflux_*.ini；这些DAG配置使用固定target，--difficulty直接生效。--no_compact_outputfile保存完整结构图、快照和重放输入；默认紧凑输出仍保存指标和运行参数。
+`python main.py`继续读取原system_config.ini并执行原单链默认配置。运行DAG需显式选择conf/conflux_*.ini。
 
 原PoW诚实对照可运行：
 
@@ -41,17 +41,16 @@ python main.py --config conf/conflux_lockstep.ini --consensus_type consensus.PoW
 | miner/ | 节点状态、数据项池和网络接口 |
 | network/ | 五种网络的传播、拓扑、移动及带宽模型 |
 | util/ | 结构化输出、DAG绘图、指标、校验和重放 |
-| plot_honest_dag.py | 只读已有结果的统计绘图 |
+| plot_honest_dag.py | 读取已有结果进行统计绘图 |
 | conf/ | 诚实节点运行配置和拓扑样例 |
 
-已删除DAG开发测试、历史实验结果及阶段报告。原单链源码、配置、文档与doc中的配套图片保留；这些文档图片属于原项目资源。DAG专用攻击适配不在当前主线中，DAG启用非零攻击者时会明确报错。
 
 ## 相关文档
 
 原单链入口文档保持原文件名：[README](README.zh.md)、[开发指南](developer-guide.zh.md)、[仿真示例](simulation-example.zh.md)。以下是独立DAG文档。
 
-- [开发指南](developer-guide.dag.zh.md)：数据结构、协议流程、接口、指标及扩展位置。
-- [仿真示例与统计分析](simulation-example.dag.zh.md)：五网络参数、四组吞吐对照、DAG特征、独立扫描命令和离线绘图。
-- [协议规则](protocol.md)：pivot、epoch、排序和确认公式。
+- [Conflux开发指南](developer-guide.dag.zh.md)：数据结构、协议流程、接口、指标及扩展位置。
+- [Conflux仿真示例与统计分析](simulation-example.dag.zh.md)：五网络参数、四组吞吐对照、DAG特征、独立扫描命令和离线绘图。
+- [Conflux协议规则](protocol.md)：pivot、epoch、排序和确认公式。
 
-Conflux实现参考《Scaling Nakamoto Consensus to Thousands of Transactions per Second》的2018 v4算法。当前确认采用本地经验深度规则，不实现论文风险概率或确定性终局。全局生成图仅用于观察，节点共识只使用本地已接纳图。
+Conflux实现参考《Scaling Nakamoto Consensus to Thousands of Transactions per Second》的2018 v4算法。当前确认采用本地经验深度规则，未实现论文中风险概率或确定性最终确认规则。全局生成图仅用于观察，节点共识只使用本地已接纳图。
